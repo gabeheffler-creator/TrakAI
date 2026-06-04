@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/client/"
+title = "Trak Client"
+version = "1.0.0"
+id = "artifacts/trak-client"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/client/" ]
+localPort = 19827
+
+[services.development]
+run = "pnpm --filter @workspace/trak-client run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/trak-client", "run", "build" ]
+publicDir = "artifacts/trak-client/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19827"
+BASE_PATH = "/client/"

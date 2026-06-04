@@ -3,20 +3,42 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Trak fitness coaching platform API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: clients
+    description: Client management
+  - name: workouts
+    description: Workout programs and logs
+  - name: exercises
+    description: Exercise library
+  - name: measurements
+    description: Body measurements
+  - name: sleep
+    description: Sleep logs
+  - name: nutrition
+    description: Nutrition screenshots
+  - name: photos
+    description: Progress photos
+  - name: assignments
+    description: Coach assignments
+  - name: messages
+    description: In-app messaging
+  - name: invites
+    description: Client invite links
+  - name: dashboard
+    description: Dashboard aggregates
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,13 +46,1870 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ── Clients ──────────────────────────────────────────────────────────────
+  /clients:
+    get:
+      operationId: listClients
+      tags: [clients]
+      summary: List all clients
+      responses:
+        "200":
+          description: List of clients
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Client"
+    post:
+      operationId: createClient
+      tags: [clients]
+      summary: Create a new client
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClientInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Client"
+
+  /clients/{clientId}:
+    get:
+      operationId: getClient
+      tags: [clients]
+      summary: Get a client by ID
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Client
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Client"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateClient
+      tags: [clients]
+      summary: Update a client
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClientUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Client"
+    delete:
+      operationId: deleteClient
+      tags: [clients]
+      summary: Delete a client
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ── Invite Links ──────────────────────────────────────────────────────────
+  /clients/{clientId}/invite:
+    post:
+      operationId: generateInviteLink
+      tags: [invites]
+      summary: Generate or refresh an invite link for a client
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Invite link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InviteLink"
+
+  /invite/{token}:
+    get:
+      operationId: getInvite
+      tags: [invites]
+      summary: Get invite info by token
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Invite info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InviteInfo"
+        "404":
+          description: Invalid or expired token
+
+  # ── Dashboard ─────────────────────────────────────────────────────────────
+  /dashboard/coach:
+    get:
+      operationId: getCoachDashboard
+      tags: [dashboard]
+      summary: Get coach dashboard summary
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoachDashboard"
+
+  /dashboard/client/{clientId}:
+    get:
+      operationId: getClientDashboard
+      tags: [dashboard]
+      summary: Get a single client's dashboard summary
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Client dashboard
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientDashboard"
+
+  # ── Exercises (library) ───────────────────────────────────────────────────
+  /exercises:
+    get:
+      operationId: listExercises
+      tags: [exercises]
+      summary: List all exercises
+      responses:
+        "200":
+          description: Exercise list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Exercise"
+    post:
+      operationId: createExercise
+      tags: [exercises]
+      summary: Create an exercise
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExerciseInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Exercise"
+
+  # ── Workout Programs ──────────────────────────────────────────────────────
+  /programs:
+    get:
+      operationId: listPrograms
+      tags: [workouts]
+      summary: List all workout programs
+      responses:
+        "200":
+          description: Programs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Program"
+    post:
+      operationId: createProgram
+      tags: [workouts]
+      summary: Create a workout program
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProgramInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Program"
+
+  /programs/{programId}:
+    get:
+      operationId: getProgram
+      tags: [workouts]
+      summary: Get a program with its days and exercises
+      parameters:
+        - name: programId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Program detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgramDetail"
+    patch:
+      operationId: updateProgram
+      tags: [workouts]
+      summary: Update a program
+      parameters:
+        - name: programId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProgramUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Program"
+    delete:
+      operationId: deleteProgram
+      tags: [workouts]
+      summary: Delete a program
+      parameters:
+        - name: programId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /programs/{programId}/days:
+    post:
+      operationId: createProgramDay
+      tags: [workouts]
+      summary: Add a day to a program
+      parameters:
+        - name: programId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProgramDayInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgramDay"
+
+  /programs/{programId}/days/{dayId}:
+    patch:
+      operationId: updateProgramDay
+      tags: [workouts]
+      summary: Update a program day
+      parameters:
+        - name: programId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: dayId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProgramDayUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgramDay"
+    delete:
+      operationId: deleteProgramDay
+      tags: [workouts]
+      summary: Delete a program day
+      parameters:
+        - name: programId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: dayId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /programs/{programId}/days/{dayId}/exercises:
+    post:
+      operationId: addExerciseToDay
+      tags: [workouts]
+      summary: Add an exercise to a program day
+      parameters:
+        - name: programId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: dayId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProgramExerciseInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgramExercise"
+
+  /programs/{programId}/days/{dayId}/exercises/{peId}:
+    patch:
+      operationId: updateProgramExercise
+      tags: [workouts]
+      summary: Update a program day exercise
+      parameters:
+        - name: programId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: dayId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: peId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProgramExerciseUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgramExercise"
+    delete:
+      operationId: deleteProgramExercise
+      tags: [workouts]
+      summary: Delete a program day exercise
+      parameters:
+        - name: programId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: dayId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: peId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ── Program Assignments ───────────────────────────────────────────────────
+  /clients/{clientId}/program-assignment:
+    get:
+      operationId: getClientProgramAssignment
+      tags: [workouts]
+      summary: Get the active program assigned to a client
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Active assignment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgramAssignment"
+        "404":
+          description: No active program
+    post:
+      operationId: assignProgram
+      tags: [workouts]
+      summary: Assign a program to a client
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProgramAssignmentInput"
+      responses:
+        "201":
+          description: Assigned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgramAssignment"
+
+  # ── Workout Logs ──────────────────────────────────────────────────────────
+  /clients/{clientId}/workout-logs:
+    get:
+      operationId: listWorkoutLogs
+      tags: [workouts]
+      summary: List workout logs for a client
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Workout logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WorkoutLog"
+    post:
+      operationId: createWorkoutLog
+      tags: [workouts]
+      summary: Log a completed workout
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkoutLogInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkoutLog"
+
+  /clients/{clientId}/workout-logs/{logId}:
+    get:
+      operationId: getWorkoutLog
+      tags: [workouts]
+      summary: Get a workout log with set details
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: logId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Workout log detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkoutLogDetail"
+
+  /clients/{clientId}/workout-logs/{logId}/sets:
+    post:
+      operationId: logSet
+      tags: [workouts]
+      summary: Log a set within a workout
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: logId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetLogInput"
+      responses:
+        "201":
+          description: Set logged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SetLog"
+
+  # ── Measurements ──────────────────────────────────────────────────────────
+  /clients/{clientId}/measurements:
+    get:
+      operationId: listMeasurements
+      tags: [measurements]
+      summary: List measurement entries for a client
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Measurements
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Measurement"
+    post:
+      operationId: logMeasurement
+      tags: [measurements]
+      summary: Log a measurement entry
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MeasurementInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Measurement"
+
+  /clients/{clientId}/measurements/{measurementId}:
+    delete:
+      operationId: deleteMeasurement
+      tags: [measurements]
+      summary: Delete a measurement entry
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: measurementId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ── Sleep Logs ────────────────────────────────────────────────────────────
+  /clients/{clientId}/sleep:
+    get:
+      operationId: listSleepLogs
+      tags: [sleep]
+      summary: List sleep logs for a client
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Sleep logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SleepLog"
+    post:
+      operationId: logSleep
+      tags: [sleep]
+      summary: Log a sleep entry
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SleepLogInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SleepLog"
+
+  /clients/{clientId}/sleep/{sleepId}:
+    delete:
+      operationId: deleteSleepLog
+      tags: [sleep]
+      summary: Delete a sleep log
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: sleepId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ── Nutrition Screenshots ─────────────────────────────────────────────────
+  /clients/{clientId}/nutrition:
+    get:
+      operationId: listNutritionLogs
+      tags: [nutrition]
+      summary: List nutrition screenshot entries for a client
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Nutrition logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/NutritionLog"
+    post:
+      operationId: createNutritionLog
+      tags: [nutrition]
+      summary: Create a nutrition log entry (with screenshot URL)
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NutritionLogInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NutritionLog"
+
+  /clients/{clientId}/nutrition/{nutritionId}:
+    delete:
+      operationId: deleteNutritionLog
+      tags: [nutrition]
+      summary: Delete a nutrition log entry
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: nutritionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ── Progress Photos ───────────────────────────────────────────────────────
+  /clients/{clientId}/photos:
+    get:
+      operationId: listProgressPhotos
+      tags: [photos]
+      summary: List progress photos for a client
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Photos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProgressPhoto"
+    post:
+      operationId: createProgressPhoto
+      tags: [photos]
+      summary: Upload a progress photo entry
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProgressPhotoInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgressPhoto"
+
+  /clients/{clientId}/photos/{photoId}:
+    delete:
+      operationId: deleteProgressPhoto
+      tags: [photos]
+      summary: Delete a progress photo
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: photoId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ── Assignments ───────────────────────────────────────────────────────────
+  /clients/{clientId}/assignments:
+    get:
+      operationId: listAssignments
+      tags: [assignments]
+      summary: List assignments for a client
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Assignments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Assignment"
+    post:
+      operationId: createAssignment
+      tags: [assignments]
+      summary: Create an assignment for a client
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssignmentInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Assignment"
+
+  /clients/{clientId}/assignments/{assignmentId}:
+    patch:
+      operationId: updateAssignment
+      tags: [assignments]
+      summary: Update an assignment
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: assignmentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssignmentUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Assignment"
+    delete:
+      operationId: deleteAssignment
+      tags: [assignments]
+      summary: Delete an assignment
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: assignmentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /clients/{clientId}/assignments/{assignmentId}/complete:
+    post:
+      operationId: completeAssignment
+      tags: [assignments]
+      summary: Mark an assignment as complete (client action)
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: assignmentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Marked complete
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Assignment"
+
+  # ── Messages ──────────────────────────────────────────────────────────────
+  /clients/{clientId}/messages:
+    get:
+      operationId: listMessages
+      tags: [messages]
+      summary: List messages between coach and client
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Message"
+    post:
+      operationId: sendMessage
+      tags: [messages]
+      summary: Send a message
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MessageInput"
+      responses:
+        "201":
+          description: Sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+
+  # ── Upload URL ────────────────────────────────────────────────────────────
+  /upload-url:
+    post:
+      operationId: getUploadUrl
+      tags: [photos]
+      summary: Get a pre-signed URL for file upload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UploadUrlRequest"
+      responses:
+        "200":
+          description: Upload URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadUrlResponse"
+
 components:
   schemas:
     HealthStatus:
       type: object
+      required: [status]
       properties:
         status:
           type: string
-      required:
-        - status
 
+    # ── Client ──────────────────────────────────────────────────────────────
+    Client:
+      type: object
+      required: [id, name, email, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: ["string", "null"]
+        goal:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        inviteToken:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    ClientInput:
+      type: object
+      required: [name, email]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        email:
+          type: string
+        phone:
+          type: string
+        goal:
+          type: string
+        notes:
+          type: string
+
+    ClientUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: ["string", "null"]
+        goal:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+
+    InviteLink:
+      type: object
+      required: [token, url]
+      properties:
+        token:
+          type: string
+        url:
+          type: string
+
+    InviteInfo:
+      type: object
+      required: [clientId, clientName]
+      properties:
+        clientId:
+          type: integer
+        clientName:
+          type: string
+
+    # ── Dashboard ───────────────────────────────────────────────────────────
+    CoachDashboard:
+      type: object
+      required: [totalClients, activePrograms, recentActivity]
+      properties:
+        totalClients:
+          type: integer
+        activePrograms:
+          type: integer
+        recentActivity:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivityItem"
+        clientSummaries:
+          type: array
+          items:
+            $ref: "#/components/schemas/ClientSummary"
+
+    ClientSummary:
+      type: object
+      required: [clientId, name, lastWorkout, lastCheckin, assignmentsDue]
+      properties:
+        clientId:
+          type: integer
+        name:
+          type: string
+        lastWorkout:
+          type: ["string", "null"]
+          format: date-time
+        lastCheckin:
+          type: ["string", "null"]
+          format: date-time
+        assignmentsDue:
+          type: integer
+        unreadMessages:
+          type: integer
+
+    ActivityItem:
+      type: object
+      required: [type, clientId, clientName, description, createdAt]
+      properties:
+        type:
+          type: string
+        clientId:
+          type: integer
+        clientName:
+          type: string
+        description:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    ClientDashboard:
+      type: object
+      required: [client]
+      properties:
+        client:
+          $ref: "#/components/schemas/Client"
+        currentProgram:
+          $ref: "#/components/schemas/ProgramDetail"
+        latestMeasurement:
+          $ref: "#/components/schemas/Measurement"
+        workoutsThisWeek:
+          type: integer
+        pendingAssignments:
+          type: integer
+        recentWorkouts:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkoutLog"
+        weightHistory:
+          type: array
+          items:
+            $ref: "#/components/schemas/WeightPoint"
+
+    WeightPoint:
+      type: object
+      required: [date, weight]
+      properties:
+        date:
+          type: string
+          format: date
+        weight:
+          type: number
+
+    # ── Exercise Library ────────────────────────────────────────────────────
+    Exercise:
+      type: object
+      required: [id, name, muscleGroup]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        muscleGroup:
+          type: string
+        description:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    ExerciseInput:
+      type: object
+      required: [name, muscleGroup]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        muscleGroup:
+          type: string
+          minLength: 1
+        description:
+          type: string
+
+    # ── Program ─────────────────────────────────────────────────────────────
+    Program:
+      type: object
+      required: [id, name, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        durationWeeks:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    ProgramInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        description:
+          type: string
+        durationWeeks:
+          type: integer
+
+    ProgramUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        durationWeeks:
+          type: ["integer", "null"]
+
+    ProgramDetail:
+      type: object
+      required: [id, name, days]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        durationWeeks:
+          type: ["integer", "null"]
+        days:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProgramDayDetail"
+        createdAt:
+          type: string
+          format: date-time
+
+    ProgramDay:
+      type: object
+      required: [id, programId, dayNumber, name]
+      properties:
+        id:
+          type: integer
+        programId:
+          type: integer
+        dayNumber:
+          type: integer
+        name:
+          type: string
+        notes:
+          type: ["string", "null"]
+
+    ProgramDayInput:
+      type: object
+      required: [dayNumber, name]
+      properties:
+        dayNumber:
+          type: integer
+        name:
+          type: string
+          minLength: 1
+        notes:
+          type: string
+
+    ProgramDayUpdate:
+      type: object
+      properties:
+        dayNumber:
+          type: integer
+        name:
+          type: string
+        notes:
+          type: ["string", "null"]
+
+    ProgramDayDetail:
+      type: object
+      required: [id, dayNumber, name, exercises]
+      properties:
+        id:
+          type: integer
+        dayNumber:
+          type: integer
+        name:
+          type: string
+        notes:
+          type: ["string", "null"]
+        exercises:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProgramExerciseDetail"
+
+    ProgramExercise:
+      type: object
+      required: [id, dayId, exerciseId, sets, reps, order]
+      properties:
+        id:
+          type: integer
+        dayId:
+          type: integer
+        exerciseId:
+          type: integer
+        sets:
+          type: integer
+        reps:
+          type: string
+        order:
+          type: integer
+        weight:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        restSeconds:
+          type: ["integer", "null"]
+
+    ProgramExerciseInput:
+      type: object
+      required: [exerciseId, sets, reps, order]
+      properties:
+        exerciseId:
+          type: integer
+        sets:
+          type: integer
+        reps:
+          type: string
+          minLength: 1
+        order:
+          type: integer
+        weight:
+          type: string
+        notes:
+          type: string
+        restSeconds:
+          type: integer
+
+    ProgramExerciseUpdate:
+      type: object
+      properties:
+        sets:
+          type: integer
+        reps:
+          type: string
+        order:
+          type: integer
+        weight:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        restSeconds:
+          type: ["integer", "null"]
+
+    ProgramExerciseDetail:
+      type: object
+      required: [id, exerciseId, exerciseName, muscleGroup, sets, reps, order]
+      properties:
+        id:
+          type: integer
+        exerciseId:
+          type: integer
+        exerciseName:
+          type: string
+        muscleGroup:
+          type: string
+        sets:
+          type: integer
+        reps:
+          type: string
+        order:
+          type: integer
+        weight:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        restSeconds:
+          type: ["integer", "null"]
+
+    # ── Program Assignment ──────────────────────────────────────────────────
+    ProgramAssignment:
+      type: object
+      required: [id, clientId, programId, programName, startDate]
+      properties:
+        id:
+          type: integer
+        clientId:
+          type: integer
+        programId:
+          type: integer
+        programName:
+          type: string
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: ["string", "null"]
+          format: date
+
+    ProgramAssignmentInput:
+      type: object
+      required: [programId, startDate]
+      properties:
+        programId:
+          type: integer
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+
+    # ── Workout Logs ────────────────────────────────────────────────────────
+    WorkoutLog:
+      type: object
+      required: [id, clientId, date, status, createdAt]
+      properties:
+        id:
+          type: integer
+        clientId:
+          type: integer
+        programDayId:
+          type: ["integer", "null"]
+        programDayName:
+          type: ["string", "null"]
+        date:
+          type: string
+          format: date
+        durationMinutes:
+          type: ["integer", "null"]
+        notes:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [in_progress, completed]
+        createdAt:
+          type: string
+          format: date-time
+
+    WorkoutLogInput:
+      type: object
+      required: [date]
+      properties:
+        programDayId:
+          type: integer
+        date:
+          type: string
+          format: date
+        durationMinutes:
+          type: integer
+        notes:
+          type: string
+
+    WorkoutLogDetail:
+      type: object
+      required: [id, clientId, date, status, sets]
+      properties:
+        id:
+          type: integer
+        clientId:
+          type: integer
+        programDayId:
+          type: ["integer", "null"]
+        programDayName:
+          type: ["string", "null"]
+        date:
+          type: string
+          format: date
+        durationMinutes:
+          type: ["integer", "null"]
+        notes:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [in_progress, completed]
+        sets:
+          type: array
+          items:
+            $ref: "#/components/schemas/SetLog"
+        createdAt:
+          type: string
+          format: date-time
+
+    SetLog:
+      type: object
+      required: [id, workoutLogId, exerciseId, exerciseName, setNumber, reps]
+      properties:
+        id:
+          type: integer
+        workoutLogId:
+          type: integer
+        exerciseId:
+          type: integer
+        exerciseName:
+          type: string
+        setNumber:
+          type: integer
+        reps:
+          type: integer
+        weight:
+          type: ["number", "null"]
+        weightUnit:
+          type: ["string", "null"]
+          enum: [lbs, kg, null]
+        notes:
+          type: ["string", "null"]
+
+    SetLogInput:
+      type: object
+      required: [exerciseId, setNumber, reps]
+      properties:
+        exerciseId:
+          type: integer
+        setNumber:
+          type: integer
+        reps:
+          type: integer
+        weight:
+          type: number
+        weightUnit:
+          type: string
+          enum: [lbs, kg]
+        notes:
+          type: string
+
+    # ── Measurements ────────────────────────────────────────────────────────
+    Measurement:
+      type: object
+      required: [id, clientId, date, createdAt]
+      properties:
+        id:
+          type: integer
+        clientId:
+          type: integer
+        date:
+          type: string
+          format: date
+        weight:
+          type: ["number", "null"]
+        chest:
+          type: ["number", "null"]
+        waist:
+          type: ["number", "null"]
+        hips:
+          type: ["number", "null"]
+        arms:
+          type: ["number", "null"]
+        thighs:
+          type: ["number", "null"]
+        calves:
+          type: ["number", "null"]
+        unit:
+          type: string
+          enum: [imperial, metric]
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    MeasurementInput:
+      type: object
+      required: [date]
+      properties:
+        date:
+          type: string
+          format: date
+        weight:
+          type: number
+        chest:
+          type: number
+        waist:
+          type: number
+        hips:
+          type: number
+        arms:
+          type: number
+        thighs:
+          type: number
+        calves:
+          type: number
+        unit:
+          type: string
+          enum: [imperial, metric]
+        notes:
+          type: string
+
+    # ── Sleep ───────────────────────────────────────────────────────────────
+    SleepLog:
+      type: object
+      required: [id, clientId, date, hoursSlept, createdAt]
+      properties:
+        id:
+          type: integer
+        clientId:
+          type: integer
+        date:
+          type: string
+          format: date
+        hoursSlept:
+          type: number
+        quality:
+          type: ["string", "null"]
+          enum: [poor, fair, good, great, null]
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    SleepLogInput:
+      type: object
+      required: [date, hoursSlept]
+      properties:
+        date:
+          type: string
+          format: date
+        hoursSlept:
+          type: number
+        quality:
+          type: string
+          enum: [poor, fair, good, great]
+        notes:
+          type: string
+
+    # ── Nutrition ───────────────────────────────────────────────────────────
+    NutritionLog:
+      type: object
+      required: [id, clientId, date, imageUrl, createdAt]
+      properties:
+        id:
+          type: integer
+        clientId:
+          type: integer
+        date:
+          type: string
+          format: date
+        imageUrl:
+          type: string
+        calories:
+          type: ["integer", "null"]
+        protein:
+          type: ["number", "null"]
+        carbs:
+          type: ["number", "null"]
+        fat:
+          type: ["number", "null"]
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    NutritionLogInput:
+      type: object
+      required: [date, imageUrl]
+      properties:
+        date:
+          type: string
+          format: date
+        imageUrl:
+          type: string
+        calories:
+          type: integer
+        protein:
+          type: number
+        carbs:
+          type: number
+        fat:
+          type: number
+        notes:
+          type: string
+
+    # ── Progress Photos ─────────────────────────────────────────────────────
+    ProgressPhoto:
+      type: object
+      required: [id, clientId, date, imageUrl, createdAt]
+      properties:
+        id:
+          type: integer
+        clientId:
+          type: integer
+        date:
+          type: string
+          format: date
+        imageUrl:
+          type: string
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    ProgressPhotoInput:
+      type: object
+      required: [date, imageUrl]
+      properties:
+        date:
+          type: string
+          format: date
+        imageUrl:
+          type: string
+        notes:
+          type: string
+
+    # ── Assignments ─────────────────────────────────────────────────────────
+    Assignment:
+      type: object
+      required: [id, clientId, title, type, status, createdAt]
+      properties:
+        id:
+          type: integer
+        clientId:
+          type: integer
+        title:
+          type: string
+        type:
+          type: string
+          enum: [task, nutrition, mobility, habit, note]
+        body:
+          type: ["string", "null"]
+        targetValue:
+          type: ["string", "null"]
+        dueDate:
+          type: ["string", "null"]
+          format: date
+        status:
+          type: string
+          enum: [pending, completed]
+        completedAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    AssignmentInput:
+      type: object
+      required: [title, type]
+      properties:
+        title:
+          type: string
+          minLength: 1
+        type:
+          type: string
+          enum: [task, nutrition, mobility, habit, note]
+        body:
+          type: string
+        targetValue:
+          type: string
+        dueDate:
+          type: string
+          format: date
+
+    AssignmentUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        type:
+          type: string
+          enum: [task, nutrition, mobility, habit, note]
+        body:
+          type: ["string", "null"]
+        targetValue:
+          type: ["string", "null"]
+        dueDate:
+          type: ["string", "null"]
+          format: date
+        status:
+          type: string
+          enum: [pending, completed]
+
+    # ── Messages ────────────────────────────────────────────────────────────
+    Message:
+      type: object
+      required: [id, clientId, sender, content, createdAt]
+      properties:
+        id:
+          type: integer
+        clientId:
+          type: integer
+        sender:
+          type: string
+          enum: [coach, client]
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    MessageInput:
+      type: object
+      required: [sender, content]
+      properties:
+        sender:
+          type: string
+          enum: [coach, client]
+        content:
+          type: string
+          minLength: 1
+
+    # ── Upload ──────────────────────────────────────────────────────────────
+    UploadUrlRequest:
+      type: object
+      required: [filename, contentType]
+      properties:
+        filename:
+          type: string
+        contentType:
+          type: string
+
+    UploadUrlResponse:
+      type: object
+      required: [uploadUrl, publicUrl]
+      properties:
+        uploadUrl:
+          type: string
+        publicUrl:
+          type: string

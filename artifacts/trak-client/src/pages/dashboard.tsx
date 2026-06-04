@@ -1,0 +1,137 @@
+import { useClientId } from "@/hooks/use-client-id";
+import { useGetClientDashboard, getGetClientDashboardQueryKey } from "@workspace/api-client-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import { Link } from "wouter";
+import { Dumbbell, ClipboardList, TrendingUp, ChevronRight } from "lucide-react";
+import { format, parseISO } from "date-fns";
+
+export function Dashboard() {
+  const { clientId } = useClientId();
+  const { data: dashboard, isLoading } = useGetClientDashboard(clientId!, {
+    query: { enabled: !!clientId, queryKey: getGetClientDashboardQueryKey(clientId!) }
+  });
+
+  if (!clientId) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="text-center space-y-4">
+          <div className="text-4xl font-black text-primary">TRAK</div>
+          <p className="text-muted-foreground">You need an invite link from your coach to get started.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading) return <div className="p-4 text-muted-foreground">Loading...</div>;
+
+  const client = dashboard?.client;
+
+  return (
+    <div className="space-y-6 max-w-2xl mx-auto">
+      <div>
+        <p className="text-sm text-muted-foreground">Good work,</p>
+        <h1 className="text-2xl font-bold">{client?.name ?? "Athlete"}</h1>
+        {client?.goal && <p className="text-sm text-muted-foreground mt-1">{client.goal}</p>}
+      </div>
+
+      <div className="grid grid-cols-3 gap-3">
+        <Card>
+          <CardContent className="pt-4 pb-4 text-center">
+            <p className="text-3xl font-bold text-primary">{dashboard?.workoutsThisWeek ?? 0}</p>
+            <p className="text-xs text-muted-foreground mt-1">This Week</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 pb-4 text-center">
+            <p className="text-3xl font-bold">{dashboard?.pendingAssignments ?? 0}</p>
+            <p className="text-xs text-muted-foreground mt-1">Tasks Due</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 pb-4 text-center">
+            <p className="text-3xl font-bold">{dashboard?.latestMeasurement?.weight ?? "—"}</p>
+            <p className="text-xs text-muted-foreground mt-1">Weight</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Link
+        href="/workout"
+        data-testid="link-start-workout"
+        className="block"
+      >
+        <Card className="bg-primary text-primary-foreground hover:opacity-95 transition-opacity cursor-pointer">
+          <CardContent className="pt-4 pb-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Dumbbell className="w-6 h-6" />
+              <div>
+                <p className="font-bold">Start Today's Workout</p>
+                <p className="text-xs text-primary-foreground/70">Log your sets and reps</p>
+              </div>
+            </div>
+            <ChevronRight className="w-5 h-5" />
+          </CardContent>
+        </Card>
+      </Link>
+
+      {(dashboard?.weightHistory?.length ?? 0) > 1 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-primary" />
+              Weight Trend
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={160}>
+              <LineChart data={dashboard?.weightHistory}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={d => d.slice(5)} />
+                <YAxis domain={["auto", "auto"]} tick={{ fontSize: 10 }} />
+                <Tooltip formatter={(v) => [`${v} lbs`, "Weight"]} labelFormatter={d => format(parseISO(d), "MMM d")} />
+                <Line type="monotone" dataKey="weight" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      )}
+
+      {(dashboard?.recentWorkouts?.length ?? 0) > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground">Recent Workouts</h2>
+            <Link href="/workouts" className="text-xs text-primary">See all</Link>
+          </div>
+          <div className="space-y-2">
+            {dashboard?.recentWorkouts?.slice(0, 3).map(w => (
+              <Card key={w.id} data-testid={`card-recent-workout-${w.id}`}>
+                <CardContent className="pt-3 pb-3 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">{w.programDayName ?? "Free workout"}</p>
+                    <p className="text-xs text-muted-foreground">{w.date}</p>
+                  </div>
+                  {w.durationMinutes && <p className="text-sm text-muted-foreground">{w.durationMinutes}min</p>}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {(dashboard?.pendingAssignments ?? 0) > 0 && (
+        <Link href="/assignments" className="block">
+          <Card className="border-primary/30 bg-accent">
+            <CardContent className="pt-4 pb-4 flex items-center gap-3">
+              <ClipboardList className="w-5 h-5 text-primary" />
+              <p className="text-sm font-medium text-accent-foreground">
+                You have {dashboard?.pendingAssignments} pending assignment{dashboard?.pendingAssignments !== 1 ? "s" : ""}
+              </p>
+              <ChevronRight className="w-4 h-4 text-primary ml-auto" />
+            </CardContent>
+          </Card>
+        </Link>
+      )}
+    </div>
+  );
+}
