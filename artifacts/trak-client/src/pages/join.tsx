@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useLocation } from "wouter";
+import { useParams, useLocation, useSearch } from "wouter";
 import { useGetInvite, getGetInviteQueryKey } from "@workspace/api-client-react";
 import { useClientId } from "@/hooks/use-client-id";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,6 +8,8 @@ import { Loader2 } from "lucide-react";
 
 export function JoinPage() {
   const { token } = useParams<{ token: string }>();
+  const search = useSearch();
+  const auto = new URLSearchParams(search).get("auto") === "1";
   const [, setLocation] = useLocation();
   const { clientId, setClientId } = useClientId();
   const [joining, setJoining] = useState(false);
@@ -16,27 +18,34 @@ export function JoinPage() {
     query: { enabled: !!token, queryKey: getGetInviteQueryKey(token) }
   });
 
-  // If already logged in as the right client, skip straight home
+  // Already logged in as this client → skip straight home
   useEffect(() => {
     if (invite && clientId === invite.clientId) {
       setLocation("/");
     }
   }, [invite, clientId, setLocation]);
 
+  // Auto-login mode (dev shortcut — ?auto=1)
+  useEffect(() => {
+    if (auto && invite && clientId !== invite.clientId) {
+      setClientId(invite.clientId);
+      setLocation("/");
+    }
+  }, [auto, invite, clientId, setClientId, setLocation]);
+
   const handleJoin = async () => {
     if (!invite) return;
     setJoining(true);
     try {
-      // Mark token as accepted (one-time use)
       await fetch(`/api/invite/${token}/accept`, { method: "POST" });
     } catch {
-      // Non-fatal — still proceed to log in
+      // non-fatal
     }
     setClientId(invite.clientId);
     setLocation("/");
   };
 
-  if (isLoading) {
+  if (isLoading || (auto && invite)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
