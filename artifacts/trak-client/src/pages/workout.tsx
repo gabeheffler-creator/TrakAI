@@ -6,6 +6,7 @@ import {
   useCreateWorkoutLog,
   useLogSet,
   useListExercises,
+  getListExercisesQueryKey,
   getGetClientProgramAssignmentQueryKey,
   getGetProgramQueryKey,
   getListWorkoutLogsQueryKey,
@@ -228,7 +229,7 @@ export function WorkoutPage() {
   const { data: program } = useGetProgram(assignment?.programId ?? 0, {
     query: { enabled: !!assignment?.programId, queryKey: getGetProgramQueryKey(assignment?.programId ?? 0) }
   });
-  const { data: allExercises } = useListExercises({ query: { enabled: mode === "active" && swapModal } });
+  const { data: allExercises } = useListExercises({ query: { enabled: mode === "active" && swapModal, queryKey: getListExercisesQueryKey() } });
 
   const createWorkoutLog = useCreateWorkoutLog();
   const logSet = useLogSet();

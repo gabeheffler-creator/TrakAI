@@ -1,30 +1,45 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useLocation } from "wouter";
 import { useGetInvite, getGetInviteQueryKey } from "@workspace/api-client-react";
 import { useClientId } from "@/hooks/use-client-id";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
 
 export function JoinPage() {
   const { token } = useParams<{ token: string }>();
   const [, setLocation] = useLocation();
-  const { setClientId } = useClientId();
+  const { clientId, setClientId } = useClientId();
+  const [joining, setJoining] = useState(false);
 
   const { data: invite, isLoading, error } = useGetInvite(token, {
     query: { enabled: !!token, queryKey: getGetInviteQueryKey(token) }
   });
 
-  const handleJoin = () => {
-    if (invite) {
-      setClientId(invite.clientId);
+  // If already logged in as the right client, skip straight home
+  useEffect(() => {
+    if (invite && clientId === invite.clientId) {
       setLocation("/");
     }
+  }, [invite, clientId, setLocation]);
+
+  const handleJoin = async () => {
+    if (!invite) return;
+    setJoining(true);
+    try {
+      // Mark token as accepted (one-time use)
+      await fetch(`/api/invite/${token}/accept`, { method: "POST" });
+    } catch {
+      // Non-fatal — still proceed to log in
+    }
+    setClientId(invite.clientId);
+    setLocation("/");
   };
 
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <p className="text-muted-foreground">Checking invite link...</p>
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -35,7 +50,9 @@ export function JoinPage() {
         <Card className="w-full max-w-sm">
           <CardContent className="pt-6 text-center space-y-4">
             <p className="text-2xl">Invalid Link</p>
-            <p className="text-muted-foreground text-sm">This invite link is invalid or has expired. Ask your coach for a new one.</p>
+            <p className="text-muted-foreground text-sm">
+              This invite link is invalid or has expired. Ask your coach for a new one.
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -46,7 +63,7 @@ export function JoinPage() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center pb-2">
-          <div className="text-4xl font-black text-primary mb-2">TRAK</div>
+          <div className="text-3xl font-light tracking-widest text-violet-600 uppercase mb-2">TRAK</div>
           <CardTitle className="text-xl">Welcome to Trak</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6 text-center">
@@ -57,8 +74,8 @@ export function JoinPage() {
             <p className="text-sm text-muted-foreground">Joining as</p>
             <p className="text-xl font-bold text-accent-foreground mt-1">{invite.clientName}</p>
           </div>
-          <Button className="w-full" size="lg" onClick={handleJoin} data-testid="button-join">
-            Get Started
+          <Button className="w-full" size="lg" onClick={handleJoin} disabled={joining} data-testid="button-join">
+            {joining ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Joining…</> : "Get Started"}
           </Button>
         </CardContent>
       </Card>

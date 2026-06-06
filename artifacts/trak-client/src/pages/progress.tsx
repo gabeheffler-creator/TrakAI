@@ -3,6 +3,9 @@ import {
   useListMeasurements,
   useListWorkoutLogs,
   useListSleepLogs,
+  getListMeasurementsQueryKey,
+  getListWorkoutLogsQueryKey,
+  getListSleepLogsQueryKey,
 } from "@workspace/api-client-react";
 import {
   LineChart,
@@ -98,13 +101,13 @@ export function ProgressPage() {
   const { clientId } = useClientId();
 
   const { data: measurements } = useListMeasurements(clientId!, {
-    query: { enabled: !!clientId }
+    query: { enabled: !!clientId, queryKey: getListMeasurementsQueryKey(clientId!) }
   });
   const { data: workoutLogs } = useListWorkoutLogs(clientId!, {
-    query: { enabled: !!clientId }
+    query: { enabled: !!clientId, queryKey: getListWorkoutLogsQueryKey(clientId!) }
   });
   const { data: sleepLogs } = useListSleepLogs(clientId!, {
-    query: { enabled: !!clientId }
+    query: { enabled: !!clientId, queryKey: getListSleepLogsQueryKey(clientId!) }
   });
 
   if (!clientId) return <div className="p-4 text-muted-foreground">Please join via an invite link first.</div>;

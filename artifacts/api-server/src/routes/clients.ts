@@ -106,21 +106,37 @@ router.post("/clients/:clientId/invite", async (req, res) => {
   }
 });
 
-// Get invite info (and mark token as used — one-time only)
+// Get invite info (validate only — does NOT consume the token)
 router.get("/invite/:token", async (req, res) => {
   try {
     const { token } = GetInviteParams.parse({ token: req.params.token });
     const [client] = await db.select().from(clientsTable).where(eq(clientsTable.inviteToken, token));
     if (!client) { res.status(404).json({ error: "Invalid or expired token" }); return; }
-    if (client.inviteTokenUsed) { res.status(410).json({ error: "This invite link has already been used" }); return; }
-    // Mark token as used so it can't be reused
-    await db.update(clientsTable)
-      .set({ inviteTokenUsed: true, updatedAt: new Date() })
-      .where(eq(clientsTable.id, client.id));
     res.json({ clientId: client.id, clientName: client.name });
   } catch (err) {
     req.log.error(err);
     res.status(500).json({ error: "Failed to get invite" });
+  }
+});
+
+// Accept invite — marks token as one-time used. Called only when user explicitly joins.
+router.post("/invite/:token/accept", async (req, res) => {
+  try {
+    const { token } = GetInviteParams.parse({ token: req.params.token });
+    const [client] = await db.select().from(clientsTable).where(eq(clientsTable.inviteToken, token));
+    if (!client) { res.status(404).json({ error: "Invalid or expired token" }); return; }
+    if (client.inviteTokenUsed) {
+      // Already accepted — still return the clientId so the same person can re-log in
+      res.json({ clientId: client.id, clientName: client.name, alreadyJoined: true });
+      return;
+    }
+    await db.update(clientsTable)
+      .set({ inviteTokenUsed: true, updatedAt: new Date() })
+      .where(eq(clientsTable.id, client.id));
+    res.json({ clientId: client.id, clientName: client.name, alreadyJoined: false });
+  } catch (err) {
+    req.log.error(err);
+    res.status(500).json({ error: "Failed to accept invite" });
   }
 });
 
