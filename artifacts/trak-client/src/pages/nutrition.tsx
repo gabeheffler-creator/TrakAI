@@ -8,24 +8,198 @@ import {
   getListNutritionLogsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, Upload, UtensilsCrossed } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
+import { Camera, Plus, Minus, Loader2, Pencil, Check, X, UtensilsCrossed, Trash2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+interface MealSlot {
+  id: string;
+  label: string;
+  file: File | null;
+  previewUrl: string | null;
+  cantTrack: boolean;
+  cantTrackNote: string;
+  calorieGuess: string;
+  uploading: boolean;
+}
+
+interface AiResult {
+  calories: number | null;
+  protein: number | null;
+  carbs: number | null;
+  fat: number | null;
+  editing: boolean;
+}
+
+function PhotoBox({
+  slot,
+  aiResult,
+  onFileChange,
+  onCantTrackToggle,
+  onNoteChange,
+  onCalorieGuessChange,
+  onAiEdit,
+  onAiSave,
+  onAiFieldChange,
+}: {
+  slot: MealSlot;
+  aiResult: AiResult | null;
+  onFileChange: (file: File, url: string) => void;
+  onCantTrackToggle: () => void;
+  onNoteChange: (v: string) => void;
+  onCalorieGuessChange: (v: string) => void;
+  onAiEdit: () => void;
+  onAiSave: () => void;
+  onAiFieldChange: (field: keyof Omit<AiResult, "editing">, value: string) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  return (
+    <div className="border border-border rounded-2xl overflow-hidden bg-card">
+      <div className="px-4 pt-3 pb-2 flex items-center justify-between">
+        <span className="text-sm font-semibold text-foreground">{slot.label}</span>
+        <button
+          onClick={onCantTrackToggle}
+          className={cn(
+            "text-xs px-2 py-1 rounded-full border transition-colors",
+            slot.cantTrack
+              ? "bg-destructive/10 border-destructive/30 text-destructive"
+              : "border-border text-muted-foreground hover:border-primary/50"
+          )}
+        >
+          {slot.cantTrack ? "Can't track ✓" : "Can't track?"}
+        </button>
+      </div>
+
+      {slot.cantTrack ? (
+        <div className="px-4 pb-4 space-y-2">
+          <Textarea
+            placeholder="What happened? (missed meal, ate out, forgot to log…)"
+            value={slot.cantTrackNote}
+            onChange={e => onNoteChange(e.target.value)}
+            className="text-sm resize-none"
+            rows={2}
+          />
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground whitespace-nowrap">Calorie guess:</span>
+            <Input
+              type="number"
+              placeholder="e.g. 600"
+              value={slot.calorieGuess}
+              onChange={e => onCalorieGuessChange(e.target.value)}
+              className="h-8 text-sm"
+            />
+            <span className="text-xs text-muted-foreground">kcal</span>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div
+            className="mx-4 mb-3 aspect-[4/3] rounded-xl bg-muted/60 border-2 border-dashed border-muted-foreground/20 flex flex-col items-center justify-center cursor-pointer hover:bg-muted/80 transition-colors relative overflow-hidden"
+            onClick={() => inputRef.current?.click()}
+          >
+            {slot.uploading ? (
+              <Loader2 className="w-8 h-8 text-muted-foreground/40 animate-spin" />
+            ) : slot.previewUrl ? (
+              <img src={slot.previewUrl} alt="MFP screenshot" className="absolute inset-0 w-full h-full object-cover" />
+            ) : (
+              <>
+                <Camera className="w-10 h-10 text-muted-foreground/30" strokeWidth={1.5} />
+                <span className="text-xs text-muted-foreground/50 mt-2">Tap to upload screenshot</span>
+              </>
+            )}
+            <input
+              ref={inputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={e => {
+                const f = e.target.files?.[0];
+                if (f) onFileChange(f, URL.createObjectURL(f));
+              }}
+            />
+          </div>
+
+          {aiResult && (
+            <div className="mx-4 mb-4 rounded-xl bg-primary/5 border border-primary/20 p-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-primary">AI Extracted Macros</span>
+                {aiResult.editing ? (
+                  <button onClick={onAiSave} className="text-xs text-primary flex items-center gap-1">
+                    <Check className="w-3 h-3" /> Save
+                  </button>
+                ) : (
+                  <button onClick={onAiEdit} className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Pencil className="w-3 h-3" /> Edit
+                  </button>
+                )}
+              </div>
+              {aiResult.editing ? (
+                <div className="grid grid-cols-2 gap-2">
+                  {(["calories", "protein", "carbs", "fat"] as const).map(field => (
+                    <div key={field}>
+                      <label className="text-[10px] text-muted-foreground uppercase tracking-wide">{field}</label>
+                      <Input
+                        type="number"
+                        value={aiResult[field] ?? ""}
+                        onChange={e => onAiFieldChange(field, e.target.value)}
+                        className="h-7 text-xs mt-0.5"
+                      />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-4 gap-2 text-center">
+                  {([
+                    { label: "Cal", val: aiResult.calories, unit: "kcal" },
+                    { label: "Protein", val: aiResult.protein, unit: "g" },
+                    { label: "Carbs", val: aiResult.carbs, unit: "g" },
+                    { label: "Fat", val: aiResult.fat, unit: "g" },
+                  ] as const).map(m => (
+                    <div key={m.label}>
+                      <p className="text-xs font-bold text-foreground">{m.val ?? "–"}</p>
+                      <p className="text-[10px] text-muted-foreground">{m.label}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function makeSlot(label: string): MealSlot {
+  return {
+    id: Math.random().toString(36).slice(2),
+    label,
+    file: null,
+    previewUrl: null,
+    cantTrack: false,
+    cantTrackNote: "",
+    calorieGuess: "",
+    uploading: false,
+  };
+}
 
 export function NutritionPage() {
   const { clientId } = useClientId();
   const qc = useQueryClient();
   const { toast } = useToast();
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [notes, setNotes] = useState("");
-  const [calories, setCalories] = useState("");
+
+  const [diarySlot, setDiarySlot] = useState<MealSlot>(makeSlot("MFP Diary Overview"));
+  const [mealSlots, setMealSlots] = useState<MealSlot[]>([
+    makeSlot("Breakfast"),
+    makeSlot("Lunch"),
+    makeSlot("Dinner"),
+  ]);
+  const [aiResults, setAiResults] = useState<Record<string, AiResult>>({});
+  const [submitting, setSubmitting] = useState(false);
 
   const { data: logs, isLoading } = useListNutritionLogs(clientId!, {
     query: { enabled: !!clientId, queryKey: getListNutritionLogsQueryKey(clientId!) }
@@ -34,129 +208,235 @@ export function NutritionPage() {
   const deleteNutritionLog = useDeleteNutritionLog();
   const getUploadUrl = useGetUploadUrl();
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setSelectedFile(file);
-    setPreviewUrl(URL.createObjectURL(file));
+  const addMeal = () => {
+    setMealSlots(prev => [...prev, makeSlot(`Meal ${prev.length + 1}`)]);
   };
 
-  const handleUpload = async () => {
-    if (!selectedFile || !clientId) return;
-    setUploading(true);
-    try {
-      getUploadUrl.mutate({ data: { filename: selectedFile.name, contentType: selectedFile.type } }, {
-        onSuccess: async (data) => {
-          try {
-            await fetch(data.uploadUrl, { method: "PUT", body: selectedFile, headers: { "Content-Type": selectedFile.type } });
-          } catch {
-            // Ignore upload errors for demo
-          }
-          createNutritionLog.mutate({
-            clientId,
-            data: {
-              date: new Date().toISOString().split("T")[0],
-              imageUrl: previewUrl ?? data.publicUrl,
-              calories: calories ? parseInt(calories) : undefined,
-              notes: notes || undefined,
-            }
-          }, {
-            onSuccess: () => {
-              qc.invalidateQueries({ queryKey: getListNutritionLogsQueryKey(clientId) });
-              setDialogOpen(false);
-              setSelectedFile(null);
-              setPreviewUrl(null);
-              setNotes("");
-              setCalories("");
-              toast({ title: "Nutrition logged!" });
-            }
-          });
-          setUploading(false);
-        },
-        onError: () => {
-          setUploading(false);
-          toast({ title: "Upload failed", variant: "destructive" });
-        }
-      });
-    } catch {
-      setUploading(false);
-    }
-  };
-
-  const handleDelete = (id: number) => {
-    deleteNutritionLog.mutate({ clientId: clientId!, nutritionId: id }, {
-      onSuccess: () => qc.invalidateQueries({ queryKey: getListNutritionLogsQueryKey(clientId!) })
+  const removeMeal = () => {
+    if (mealSlots.length <= 1) return;
+    const removed = mealSlots[mealSlots.length - 1];
+    setMealSlots(prev => prev.slice(0, -1));
+    setAiResults(prev => {
+      const next = { ...prev };
+      delete next[removed.id];
+      return next;
     });
   };
 
-  if (!clientId) return <div className="p-4 text-muted-foreground">Not logged in.</div>;
+  const extractMacrosFromImage = async (imageUrl: string, slotId: string) => {
+    try {
+      const res = await fetch("/api/nutrition/extract", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageUrl }),
+      });
+      if (!res.ok) throw new Error("AI extraction failed");
+      const data = await res.json();
+      setAiResults(prev => ({
+        ...prev,
+        [slotId]: {
+          calories: data.calories ?? null,
+          protein: data.protein ?? null,
+          carbs: data.carbs ?? null,
+          fat: data.fat ?? null,
+          editing: false,
+        },
+      }));
+    } catch {
+      // silently fail — user can still see photo
+    }
+  };
+
+  const uploadFile = async (file: File): Promise<string | null> => {
+    return new Promise(resolve => {
+      getUploadUrl.mutate({ data: { filename: file.name, contentType: file.type } }, {
+        onSuccess: async (data) => {
+          try {
+            await fetch(data.uploadUrl, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+          } catch { /* ignore */ }
+          resolve(data.publicUrl ?? null);
+        },
+        onError: () => resolve(null),
+      });
+    });
+  };
+
+  const handleFileChange = async (slotId: string, isDiary: boolean, file: File, previewUrl: string) => {
+    const update = (s: MealSlot) => s.id === slotId ? { ...s, file, previewUrl, uploading: true } : s;
+    if (isDiary) {
+      setDiarySlot(s => ({ ...s, file, previewUrl, uploading: true }));
+    } else {
+      setMealSlots(prev => prev.map(update));
+    }
+
+    const url = await uploadFile(file);
+    const done = (s: MealSlot) => s.id === slotId ? { ...s, uploading: false } : s;
+    if (isDiary) {
+      setDiarySlot(s => ({ ...s, uploading: false }));
+    } else {
+      setMealSlots(prev => prev.map(done));
+    }
+
+    if (url) {
+      extractMacrosFromImage(url, slotId);
+    }
+  };
+
+  const updateSlot = (id: string, isDiary: boolean, patch: Partial<MealSlot>) => {
+    if (isDiary) {
+      setDiarySlot(s => ({ ...s, ...patch }));
+    } else {
+      setMealSlots(prev => prev.map(s => s.id === id ? { ...s, ...patch } : s));
+    }
+  };
+
+  const handleSubmitDay = async () => {
+    if (!clientId) return;
+    setSubmitting(true);
+    const today = new Date().toISOString().split("T")[0];
+
+    const allSlots = [{ slot: diarySlot, isDiary: true }, ...mealSlots.map(s => ({ slot: s, isDiary: false }))];
+    for (const { slot } of allSlots) {
+      if (slot.cantTrack) {
+        await new Promise<void>(resolve => {
+          createNutritionLog.mutate({
+            clientId,
+            data: {
+              date: today,
+              imageUrl: "cant_track",
+              notes: `${slot.label}: ${slot.cantTrackNote}`,
+              calories: slot.calorieGuess ? parseInt(slot.calorieGuess) : undefined,
+            }
+          }, { onSuccess: () => resolve(), onError: () => resolve() });
+        });
+      } else if (slot.previewUrl) {
+        const ai = aiResults[slot.id];
+        await new Promise<void>(resolve => {
+          createNutritionLog.mutate({
+            clientId,
+            data: {
+              date: today,
+              imageUrl: slot.previewUrl!,
+              notes: slot.label,
+              calories: ai?.calories ?? undefined,
+              protein: ai?.protein ?? undefined,
+              carbs: ai?.carbs ?? undefined,
+              fat: ai?.fat ?? undefined,
+            }
+          }, { onSuccess: () => resolve(), onError: () => resolve() });
+        });
+      }
+    }
+
+    qc.invalidateQueries({ queryKey: getListNutritionLogsQueryKey(clientId) });
+    setSubmitting(false);
+    toast({ title: "Nutrition logged for today!" });
+    setDiarySlot(makeSlot("MFP Diary Overview"));
+    setMealSlots([makeSlot("Breakfast"), makeSlot("Lunch"), makeSlot("Dinner")]);
+    setAiResults({});
+  };
+
+  if (!clientId) return <div className="p-4 text-muted-foreground">Please join via an invite link first.</div>;
 
   return (
-    <div className="max-w-lg mx-auto space-y-5">
-      <div className="flex items-center justify-between">
+    <div className="max-w-lg mx-auto space-y-6 pb-8">
+      <div>
         <h1 className="text-2xl font-bold">Nutrition</h1>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" data-testid="button-add-nutrition"><Plus className="w-4 h-4 mr-1" /> Add Screenshot</Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>Log Nutrition Screenshot</DialogTitle></DialogHeader>
-            <div className="space-y-4">
-              {previewUrl ? (
-                <img src={previewUrl} alt="Preview" className="w-full rounded-lg max-h-48 object-cover" />
-              ) : (
-                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
-                  <Upload className="w-8 h-8 text-muted-foreground mb-2" />
-                  <span className="text-sm text-muted-foreground">Upload MFP screenshot</span>
-                  <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" data-testid="input-nutrition-photo" />
-                </label>
-              )}
-              <div>
-                <Label>Calories (optional)</Label>
-                <Input type="number" value={calories} onChange={e => setCalories(e.target.value)} placeholder="e.g. 2100" className="mt-1" />
-              </div>
-              <div>
-                <Label>Notes (optional)</Label>
-                <Input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Any notes..." className="mt-1" />
-              </div>
-              <Button className="w-full" onClick={handleUpload} disabled={!selectedFile || uploading} data-testid="button-save-nutrition">
-                {uploading ? "Uploading..." : "Save"}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <p className="text-sm text-muted-foreground mt-0.5">Upload your MFP screenshots for today</p>
       </div>
 
-      {isLoading && <p className="text-muted-foreground">Loading...</p>}
+      {/* Diary Overview slot */}
+      <PhotoBox
+        slot={diarySlot}
+        aiResult={aiResults[diarySlot.id] ?? null}
+        onFileChange={(f, u) => handleFileChange(diarySlot.id, true, f, u)}
+        onCantTrackToggle={() => updateSlot(diarySlot.id, true, { cantTrack: !diarySlot.cantTrack })}
+        onNoteChange={v => updateSlot(diarySlot.id, true, { cantTrackNote: v })}
+        onCalorieGuessChange={v => updateSlot(diarySlot.id, true, { calorieGuess: v })}
+        onAiEdit={() => setAiResults(p => ({ ...p, [diarySlot.id]: { ...p[diarySlot.id], editing: true } }))}
+        onAiSave={() => setAiResults(p => ({ ...p, [diarySlot.id]: { ...p[diarySlot.id], editing: false } }))}
+        onAiFieldChange={(field, val) => setAiResults(p => ({
+          ...p,
+          [diarySlot.id]: { ...p[diarySlot.id], [field]: val === "" ? null : Number(val) }
+        }))}
+      />
 
-      {(logs?.length ?? 0) === 0 && !isLoading && (
-        <div className="text-center py-12 text-muted-foreground">
-          <UtensilsCrossed className="w-10 h-10 mx-auto mb-3 opacity-20" />
-          <p>No nutrition screenshots yet. Upload your MFP diary.</p>
-        </div>
-      )}
-
-      <div className="grid grid-cols-2 gap-3">
-        {logs?.slice().reverse().map(n => (
-          <Card key={n.id} className="overflow-hidden" data-testid={`card-nutrition-${n.id}`}>
-            <div className="relative">
-              <img src={n.imageUrl} alt="Nutrition" className="w-full aspect-square object-cover" />
-              <button
-                onClick={() => handleDelete(n.id)}
-                className="absolute top-2 right-2 bg-background/80 rounded-full p-1 text-muted-foreground hover:text-destructive transition-colors"
-                data-testid={`button-delete-nutrition-${n.id}`}
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            </div>
-            <CardContent className="p-2">
-              <p className="text-xs font-medium">{n.date}</p>
-              {n.calories && <p className="text-xs text-muted-foreground">{n.calories} kcal</p>}
-              {n.notes && <p className="text-xs text-muted-foreground truncate">{n.notes}</p>}
-            </CardContent>
-          </Card>
+      {/* Meal slots */}
+      <div className="space-y-3">
+        {mealSlots.map((slot) => (
+          <PhotoBox
+            key={slot.id}
+            slot={slot}
+            aiResult={aiResults[slot.id] ?? null}
+            onFileChange={(f, u) => handleFileChange(slot.id, false, f, u)}
+            onCantTrackToggle={() => updateSlot(slot.id, false, { cantTrack: !slot.cantTrack })}
+            onNoteChange={v => updateSlot(slot.id, false, { cantTrackNote: v })}
+            onCalorieGuessChange={v => updateSlot(slot.id, false, { calorieGuess: v })}
+            onAiEdit={() => setAiResults(p => ({ ...p, [slot.id]: { ...p[slot.id], editing: true } }))}
+            onAiSave={() => setAiResults(p => ({ ...p, [slot.id]: { ...p[slot.id], editing: false } }))}
+            onAiFieldChange={(field, val) => setAiResults(p => ({
+              ...p,
+              [slot.id]: { ...p[slot.id], [field]: val === "" ? null : Number(val) }
+            }))}
+          />
         ))}
       </div>
+
+      {/* Add/Remove meal buttons */}
+      <div className="flex gap-3">
+        <Button variant="outline" size="sm" onClick={addMeal} className="flex-1 gap-1">
+          <Plus className="w-4 h-4" /> Add meal
+        </Button>
+        <Button variant="outline" size="sm" onClick={removeMeal} disabled={mealSlots.length <= 1} className="flex-1 gap-1">
+          <Minus className="w-4 h-4" /> Remove meal
+        </Button>
+      </div>
+
+      <Button
+        size="lg"
+        className="w-full h-13 font-semibold"
+        onClick={handleSubmitDay}
+        disabled={submitting}
+      >
+        {submitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving…</> : "Submit Today's Nutrition"}
+      </Button>
+
+      {/* Past logs */}
+      {(logs?.length ?? 0) > 0 && (
+        <div>
+          <h2 className="text-base font-semibold mb-3">Past Logs</h2>
+          <div className="space-y-2">
+            {logs?.slice().reverse().map(n => (
+              <div key={n.id} className="flex items-center gap-3 p-3 rounded-xl border border-border bg-card">
+                {n.imageUrl && n.imageUrl !== "cant_track" ? (
+                  <img src={n.imageUrl} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
+                ) : (
+                  <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                    <UtensilsCrossed className="w-5 h-5 text-muted-foreground/40" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium">{n.notes ?? n.date}</p>
+                  <div className="flex gap-3 mt-0.5">
+                    {n.calories && <span className="text-xs text-muted-foreground">{n.calories} kcal</span>}
+                    {n.protein && <span className="text-xs text-muted-foreground">P: {n.protein}g</span>}
+                    {n.carbs && <span className="text-xs text-muted-foreground">C: {n.carbs}g</span>}
+                    {n.fat && <span className="text-xs text-muted-foreground">F: {n.fat}g</span>}
+                  </div>
+                </div>
+                <button
+                  onClick={() => deleteNutritionLog.mutate({ clientId: clientId!, nutritionId: n.id }, {
+                    onSuccess: () => qc.invalidateQueries({ queryKey: getListNutritionLogsQueryKey(clientId!) })
+                  })}
+                  className="text-muted-foreground hover:text-destructive p-1"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

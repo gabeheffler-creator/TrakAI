@@ -1,11 +1,14 @@
 import { Link, useLocation } from "wouter";
-import { Home, Dumbbell, Ruler, Moon, UtensilsCrossed, Camera, ClipboardList, MessageCircle, List } from "lucide-react";
+import { Home, Dumbbell, Ruler, Moon, UtensilsCrossed, Camera, ClipboardList, MessageCircle, List, TrendingUp, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useClientId } from "@/hooks/use-client-id";
+import { useDarkMode } from "@/hooks/use-dark-mode";
 
 const navigation = [
   { name: "Home", href: "/", icon: Home },
   { name: "Workout", href: "/workout", icon: Dumbbell },
   { name: "History", href: "/workouts", icon: List },
+  { name: "Progress", href: "/progress", icon: TrendingUp },
   { name: "Stats", href: "/measurements", icon: Ruler },
   { name: "Sleep", href: "/sleep", icon: Moon },
   { name: "Nutrition", href: "/nutrition", icon: UtensilsCrossed },
@@ -16,6 +19,16 @@ const navigation = [
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
+  const { clientId } = useClientId();
+  const { dark, toggle } = useDarkMode();
+
+  if (!clientId) {
+    return (
+      <div className="flex min-h-screen w-full bg-background">
+        <main className="flex-1 p-4 md:p-6">{children}</main>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen w-full bg-background">
@@ -46,6 +59,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 );
               })}
             </nav>
+          </div>
+          {/* Dark mode toggle */}
+          <div className="px-4 pb-5">
+            <button
+              onClick={toggle}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+            >
+              {dark ? <Sun className="w-4 h-4 text-muted-foreground" /> : <Moon className="w-4 h-4 text-muted-foreground" />}
+              {dark ? "Light mode" : "Dark mode"}
+            </button>
           </div>
         </div>
       </div>

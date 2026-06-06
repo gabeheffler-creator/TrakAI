@@ -66,7 +66,7 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* LIGHT MODE */
+/* LIGHT MODE — Purple/White */
 :root {
   --button-outline: rgba(0,0,0, .10);
   --badge-outline: rgba(0,0,0, .05);
@@ -74,39 +74,39 @@
   --elevate-1: rgba(0,0,0, .03);
   --elevate-2: rgba(0,0,0, .08);
 
-  --background: 158 30% 97%;
-  --foreground: 220 20% 10%;
-  --border: 158 20% 88%;
+  --background: 0 0% 100%;
+  --foreground: 240 10% 10%;
+  --border: 270 20% 88%;
   --card: 0 0% 100%;
-  --card-foreground: 220 20% 10%;
-  --card-border: 158 20% 88%;
-  --sidebar: 158 25% 96%;
-  --sidebar-foreground: 220 20% 10%;
-  --sidebar-border: 158 20% 88%;
-  --sidebar-primary: 158 64% 38%;
+  --card-foreground: 240 10% 10%;
+  --card-border: 270 15% 90%;
+  --sidebar: 270 30% 98%;
+  --sidebar-foreground: 240 10% 10%;
+  --sidebar-border: 270 20% 88%;
+  --sidebar-primary: 271 81% 56%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 158 30% 90%;
-  --sidebar-accent-foreground: 158 64% 25%;
-  --sidebar-ring: 158 64% 38%;
+  --sidebar-accent: 270 40% 94%;
+  --sidebar-accent-foreground: 271 81% 35%;
+  --sidebar-ring: 271 81% 56%;
   --popover: 0 0% 100%;
-  --popover-foreground: 220 20% 10%;
-  --popover-border: 158 20% 88%;
-  --primary: 158 64% 38%;
+  --popover-foreground: 240 10% 10%;
+  --popover-border: 270 20% 88%;
+  --primary: 271 81% 56%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 158 20% 92%;
-  --secondary-foreground: 220 20% 10%;
-  --muted: 158 20% 92%;
-  --muted-foreground: 220 10% 45%;
-  --accent: 158 40% 90%;
-  --accent-foreground: 158 64% 20%;
+  --secondary: 270 20% 94%;
+  --secondary-foreground: 240 10% 10%;
+  --muted: 270 20% 95%;
+  --muted-foreground: 240 10% 45%;
+  --accent: 270 40% 94%;
+  --accent-foreground: 271 81% 35%;
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
-  --input: 158 20% 88%;
-  --ring: 158 64% 38%;
-  --chart-1: 158 64% 38%;
+  --input: 270 20% 88%;
+  --ring: 271 81% 56%;
+  --chart-1: 271 81% 56%;
   --chart-2: 200 70% 50%;
   --chart-3: 38 92% 50%;
-  --chart-4: 270 60% 60%;
+  --chart-4: 158 64% 38%;
   --chart-5: 0 70% 60%;
 
   --app-font-sans: 'Inter', sans-serif;
@@ -134,39 +134,39 @@
   --elevate-1: rgba(255,255,255, .04);
   --elevate-2: rgba(255,255,255, .09);
 
-  --background: 220 20% 7%;
-  --foreground: 158 10% 96%;
-  --border: 220 15% 17%;
-  --card: 220 20% 10%;
-  --card-foreground: 158 10% 96%;
-  --card-border: 220 15% 17%;
-  --sidebar: 220 20% 8%;
-  --sidebar-foreground: 158 10% 96%;
-  --sidebar-border: 220 15% 17%;
-  --sidebar-primary: 158 64% 45%;
+  --background: 240 10% 7%;
+  --foreground: 270 10% 95%;
+  --border: 240 10% 18%;
+  --card: 240 10% 10%;
+  --card-foreground: 270 10% 95%;
+  --card-border: 240 10% 18%;
+  --sidebar: 240 10% 8%;
+  --sidebar-foreground: 270 10% 95%;
+  --sidebar-border: 240 10% 18%;
+  --sidebar-primary: 271 70% 65%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 158 20% 15%;
-  --sidebar-accent-foreground: 158 64% 70%;
-  --sidebar-ring: 158 64% 45%;
-  --popover: 220 20% 10%;
-  --popover-foreground: 158 10% 96%;
-  --popover-border: 220 15% 17%;
-  --primary: 158 64% 45%;
+  --sidebar-accent: 271 20% 18%;
+  --sidebar-accent-foreground: 271 70% 80%;
+  --sidebar-ring: 271 70% 65%;
+  --popover: 240 10% 10%;
+  --popover-foreground: 270 10% 95%;
+  --popover-border: 240 10% 18%;
+  --primary: 271 70% 65%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 220 15% 17%;
-  --secondary-foreground: 158 10% 96%;
-  --muted: 220 15% 17%;
-  --muted-foreground: 220 10% 55%;
-  --accent: 158 20% 15%;
-  --accent-foreground: 158 64% 70%;
+  --secondary: 240 10% 18%;
+  --secondary-foreground: 270 10% 95%;
+  --muted: 240 10% 18%;
+  --muted-foreground: 240 10% 55%;
+  --accent: 271 20% 18%;
+  --accent-foreground: 271 70% 80%;
   --destructive: 0 62.8% 30.6%;
   --destructive-foreground: 0 0% 100%;
-  --input: 220 15% 20%;
-  --ring: 158 64% 45%;
-  --chart-1: 158 64% 45%;
+  --input: 240 10% 20%;
+  --ring: 271 70% 65%;
+  --chart-1: 271 70% 65%;
   --chart-2: 200 70% 55%;
   --chart-3: 38 92% 55%;
-  --chart-4: 270 60% 65%;
+  --chart-4: 158 64% 45%;
   --chart-5: 0 70% 65%;
 
   --shadow-sm: 0px 1px 2px 0px rgba(0,0,0,0.2);
@@ -239,22 +239,18 @@
     pointer-events: none;
     position: absolute;
     inset: 0px;
-    /*border-radius: inherit;   match rounded corners */
     border-radius: inherit;
     z-index: -1;
-    /* sits behind content but above backdrop */
   }
 
   .toggle-elevate.toggle-elevated::before {
     background-color: var(--elevate-2);
   }
 
-  /* If there's a 1px border, adjust the inset so that it covers that parent's border */
   .border.toggle-elevate::before {
     inset: -1px;
   }
 
-  /* Does not work on elements with overflow:hidden! */
   .hover-elevate:not(.no-default-hover-elevate),
   .active-elevate:not(.no-default-active-elevate),
   .hover-elevate-2:not(.no-default-hover-elevate),
@@ -271,10 +267,8 @@
     pointer-events: none;
     position: absolute;
     inset: 0px;
-    /*border-radius: inherit;   match rounded corners */
     border-radius: inherit;
     z-index: 999;
-    /* sits in front of content */
   }
 
   .hover-elevate:hover:not(.no-default-hover-elevate)::after,
@@ -287,7 +281,6 @@
     background-color: var(--elevate-2);
   }
 
-  /* If there's a 1px border, adjust the inset so that it covers that parent's border */
   .border.hover-elevate:not(.no-hover-interaction-elevate)::after,
   .border.active-elevate:not(.no-active-interaction-elevate)::after,
   .border.hover-elevate-2:not(.no-hover-interaction-elevate)::after,

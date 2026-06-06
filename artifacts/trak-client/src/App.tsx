@@ -13,6 +13,7 @@ import { NutritionPage } from "@/pages/nutrition";
 import { PhotosPage } from "@/pages/photos";
 import { AssignmentsPage } from "@/pages/assignments";
 import { MessagesPage } from "@/pages/messages";
+import { ProgressPage } from "@/pages/progress";
 
 const queryClient = new QueryClient();
 
@@ -30,6 +31,7 @@ function Router() {
             <Route path="/sleep" component={SleepPage} />
             <Route path="/nutrition" component={NutritionPage} />
             <Route path="/photos" component={PhotosPage} />
+            <Route path="/progress" component={ProgressPage} />
             <Route path="/assignments" component={AssignmentsPage} />
             <Route path="/messages" component={MessagesPage} />
           </Switch>
