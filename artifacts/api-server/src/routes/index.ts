@@ -12,6 +12,7 @@ import assignmentsRouter from "./assignments";
 import messagesRouter from "./messages";
 import dashboardRouter from "./dashboard";
 import uploadRouter from "./upload";
+import nutritionExtractRouter from "./nutrition_extract";
 
 const router: IRouter = Router();
 
@@ -28,5 +29,6 @@ router.use(assignmentsRouter);
 router.use(messagesRouter);
 router.use(dashboardRouter);
 router.use(uploadRouter);
+router.use(nutritionExtractRouter);
 
 export default router;

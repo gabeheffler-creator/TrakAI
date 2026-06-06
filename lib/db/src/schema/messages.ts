@@ -1,16 +1,15 @@
-import { pgTable, text, serial, integer, timestamp } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
-import { z } from "zod/v4";
+import { integer, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
 import { clientsTable } from "./clients";
 
 export const messagesTable = pgTable("messages", {
   id: serial("id").primaryKey(),
-  clientId: integer("client_id").notNull().references(() => clientsTable.id, { onDelete: "cascade" }),
+  clientId: integer("client_id")
+    .notNull()
+    .references(() => clientsTable.id, { onDelete: "cascade" }),
   sender: text("sender").notNull(),
   content: text("content").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const insertMessageSchema = createInsertSchema(messagesTable).omit({ id: true, createdAt: true });
-export type InsertMessage = z.infer<typeof insertMessageSchema>;
 export type Message = typeof messagesTable.$inferSelect;
+export type InsertMessage = typeof messagesTable.$inferInsert;
