@@ -1,16 +1,19 @@
+import { useState } from "react";
 import { useClientId } from "@/hooks/use-client-id";
 import { useUnitSystem } from "@/hooks/use-unit-system";
+import { VideoCall } from "@/components/video-call";
 import { useGetClientDashboard, getGetClientDashboardQueryKey } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { Link } from "wouter";
-import { Dumbbell, ClipboardList, TrendingUp, ChevronRight } from "lucide-react";
+import { Dumbbell, ClipboardList, TrendingUp, ChevronRight, Video } from "lucide-react";
 import { format, parseISO } from "date-fns";
 
 export function Dashboard() {
   const { clientId } = useClientId();
   const { units, setUnits, weightLabel } = useUnitSystem();
+  const [videoCallOpen, setVideoCallOpen] = useState(false);
   const { data: dashboard, isLoading } = useGetClientDashboard(clientId!, {
     query: { enabled: !!clientId, queryKey: getGetClientDashboardQueryKey(clientId!) }
   });
@@ -30,8 +33,17 @@ export function Dashboard() {
 
   const client = dashboard?.client;
 
+  const videoRoomName = `trak-coaching-${clientId}`;
+
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
+      {videoCallOpen && (
+        <VideoCall
+          roomName={videoRoomName}
+          displayName={client?.name ?? "Athlete"}
+          onClose={() => setVideoCallOpen(false)}
+        />
+      )}
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-sm text-muted-foreground">Good work,</p>
@@ -97,6 +109,25 @@ export function Dashboard() {
           </CardContent>
         </Card>
       </Link>
+
+      <button
+        onClick={() => setVideoCallOpen(true)}
+        className="w-full text-left"
+        data-testid="button-join-video-call"
+      >
+        <Card className="bg-zinc-900 text-white hover:bg-zinc-800 transition-colors cursor-pointer dark:bg-zinc-800 dark:hover:bg-zinc-700">
+          <CardContent className="pt-4 pb-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Video className="w-6 h-6 text-violet-400" />
+              <div>
+                <p className="font-bold">Join Coaching Call</p>
+                <p className="text-xs text-zinc-400">Video session with your coach</p>
+              </div>
+            </div>
+            <ChevronRight className="w-5 h-5 text-zinc-400" />
+          </CardContent>
+        </Card>
+      </button>
 
       {(dashboard?.weightHistory?.length ?? 0) > 1 && (
         <Card>

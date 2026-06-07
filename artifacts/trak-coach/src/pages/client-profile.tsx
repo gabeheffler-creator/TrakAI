@@ -58,9 +58,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import { Copy, Send, Plus, CheckCircle, Circle, Trash2, Link, ArrowLeft, ChevronDown, ChevronRight, Dumbbell, Pencil, X, Check, Phone, StickyNote, Clock } from "lucide-react";
+import { Copy, Send, Plus, CheckCircle, Circle, Trash2, Link, ArrowLeft, ChevronDown, ChevronRight, Dumbbell, Pencil, X, Check, Phone, StickyNote, Clock, Video } from "lucide-react";
 import { Link as WLink } from "wouter";
 import { format, parseISO } from "date-fns";
+import { VideoCall } from "@/components/video-call";
 
 const messageSchema = z.object({ content: z.string().min(1) });
 const assignmentSchema = z.object({
@@ -425,6 +426,9 @@ export function ClientProfile() {
   const [callDuration, setCallDuration] = useState("");
   const [callNotes, setCallNotes] = useState("");
 
+  // Video call state
+  const [videoCallOpen, setVideoCallOpen] = useState(false);
+
   const handleCreateNote = () => {
     if (!noteContent.trim()) return;
     createNote.mutate({ clientId, data: { content: noteContent.trim() } }, {
@@ -533,8 +537,18 @@ export function ClientProfile() {
   const pending = assignments?.filter(a => a.status === "pending") ?? [];
   const completed = assignments?.filter(a => a.status === "completed") ?? [];
 
+  const videoRoomName = `trak-coaching-${clientId}`;
+
   return (
     <div className="space-y-6">
+      {videoCallOpen && (
+        <VideoCall
+          roomName={videoRoomName}
+          displayName="Coach"
+          onClose={() => setVideoCallOpen(false)}
+        />
+      )}
+
       <div className="flex items-center gap-4">
         <WLink href="/clients" className="text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="w-5 h-5" />
@@ -543,6 +557,9 @@ export function ClientProfile() {
           <h1 className="text-2xl font-bold">{client.name}</h1>
           <p className="text-muted-foreground text-sm">{client.email}{client.phone ? ` · ${client.phone}` : ""}</p>
         </div>
+        <Button variant="outline" size="sm" onClick={() => setVideoCallOpen(true)}>
+          <Video className="w-4 h-4 mr-2" /> Video Call
+        </Button>
         <Button variant="outline" size="sm" onClick={handleCopyInvite} data-testid="button-copy-invite">
           <Link className="w-4 h-4 mr-2" /> Copy Invite
         </Button>
