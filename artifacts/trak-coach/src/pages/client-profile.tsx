@@ -24,6 +24,13 @@ import {
   useUpdateProgramExercise,
   useDeleteProgramExercise,
   useGetWorkoutLog,
+  useListCoachNotes,
+  useCreateCoachNote,
+  useUpdateCoachNote,
+  useDeleteCoachNote,
+  useListCallLogs,
+  useCreateCallLog,
+  useDeleteCallLog,
   getGetWorkoutLogQueryKey,
   getGetClientQueryKey,
   getListAssignmentsQueryKey,
@@ -33,6 +40,8 @@ import {
   getGetProgramQueryKey,
   getListWorkoutLogsQueryKey,
   getListExercisesQueryKey,
+  getListCoachNotesQueryKey,
+  getListCallLogsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -49,7 +58,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import { Copy, Send, Plus, CheckCircle, Circle, Trash2, Link, ArrowLeft, ChevronDown, ChevronRight, Dumbbell, Pencil, X, Check } from "lucide-react";
+import { Copy, Send, Plus, CheckCircle, Circle, Trash2, Link, ArrowLeft, ChevronDown, ChevronRight, Dumbbell, Pencil, X, Check, Phone, StickyNote, Clock } from "lucide-react";
 import { Link as WLink } from "wouter";
 import { format, parseISO } from "date-fns";
 
@@ -389,6 +398,8 @@ export function ClientProfile() {
   const { data: assignments } = useListAssignments(clientId, { query: { enabled: !!clientId, queryKey: getListAssignmentsQueryKey(clientId) } });
   const { data: messages } = useListMessages(clientId, { query: { enabled: !!clientId, queryKey: getListMessagesQueryKey(clientId) } });
   const { data: programAssignment } = useGetClientProgramAssignment(clientId, { query: { enabled: !!clientId, queryKey: getGetClientProgramAssignmentQueryKey(clientId) } });
+  const { data: coachNotes, refetch: refetchNotes } = useListCoachNotes(clientId, { query: { enabled: !!clientId, queryKey: getListCoachNotesQueryKey(clientId) } });
+  const { data: callLogs, refetch: refetchCallLogs } = useListCallLogs(clientId, { query: { enabled: !!clientId, queryKey: getListCallLogsQueryKey(clientId) } });
   const { data: fullProgram } = useGetProgram(programAssignment?.programId ?? 0, { query: { enabled: !!programAssignment?.programId, queryKey: getGetProgramQueryKey(programAssignment?.programId ?? 0) } });
   const { data: programs } = useListPrograms();
 
@@ -398,6 +409,59 @@ export function ClientProfile() {
   const updateAssignment = useUpdateAssignment();
   const generateInvite = useGenerateInviteLink();
   const assignProgram = useAssignProgram();
+  const createNote = useCreateCoachNote();
+  const updateNote = useUpdateCoachNote();
+  const deleteNote = useDeleteCoachNote();
+  const createCall = useCreateCallLog();
+  const deleteCall = useDeleteCallLog();
+
+  // Coach notes state
+  const [noteContent, setNoteContent] = useState("");
+  const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
+  const [editingNoteContent, setEditingNoteContent] = useState("");
+
+  // Call log state
+  const [callDate, setCallDate] = useState(new Date().toISOString().split("T")[0]);
+  const [callDuration, setCallDuration] = useState("");
+  const [callNotes, setCallNotes] = useState("");
+
+  const handleCreateNote = () => {
+    if (!noteContent.trim()) return;
+    createNote.mutate({ clientId, data: { content: noteContent.trim() } }, {
+      onSuccess: () => { refetchNotes(); setNoteContent(""); },
+      onError: () => toast({ title: "Failed to save note", variant: "destructive" }),
+    });
+  };
+
+  const handleUpdateNote = (noteId: number) => {
+    if (!editingNoteContent.trim()) return;
+    updateNote.mutate({ clientId, noteId, data: { content: editingNoteContent.trim() } }, {
+      onSuccess: () => { refetchNotes(); setEditingNoteId(null); },
+      onError: () => toast({ title: "Failed to update note", variant: "destructive" }),
+    });
+  };
+
+  const handleDeleteNote = (noteId: number) => {
+    deleteNote.mutate({ clientId, noteId }, {
+      onSuccess: () => refetchNotes(),
+      onError: () => toast({ title: "Failed to delete note", variant: "destructive" }),
+    });
+  };
+
+  const handleLogCall = () => {
+    if (!callDate) return;
+    createCall.mutate({ clientId, data: { date: callDate, durationMinutes: callDuration ? Number(callDuration) : undefined, notes: callNotes || undefined } }, {
+      onSuccess: () => { refetchCallLogs(); setCallDuration(""); setCallNotes(""); },
+      onError: () => toast({ title: "Failed to log call", variant: "destructive" }),
+    });
+  };
+
+  const handleDeleteCall = (callId: number) => {
+    deleteCall.mutate({ clientId, callId }, {
+      onSuccess: () => refetchCallLogs(),
+      onError: () => toast({ title: "Failed to delete call", variant: "destructive" }),
+    });
+  };
 
   const msgForm = useForm<z.infer<typeof messageSchema>>({
     resolver: zodResolver(messageSchema),
@@ -503,6 +567,8 @@ export function ClientProfile() {
           <TabsTrigger value="photos">Photos</TabsTrigger>
           <TabsTrigger value="assignments">Assignments</TabsTrigger>
           <TabsTrigger value="messages">Messages</TabsTrigger>
+          <TabsTrigger value="notes"><StickyNote className="w-3.5 h-3.5 mr-1" />Notes</TabsTrigger>
+          <TabsTrigger value="calls"><Phone className="w-3.5 h-3.5 mr-1" />Calls</TabsTrigger>
         </TabsList>
 
         {/* Overview */}
@@ -905,6 +971,161 @@ export function ClientProfile() {
               </Form>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Coach Notes (private) */}
+        <TabsContent value="notes" className="mt-4 space-y-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <StickyNote className="w-4 h-4" /> Private Notes
+                <Badge variant="secondary" className="text-xs font-normal">Visible to coach only</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex gap-2">
+                <Textarea
+                  placeholder="Add a note about this client..."
+                  value={noteContent}
+                  onChange={e => setNoteContent(e.target.value)}
+                  className="resize-none min-h-[80px] flex-1 text-sm"
+                  onKeyDown={e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleCreateNote(); }}
+                />
+              </div>
+              <Button onClick={handleCreateNote} disabled={!noteContent.trim() || createNote.isPending} size="sm">
+                <Plus className="w-3.5 h-3.5 mr-1" /> Add Note
+              </Button>
+            </CardContent>
+          </Card>
+
+          {(coachNotes?.length ?? 0) === 0 && (
+            <p className="text-muted-foreground text-sm text-center py-6">No notes yet. Add your first note above.</p>
+          )}
+
+          <div className="space-y-3">
+            {[...(coachNotes ?? [])].reverse().map(note => (
+              <Card key={note.id} className="border-border/60">
+                <CardContent className="pt-3 pb-3">
+                  {editingNoteId === note.id ? (
+                    <div className="space-y-2">
+                      <Textarea
+                        value={editingNoteContent}
+                        onChange={e => setEditingNoteContent(e.target.value)}
+                        className="resize-none text-sm min-h-[80px]"
+                        autoFocus
+                      />
+                      <div className="flex gap-2">
+                        <Button size="sm" onClick={() => handleUpdateNote(note.id)} disabled={updateNote.isPending}>
+                          <Check className="w-3.5 h-3.5 mr-1" /> Save
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => setEditingNoteId(null)}>Cancel</Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex gap-3">
+                      <p className="flex-1 text-sm whitespace-pre-wrap">{note.content}</p>
+                      <div className="flex flex-col gap-1 flex-shrink-0">
+                        <button
+                          onClick={() => { setEditingNoteId(note.id); setEditingNoteContent(note.content); }}
+                          className="p-1.5 text-muted-foreground hover:text-foreground transition-colors rounded"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteNote(note.id)}
+                          className="p-1.5 text-muted-foreground hover:text-destructive transition-colors rounded"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground mt-2">
+                    {format(parseISO(note.updatedAt), "MMM d, yyyy 'at' h:mm a")}
+                  </p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </TabsContent>
+
+        {/* Call Log */}
+        <TabsContent value="calls" className="mt-4 space-y-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <Phone className="w-4 h-4" /> Log a Call
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Date</label>
+                  <Input
+                    type="date"
+                    value={callDate}
+                    onChange={e => setCallDate(e.target.value)}
+                    className="text-sm"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Duration (min)</label>
+                  <Input
+                    type="number"
+                    placeholder="e.g. 30"
+                    value={callDuration}
+                    onChange={e => setCallDuration(e.target.value)}
+                    className="text-sm"
+                    min={1}
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Notes</label>
+                <Textarea
+                  placeholder="What did you discuss?"
+                  value={callNotes}
+                  onChange={e => setCallNotes(e.target.value)}
+                  className="resize-none min-h-[80px] text-sm"
+                />
+              </div>
+              <Button onClick={handleLogCall} disabled={!callDate || createCall.isPending} size="sm">
+                <Plus className="w-3.5 h-3.5 mr-1" /> Log Call
+              </Button>
+            </CardContent>
+          </Card>
+
+          {(callLogs?.length ?? 0) === 0 && (
+            <p className="text-muted-foreground text-sm text-center py-6">No calls logged yet.</p>
+          )}
+
+          <div className="space-y-3">
+            {[...(callLogs ?? [])].reverse().map(call => (
+              <Card key={call.id} className="border-border/60">
+                <CardContent className="pt-3 pb-3">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-medium text-sm">{format(parseISO(call.date), "MMM d, yyyy")}</p>
+                        {call.durationMinutes != null && (
+                          <Badge variant="secondary" className="text-xs gap-1">
+                            <Clock className="w-3 h-3" />{call.durationMinutes} min
+                          </Badge>
+                        )}
+                      </div>
+                      {call.notes && <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap">{call.notes}</p>}
+                    </div>
+                    <button
+                      onClick={() => handleDeleteCall(call.id)}
+                      className="p-1.5 text-muted-foreground hover:text-destructive transition-colors rounded flex-shrink-0"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </TabsContent>
       </Tabs>
     </div>

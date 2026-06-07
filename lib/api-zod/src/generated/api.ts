@@ -558,6 +558,7 @@ export const GetWorkoutLogResponse = zod.object({
   "reps": zod.number(),
   "weight": zod.number().nullish(),
   "weightUnit": zod.union([zod.literal('lbs'),zod.literal('kg'),zod.literal(null)]).nullish(),
+  "rpe": zod.number().nullish(),
   "notes": zod.string().nullish()
 })),
   "createdAt": zod.coerce.date().optional()
@@ -578,6 +579,7 @@ export const LogSetBody = zod.object({
   "reps": zod.number(),
   "weight": zod.number().optional(),
   "weightUnit": zod.enum(['lbs', 'kg']).optional(),
+  "rpe": zod.number().optional(),
   "notes": zod.string().optional()
 })
 
@@ -919,6 +921,130 @@ export const SendMessageParams = zod.object({
 export const SendMessageBody = zod.object({
   "sender": zod.enum(['coach', 'client']),
   "content": zod.string().min(1)
+})
+
+
+/**
+ * @summary List private coach notes for a client
+ */
+export const ListCoachNotesParams = zod.object({
+  "clientId": zod.coerce.number()
+})
+
+export const ListCoachNotesResponseItem = zod.object({
+  "id": zod.number(),
+  "clientId": zod.number(),
+  "content": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+export const ListCoachNotesResponse = zod.array(ListCoachNotesResponseItem)
+
+
+/**
+ * @summary Create a private coach note
+ */
+export const CreateCoachNoteParams = zod.object({
+  "clientId": zod.coerce.number()
+})
+
+export const CreateCoachNoteBody = zod.object({
+  "content": zod.string()
+})
+
+
+/**
+ * @summary Update a coach note
+ */
+export const UpdateCoachNoteParams = zod.object({
+  "clientId": zod.coerce.number(),
+  "noteId": zod.coerce.number()
+})
+
+export const UpdateCoachNoteBody = zod.object({
+  "content": zod.string()
+})
+
+export const UpdateCoachNoteResponse = zod.object({
+  "id": zod.number(),
+  "clientId": zod.number(),
+  "content": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Delete a coach note
+ */
+export const DeleteCoachNoteParams = zod.object({
+  "clientId": zod.coerce.number(),
+  "noteId": zod.coerce.number()
+})
+
+
+/**
+ * @summary List coaching call logs for a client
+ */
+export const ListCallLogsParams = zod.object({
+  "clientId": zod.coerce.number()
+})
+
+export const ListCallLogsResponseItem = zod.object({
+  "id": zod.number(),
+  "clientId": zod.number(),
+  "date": zod.coerce.date(),
+  "durationMinutes": zod.number().nullish(),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+})
+export const ListCallLogsResponse = zod.array(ListCallLogsResponseItem)
+
+
+/**
+ * @summary Log a coaching call
+ */
+export const CreateCallLogParams = zod.object({
+  "clientId": zod.coerce.number()
+})
+
+export const CreateCallLogBody = zod.object({
+  "date": zod.coerce.date(),
+  "durationMinutes": zod.number().optional(),
+  "notes": zod.string().optional()
+})
+
+
+/**
+ * @summary Update a call log
+ */
+export const UpdateCallLogParams = zod.object({
+  "clientId": zod.coerce.number(),
+  "callId": zod.coerce.number()
+})
+
+export const UpdateCallLogBody = zod.object({
+  "date": zod.coerce.date(),
+  "durationMinutes": zod.number().optional(),
+  "notes": zod.string().optional()
+})
+
+export const UpdateCallLogResponse = zod.object({
+  "id": zod.number(),
+  "clientId": zod.number(),
+  "date": zod.coerce.date(),
+  "durationMinutes": zod.number().nullish(),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Delete a call log
+ */
+export const DeleteCallLogParams = zod.object({
+  "clientId": zod.coerce.number(),
+  "callId": zod.coerce.number()
 })
 
 

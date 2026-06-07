@@ -19,5 +19,7 @@ export interface SetLog {
   /** @nullable */
   weightUnit?: SetLogWeightUnit;
   /** @nullable */
+  rpe?: number | null;
+  /** @nullable */
   notes?: string | null;
 }

@@ -13,5 +13,6 @@ export interface SetLogInput {
   reps: number;
   weight?: number;
   weightUnit?: SetLogInputWeightUnit;
+  rpe?: number;
   notes?: string;
 }

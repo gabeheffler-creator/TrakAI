@@ -8,3 +8,5 @@ export * from "./nutrition_logs";
 export * from "./progress_photos";
 export * from "./assignments";
 export * from "./messages";
+export * from "./coach_notes";
+export * from "./call_logs";

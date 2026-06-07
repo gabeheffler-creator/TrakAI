@@ -13,6 +13,8 @@ import messagesRouter from "./messages";
 import dashboardRouter from "./dashboard";
 import uploadRouter from "./upload";
 import nutritionExtractRouter from "./nutrition_extract";
+import coachNotesRouter from "./coach_notes";
+import callLogsRouter from "./call_logs";
 
 const router: IRouter = Router();
 
@@ -30,5 +32,7 @@ router.use(messagesRouter);
 router.use(dashboardRouter);
 router.use(uploadRouter);
 router.use(nutritionExtractRouter);
+router.use(coachNotesRouter);
+router.use(callLogsRouter);
 
 export default router;

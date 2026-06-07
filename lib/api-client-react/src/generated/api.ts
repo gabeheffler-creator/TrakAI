@@ -23,11 +23,15 @@ import type {
   Assignment,
   AssignmentInput,
   AssignmentUpdate,
+  CallLog,
+  CallLogInput,
   Client,
   ClientDashboard,
   ClientInput,
   ClientUpdate,
   CoachDashboard,
+  CoachNote,
+  CoachNoteInput,
   Exercise,
   ExerciseInput,
   HealthStatus,
@@ -3630,6 +3634,596 @@ export const useSendMessage = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getSendMessageMutationOptions(options));
+    }
+
+export const getListCoachNotesUrl = (clientId: number,) => {
+
+
+
+
+  return `/api/clients/${clientId}/coach-notes`
+}
+
+/**
+ * @summary List private coach notes for a client
+ */
+export const listCoachNotes = async (clientId: number, options?: RequestInit): Promise<CoachNote[]> => {
+
+  return customFetch<CoachNote[]>(getListCoachNotesUrl(clientId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCoachNotesQueryKey = (clientId: number,) => {
+    return [
+    `/api/clients/${clientId}/coach-notes`
+    ] as const;
+    }
+
+
+export const getListCoachNotesQueryOptions = <TData = Awaited<ReturnType<typeof listCoachNotes>>, TError = ErrorType<unknown>>(clientId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoachNotes>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCoachNotesQueryKey(clientId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCoachNotes>>> = ({ signal }) => listCoachNotes(clientId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(clientId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCoachNotes>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCoachNotesQueryResult = NonNullable<Awaited<ReturnType<typeof listCoachNotes>>>
+export type ListCoachNotesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List private coach notes for a client
+ */
+
+export function useListCoachNotes<TData = Awaited<ReturnType<typeof listCoachNotes>>, TError = ErrorType<unknown>>(
+ clientId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoachNotes>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCoachNotesQueryOptions(clientId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getCreateCoachNoteUrl = (clientId: number,) => {
+
+
+
+
+  return `/api/clients/${clientId}/coach-notes`
+}
+
+/**
+ * @summary Create a private coach note
+ */
+export const createCoachNote = async (clientId: number,
+    coachNoteInput: CoachNoteInput, options?: RequestInit): Promise<CoachNote> => {
+
+  return customFetch<CoachNote>(getCreateCoachNoteUrl(clientId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      coachNoteInput,)
+  }
+);}
+
+
+
+
+export const getCreateCoachNoteMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCoachNote>>, TError,{clientId: number;data: BodyType<CoachNoteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCoachNote>>, TError,{clientId: number;data: BodyType<CoachNoteInput>}, TContext> => {
+
+const mutationKey = ['createCoachNote'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCoachNote>>, {clientId: number;data: BodyType<CoachNoteInput>}> = (props) => {
+          const {clientId,data} = props ?? {};
+
+          return  createCoachNote(clientId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCoachNoteMutationResult = NonNullable<Awaited<ReturnType<typeof createCoachNote>>>
+    export type CreateCoachNoteMutationBody = BodyType<CoachNoteInput>
+    export type CreateCoachNoteMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Create a private coach note
+ */
+export const useCreateCoachNote = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCoachNote>>, TError,{clientId: number;data: BodyType<CoachNoteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createCoachNote>>,
+        TError,
+        {clientId: number;data: BodyType<CoachNoteInput>},
+        TContext
+      > => {
+      return useMutation(getCreateCoachNoteMutationOptions(options));
+    }
+
+export const getUpdateCoachNoteUrl = (clientId: number,
+    noteId: number,) => {
+
+
+
+
+  return `/api/clients/${clientId}/coach-notes/${noteId}`
+}
+
+/**
+ * @summary Update a coach note
+ */
+export const updateCoachNote = async (clientId: number,
+    noteId: number,
+    coachNoteInput: CoachNoteInput, options?: RequestInit): Promise<CoachNote> => {
+
+  return customFetch<CoachNote>(getUpdateCoachNoteUrl(clientId,noteId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      coachNoteInput,)
+  }
+);}
+
+
+
+
+export const getUpdateCoachNoteMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCoachNote>>, TError,{clientId: number;noteId: number;data: BodyType<CoachNoteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCoachNote>>, TError,{clientId: number;noteId: number;data: BodyType<CoachNoteInput>}, TContext> => {
+
+const mutationKey = ['updateCoachNote'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCoachNote>>, {clientId: number;noteId: number;data: BodyType<CoachNoteInput>}> = (props) => {
+          const {clientId,noteId,data} = props ?? {};
+
+          return  updateCoachNote(clientId,noteId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCoachNoteMutationResult = NonNullable<Awaited<ReturnType<typeof updateCoachNote>>>
+    export type UpdateCoachNoteMutationBody = BodyType<CoachNoteInput>
+    export type UpdateCoachNoteMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update a coach note
+ */
+export const useUpdateCoachNote = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCoachNote>>, TError,{clientId: number;noteId: number;data: BodyType<CoachNoteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCoachNote>>,
+        TError,
+        {clientId: number;noteId: number;data: BodyType<CoachNoteInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateCoachNoteMutationOptions(options));
+    }
+
+export const getDeleteCoachNoteUrl = (clientId: number,
+    noteId: number,) => {
+
+
+
+
+  return `/api/clients/${clientId}/coach-notes/${noteId}`
+}
+
+/**
+ * @summary Delete a coach note
+ */
+export const deleteCoachNote = async (clientId: number,
+    noteId: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteCoachNoteUrl(clientId,noteId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteCoachNoteMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteCoachNote>>, TError,{clientId: number;noteId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteCoachNote>>, TError,{clientId: number;noteId: number}, TContext> => {
+
+const mutationKey = ['deleteCoachNote'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteCoachNote>>, {clientId: number;noteId: number}> = (props) => {
+          const {clientId,noteId} = props ?? {};
+
+          return  deleteCoachNote(clientId,noteId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteCoachNoteMutationResult = NonNullable<Awaited<ReturnType<typeof deleteCoachNote>>>
+
+    export type DeleteCoachNoteMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete a coach note
+ */
+export const useDeleteCoachNote = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteCoachNote>>, TError,{clientId: number;noteId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteCoachNote>>,
+        TError,
+        {clientId: number;noteId: number},
+        TContext
+      > => {
+      return useMutation(getDeleteCoachNoteMutationOptions(options));
+    }
+
+export const getListCallLogsUrl = (clientId: number,) => {
+
+
+
+
+  return `/api/clients/${clientId}/call-logs`
+}
+
+/**
+ * @summary List coaching call logs for a client
+ */
+export const listCallLogs = async (clientId: number, options?: RequestInit): Promise<CallLog[]> => {
+
+  return customFetch<CallLog[]>(getListCallLogsUrl(clientId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCallLogsQueryKey = (clientId: number,) => {
+    return [
+    `/api/clients/${clientId}/call-logs`
+    ] as const;
+    }
+
+
+export const getListCallLogsQueryOptions = <TData = Awaited<ReturnType<typeof listCallLogs>>, TError = ErrorType<unknown>>(clientId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCallLogs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCallLogsQueryKey(clientId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCallLogs>>> = ({ signal }) => listCallLogs(clientId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(clientId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCallLogs>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCallLogsQueryResult = NonNullable<Awaited<ReturnType<typeof listCallLogs>>>
+export type ListCallLogsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List coaching call logs for a client
+ */
+
+export function useListCallLogs<TData = Awaited<ReturnType<typeof listCallLogs>>, TError = ErrorType<unknown>>(
+ clientId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCallLogs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCallLogsQueryOptions(clientId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getCreateCallLogUrl = (clientId: number,) => {
+
+
+
+
+  return `/api/clients/${clientId}/call-logs`
+}
+
+/**
+ * @summary Log a coaching call
+ */
+export const createCallLog = async (clientId: number,
+    callLogInput: CallLogInput, options?: RequestInit): Promise<CallLog> => {
+
+  return customFetch<CallLog>(getCreateCallLogUrl(clientId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      callLogInput,)
+  }
+);}
+
+
+
+
+export const getCreateCallLogMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCallLog>>, TError,{clientId: number;data: BodyType<CallLogInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCallLog>>, TError,{clientId: number;data: BodyType<CallLogInput>}, TContext> => {
+
+const mutationKey = ['createCallLog'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCallLog>>, {clientId: number;data: BodyType<CallLogInput>}> = (props) => {
+          const {clientId,data} = props ?? {};
+
+          return  createCallLog(clientId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCallLogMutationResult = NonNullable<Awaited<ReturnType<typeof createCallLog>>>
+    export type CreateCallLogMutationBody = BodyType<CallLogInput>
+    export type CreateCallLogMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Log a coaching call
+ */
+export const useCreateCallLog = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCallLog>>, TError,{clientId: number;data: BodyType<CallLogInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createCallLog>>,
+        TError,
+        {clientId: number;data: BodyType<CallLogInput>},
+        TContext
+      > => {
+      return useMutation(getCreateCallLogMutationOptions(options));
+    }
+
+export const getUpdateCallLogUrl = (clientId: number,
+    callId: number,) => {
+
+
+
+
+  return `/api/clients/${clientId}/call-logs/${callId}`
+}
+
+/**
+ * @summary Update a call log
+ */
+export const updateCallLog = async (clientId: number,
+    callId: number,
+    callLogInput: CallLogInput, options?: RequestInit): Promise<CallLog> => {
+
+  return customFetch<CallLog>(getUpdateCallLogUrl(clientId,callId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      callLogInput,)
+  }
+);}
+
+
+
+
+export const getUpdateCallLogMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCallLog>>, TError,{clientId: number;callId: number;data: BodyType<CallLogInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCallLog>>, TError,{clientId: number;callId: number;data: BodyType<CallLogInput>}, TContext> => {
+
+const mutationKey = ['updateCallLog'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCallLog>>, {clientId: number;callId: number;data: BodyType<CallLogInput>}> = (props) => {
+          const {clientId,callId,data} = props ?? {};
+
+          return  updateCallLog(clientId,callId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCallLogMutationResult = NonNullable<Awaited<ReturnType<typeof updateCallLog>>>
+    export type UpdateCallLogMutationBody = BodyType<CallLogInput>
+    export type UpdateCallLogMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update a call log
+ */
+export const useUpdateCallLog = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCallLog>>, TError,{clientId: number;callId: number;data: BodyType<CallLogInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCallLog>>,
+        TError,
+        {clientId: number;callId: number;data: BodyType<CallLogInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateCallLogMutationOptions(options));
+    }
+
+export const getDeleteCallLogUrl = (clientId: number,
+    callId: number,) => {
+
+
+
+
+  return `/api/clients/${clientId}/call-logs/${callId}`
+}
+
+/**
+ * @summary Delete a call log
+ */
+export const deleteCallLog = async (clientId: number,
+    callId: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteCallLogUrl(clientId,callId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteCallLogMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteCallLog>>, TError,{clientId: number;callId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteCallLog>>, TError,{clientId: number;callId: number}, TContext> => {
+
+const mutationKey = ['deleteCallLog'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteCallLog>>, {clientId: number;callId: number}> = (props) => {
+          const {clientId,callId} = props ?? {};
+
+          return  deleteCallLog(clientId,callId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteCallLogMutationResult = NonNullable<Awaited<ReturnType<typeof deleteCallLog>>>
+
+    export type DeleteCallLogMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete a call log
+ */
+export const useDeleteCallLog = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteCallLog>>, TError,{clientId: number;callId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteCallLog>>,
+        TError,
+        {clientId: number;callId: number},
+        TContext
+      > => {
+      return useMutation(getDeleteCallLogMutationOptions(options));
     }
 
 export const getGetUploadUrlUrl = () => {

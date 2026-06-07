@@ -25,6 +25,7 @@ export const setLogsTable = pgTable("set_logs", {
   reps: integer("reps").notNull(),
   weight: numeric("weight"),
   weightUnit: text("weight_unit"),
+  rpe: integer("rpe"),
   notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

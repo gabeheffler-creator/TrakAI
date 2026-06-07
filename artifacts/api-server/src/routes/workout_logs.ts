@@ -122,6 +122,7 @@ router.post("/clients/:clientId/workout-logs/:logId/sets", async (req, res) => {
       reps: body.reps,
       weight: body.weight != null ? String(body.weight) : null,
       weightUnit: body.weightUnit ?? null,
+      rpe: body.rpe ?? null,
       notes: body.notes ?? null,
     }).returning();
     res.status(201).json({

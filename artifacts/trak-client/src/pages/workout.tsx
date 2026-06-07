@@ -317,7 +317,7 @@ export function WorkoutPage() {
         reps: parseInt(s.reps) || parseInt(s.targetReps) || 0,
         weight: s.weight ? parseFloat(s.weight) : undefined,
         weightUnit: s.weight ? "lbs" : undefined,
-        notes: `RPE: ${rpe}`,
+        rpe,
       }
     });
 

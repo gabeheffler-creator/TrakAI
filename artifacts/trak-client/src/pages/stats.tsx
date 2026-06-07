@@ -12,6 +12,7 @@ interface SetEntry {
   reps: number;
   weight: number | null;
   weightUnit: string | null;
+  rpe?: number | null;
 }
 
 interface WorkoutLogWithSets {
@@ -32,14 +33,16 @@ export function StatsPage() {
   const allLogs = (logs ?? []) as WorkoutLogWithSets[];
 
   // ── Personal Records ────────────────────────────────────────────────────────
-  // For each exercise, find the heaviest single set weight ever lifted
-  const prMap: Record<string, { weight: number; unit: string; date: string; reps: number }> = {};
+  // Only count sets at RPE 7-8 (hard but not max effort). RPE null = old data, count it.
+  const isValidPrRpe = (rpe: number | null | undefined) => rpe == null || (rpe >= 7 && rpe <= 8);
+  const prMap: Record<string, { weight: number; unit: string; date: string; reps: number; rpe?: number | null }> = {};
   for (const log of allLogs) {
     for (const s of log.sets ?? []) {
       if (s.weight == null) continue;
+      if (!isValidPrRpe(s.rpe)) continue;
       const existing = prMap[s.exerciseName];
       if (!existing || s.weight > existing.weight) {
-        prMap[s.exerciseName] = { weight: s.weight, unit: s.weightUnit ?? "lbs", date: log.date, reps: s.reps };
+        prMap[s.exerciseName] = { weight: s.weight, unit: s.weightUnit ?? "lbs", date: log.date, reps: s.reps, rpe: s.rpe };
       }
     }
   }

@@ -358,6 +358,8 @@ export interface SetLog {
   /** @nullable */
   weightUnit?: SetLogWeightUnit;
   /** @nullable */
+  rpe?: number | null;
+  /** @nullable */
   notes?: string | null;
 }
 
@@ -392,6 +394,36 @@ export interface SetLogInput {
   reps: number;
   weight?: number;
   weightUnit?: SetLogInputWeightUnit;
+  rpe?: number;
+  notes?: string;
+}
+
+export interface CoachNote {
+  id: number;
+  clientId: number;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CoachNoteInput {
+  content: string;
+}
+
+export interface CallLog {
+  id: number;
+  clientId: number;
+  date: string;
+  /** @nullable */
+  durationMinutes?: number | null;
+  /** @nullable */
+  notes?: string | null;
+  createdAt: string;
+}
+
+export interface CallLogInput {
+  date: string;
+  durationMinutes?: number;
   notes?: string;
 }
 
