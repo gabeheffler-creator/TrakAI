@@ -3,6 +3,7 @@ import { Home, Dumbbell, Ruler, Moon, UtensilsCrossed, Camera, ClipboardList, Me
 import { cn } from "@/lib/utils";
 import { useClientId } from "@/hooks/use-client-id";
 import { useDarkMode } from "@/hooks/use-dark-mode";
+import { TrakLogo } from "@/components/trak-logo";
 
 const navigation = [
   { name: "Home", href: "/", icon: Home },
@@ -36,7 +37,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <div className="flex-1 flex flex-col min-h-0 bg-sidebar border-r border-sidebar-border">
           <div className="flex-1 flex flex-col pt-6 pb-4 overflow-y-auto">
             <div className="flex items-center flex-shrink-0 px-4 mb-6">
-              <span className="text-lg font-black text-violet-600">Trak Client</span>
+              <TrakLogo />
             </div>
             <nav className="flex-1 px-3 space-y-1">
               {navigation.map((item) => {
