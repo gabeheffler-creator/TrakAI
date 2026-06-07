@@ -16,11 +16,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle, ChevronRight, Dumbbell, X, Trophy, ArrowRight, RefreshCw, Upload, FolderOpen, ImageIcon, Volume2 } from "lucide-react";
+import { CheckCircle, ChevronRight, Dumbbell, X, Trophy, ArrowRight, RefreshCw, Upload, FolderOpen, ImageIcon } from "lucide-react";
 import { useLocation, Link } from "wouter";
 import { cn } from "@/lib/utils";
 import type { Exercise } from "@workspace/api-client-react";
-import { SoundSettingsSheet, playRingSetting, playConfirmSetting } from "@/components/sound-settings-sheet";
 
 type Mode = "select" | "checkin" | "overview" | "active" | "upload" | "done";
 
@@ -55,6 +54,44 @@ function ProgressBar({ value, total }: { value: number; total: number }) {
   );
 }
 
+function playRing() {
+  try {
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(1760, ctx.currentTime);
+    gain.gain.setValueAtTime(0.45, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.4);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 1.4);
+    osc.onended = () => ctx.close();
+  } catch {}
+}
+
+function playConfirm() {
+  try {
+    const ctx = new AudioContext();
+    const t = ctx.currentTime;
+    const mk = (freq: number, start: number, vol: number) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, start);
+      gain.gain.setValueAtTime(vol, start);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.9);
+      osc.start(start);
+      osc.stop(start + 0.9);
+    };
+    mk(1760, t,        0.28);
+    mk(1319, t + 0.18, 0.24);
+    setTimeout(() => ctx.close(), 1200);
+  } catch {}
+}
 
 function RpeBottomSheet({ open, onSelect, onCancel }: { open: boolean; onSelect: (rpe: number) => void; onCancel: () => void }) {
   return (
@@ -234,7 +271,6 @@ export function WorkoutPage() {
   const [sets, setSets] = useState<SetState[][]>([]);
   const [rpeModal, setRpeModal] = useState<RpeModal | null>(null);
   const [rpeSheetOpen, setRpeSheetOpen] = useState(false);
-  const [soundSettingsOpen, setSoundSettingsOpen] = useState(false);
   const [swapModal, setSwapModal] = useState(false);
   const [swappedExercises, setSwappedExercises] = useState<Record<number, { exerciseName: string; muscleGroup: string; exerciseId: number }>>({});
 
@@ -330,7 +366,7 @@ export function WorkoutPage() {
   const handleCheckSet = (setIdx: number) => {
     const s = currentSets[setIdx];
     if (!s || s.logged) return;
-    playRingSetting();
+    playRing();
     setRpeModal({ exIdx: currentExIdx, setIdx });
   };
 
@@ -364,7 +400,7 @@ export function WorkoutPage() {
   };
 
   const handleRpeConfirm = (rpe: number) => {
-    playConfirmSetting();
+    playConfirm();
     closeRpeSheet(() => handleRpeSelect(rpe));
   };
 
@@ -577,7 +613,6 @@ export function WorkoutPage() {
     return (
       <>
         <RpeBottomSheet open={rpeSheetOpen} onSelect={handleRpeConfirm} onCancel={() => closeRpeSheet()} />
-        <SoundSettingsSheet open={soundSettingsOpen} onClose={() => setSoundSettingsOpen(false)} />
         {swapModal && (
           <SwapModal
             currentExercise={{ exerciseName: currentEx.exerciseName, muscleGroup: currentEx.muscleGroup }}
@@ -598,13 +633,7 @@ export function WorkoutPage() {
                 <X className="w-4 h-4" /> Exit
               </button>
               <span className="text-xs text-muted-foreground font-medium">{selectedDay?.name}</span>
-              <button
-                onClick={() => setSoundSettingsOpen(true)}
-                className="w-16 flex justify-end text-muted-foreground hover:text-foreground transition-colors"
-                aria-label="Sound settings"
-              >
-                <Volume2 className="w-5 h-5" />
-              </button>
+              <div className="w-16" />
             </div>
             <ProgressBar value={currentExIdx} total={exercises.length} />
           </div>
