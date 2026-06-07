@@ -20,6 +20,7 @@ export const measurementsTable = pgTable("measurements", {
   rightThigh: numeric("right_thigh"),
   leftCalf: numeric("left_calf"),
   rightCalf: numeric("right_calf"),
+  bodyFat: numeric("body_fat"),
   unit: text("unit").notNull().default("imperial"),
   notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

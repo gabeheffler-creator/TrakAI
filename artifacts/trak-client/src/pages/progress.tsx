@@ -44,32 +44,56 @@ function weeklyRate(points: { date: string; value: number }[]): number | null {
   return (n * sumXY - sumX * sumY) / denom;
 }
 
-/** Bucket points by ISO week (Mon start), keep last value per week, return week-over-week deltas. */
+/** Week-over-week deltas: bucket by ISO week (Mon), keep last value per week. */
 function weeklyDeltas(points: { date: string; value: number }[]): { week: string; delta: number }[] {
   if (points.length < 2) return [];
-  // group by week start
   const byWeek: Record<string, number> = {};
   for (const p of points) {
     const ws = format(startOfWeek(parseISO(p.date), { weekStartsOn: 1 }), "yyyy-MM-dd");
-    byWeek[ws] = p.value; // last value in the week wins
+    byWeek[ws] = p.value;
   }
   const weeks = Object.keys(byWeek).sort();
-  const deltas: { week: string; delta: number }[] = [];
-  for (let i = 1; i < weeks.length; i++) {
-    deltas.push({
-      week: format(parseISO(weeks[i]), "MMM d"),
-      delta: Number((byWeek[weeks[i]] - byWeek[weeks[i - 1]]).toFixed(2)),
-    });
-  }
-  return deltas;
+  return weeks.slice(1).map((w, i) => ({
+    week: format(parseISO(w), "MMM d"),
+    delta: Number((byWeek[w] - byWeek[weeks[i]]).toFixed(2)),
+  }));
 }
 
-/** Delta vs the closest measurement ~7+ days before the most recent one. */
+/**
+ * Rolling 7-day net change: for each data point, find the nearest prior point
+ * at least 5 days back and compute the delta. Returns a time series.
+ */
+function rolling7dDeltas(points: { date: string; value: number }[]): { date: string; delta: number }[] {
+  if (points.length < 2) return [];
+  const result: { date: string; delta: number }[] = [];
+  for (let i = 1; i < points.length; i++) {
+    const cur = points[i];
+    const curTime = new Date(cur.date).getTime();
+    const cutoff = curTime - 5 * 24 * 60 * 60 * 1000;
+    // find closest prior point that is at least 5 days back
+    let best: { date: string; value: number } | null = null;
+    for (let j = i - 1; j >= 0; j--) {
+      if (new Date(points[j].date).getTime() <= cutoff) {
+        best = points[j];
+        break;
+      }
+    }
+    if (best) {
+      result.push({
+        date: format(parseISO(cur.date), "MMM d"),
+        delta: Number((cur.value - best.value).toFixed(2)),
+      });
+    }
+  }
+  return result;
+}
+
+/** Delta vs the closest measurement ~7 days before the most recent. */
 function lastWeekDelta(points: { date: string; value: number }[]): number | null {
   if (points.length < 2) return null;
   const last = points[points.length - 1];
   const lastTime = new Date(last.date).getTime();
-  const cutoff = lastTime - 6 * 24 * 60 * 60 * 1000; // at least 6 days back
+  const cutoff = lastTime - 5 * 24 * 60 * 60 * 1000;
   const prior = [...points].reverse().find(p => new Date(p.date).getTime() <= cutoff);
   if (!prior) return null;
   return Number((last.value - prior.value).toFixed(2));
@@ -81,17 +105,15 @@ function RateChip({
   rate,
   unit,
   lowerIsBetter = false,
-  label = "/wk avg",
 }: {
   rate: number | null;
   unit: string;
   lowerIsBetter?: boolean;
-  label?: string;
 }) {
   if (rate == null || Math.abs(rate) < 0.001) {
     return (
       <span className="inline-flex items-center gap-0.5 text-xs text-muted-foreground">
-        <Minus className="w-3 h-3" /> stable {label}
+        <Minus className="w-3 h-3" /> stable avg
       </span>
     );
   }
@@ -102,7 +124,7 @@ function RateChip({
   return (
     <span className={`inline-flex items-center gap-0.5 text-xs font-medium ${color}`}>
       {positive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-      {sign}{rate.toFixed(2)} {unit}{label}
+      {sign}{rate.toFixed(2)} {unit}/wk avg
     </span>
   );
 }
@@ -148,7 +170,7 @@ function MiniLineChart({
   unit?: string;
 }) {
   return (
-    <div className="h-32 w-full">
+    <div className="h-28 w-full">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
@@ -191,26 +213,26 @@ function MiniLineChart({
   );
 }
 
-function WeeklyDeltaChart({
+function DeltaHistoryChart({
   deltas,
   unit,
   lowerIsBetter = false,
 }: {
-  deltas: { week: string; delta: number }[];
+  deltas: { date: string; delta: number }[];
   unit: string;
   lowerIsBetter?: boolean;
 }) {
   if (deltas.length === 0) return null;
   return (
-    <div className="mt-2">
-      <p className="text-[10px] text-muted-foreground mb-1 px-1">Week-over-week change ({unit})</p>
+    <div className="mt-2 border-t border-border/50 pt-2">
+      <p className="text-[10px] text-muted-foreground mb-1 px-1">Net change vs. prior ~7 days ({unit})</p>
       <div className="h-20 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={deltas} margin={{ top: 2, right: 8, left: -20, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
-            <XAxis dataKey="week" tick={{ fontSize: 9, fill: "var(--color-muted-foreground)" }} />
+            <XAxis dataKey="date" tick={{ fontSize: 9, fill: "var(--color-muted-foreground)" }} />
             <YAxis tick={{ fontSize: 9, fill: "var(--color-muted-foreground)" }} width={38} />
-            <ReferenceLine y={0} stroke="var(--color-border)" strokeWidth={1} />
+            <ReferenceLine y={0} stroke="hsl(var(--border))" strokeWidth={1.5} />
             <Tooltip
               contentStyle={{
                 background: "var(--color-card)",
@@ -220,7 +242,7 @@ function WeeklyDeltaChart({
               }}
               formatter={(val: number) => {
                 const sign = val > 0 ? "+" : "";
-                return [`${sign}${val} ${unit}`, "Change"];
+                return [`${sign}${val} ${unit}`, "7d change"];
               }}
             />
             <Bar dataKey="delta" radius={[3, 3, 0, 0]}>
@@ -284,6 +306,7 @@ const MEASUREMENT_CHARTS: {
   lowerIsBetter?: boolean;
 }[] = [
   { key: "weight",      label: "Body Weight",  color: "hsl(271,70%,56%)", unit: "lbs", lowerIsBetter: true },
+  { key: "body_fat",    label: "Body Fat %",   color: "hsl(15,85%,55%)",  unit: "%",   lowerIsBetter: true },
   { key: "chest",       label: "Chest",        color: "hsl(340,75%,55%)", unit: "in" },
   { key: "waist",       label: "Waist",        color: "hsl(200,70%,50%)", unit: "in",  lowerIsBetter: true },
   { key: "hips",        label: "Hips",         color: "hsl(38,92%,50%)",  unit: "in",  lowerIsBetter: true },
@@ -328,6 +351,7 @@ export function ProgressPage() {
   const measurementData: ChartData[] = sorted.map(m => ({
     date: m.date,
     weight:       m.weight      != null ? Number(m.weight)      : null,
+    body_fat:     m.bodyFat     != null ? Number(m.bodyFat)     : null,
     chest:        m.chest       != null ? Number(m.chest)       : null,
     waist:        m.waist       != null ? Number(m.waist)       : null,
     hips:         m.hips        != null ? Number(m.hips)        : null,
@@ -343,7 +367,6 @@ export function ProgressPage() {
   const sleepData: ChartData[] = sortedSleep.map(s => ({ date: s.date, hours: s.hoursSlept }));
   const sleepPoints = sortedSleep.map(s => ({ date: s.date, value: Number(s.hoursSlept) }));
 
-  // Workout frequency per week
   const sortedWorkouts = (workoutLogs ?? []).slice().sort((a, b) => a.date.localeCompare(b.date));
   const workoutRate = (() => {
     if (sortedWorkouts.length < 2) return null;
@@ -414,7 +437,7 @@ export function ProgressPage() {
               const diff = lastVal - firstVal;
               const rate = weeklyRate(points);
               const lwDelta = lastWeekDelta(points);
-              const deltas = weeklyDeltas(points);
+              const deltas = rolling7dDeltas(points);
 
               return (
                 <Card key={key}>
@@ -443,8 +466,10 @@ export function ProgressPage() {
                     </div>
                   </CardHeader>
                   <CardContent className="pt-2 pb-3 px-2">
+                    {/* Value over time */}
                     <MiniLineChart data={measurementData} dataKey={key} color={color} unit={unit} />
-                    <WeeklyDeltaChart deltas={deltas} unit={unit} lowerIsBetter={lowerIsBetter} />
+                    {/* Rolling 7-day net change history */}
+                    <DeltaHistoryChart deltas={deltas} unit={unit} lowerIsBetter={lowerIsBetter} />
                   </CardContent>
                 </Card>
               );
@@ -473,7 +498,7 @@ export function ProgressPage() {
             </CardHeader>
             <CardContent className="pt-2 pb-3 px-2">
               <MiniLineChart data={sleepData} dataKey="hours" color="hsl(200,70%,50%)" unit="hrs" />
-              <WeeklyDeltaChart deltas={weeklyDeltas(sleepPoints)} unit="hrs" lowerIsBetter={false} />
+              <DeltaHistoryChart deltas={rolling7dDeltas(sleepPoints)} unit="hrs" lowerIsBetter={false} />
             </CardContent>
           </Card>
         </div>

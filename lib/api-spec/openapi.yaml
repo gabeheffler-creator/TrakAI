@@ -1656,6 +1656,8 @@ components:
           type: ["number", "null"]
         rightCalf:
           type: ["number", "null"]
+        bodyFat:
+          type: ["number", "null"]
         unit:
           type: string
           enum: [imperial, metric]
@@ -1697,6 +1699,8 @@ components:
         leftCalf:
           type: number
         rightCalf:
+          type: number
+        bodyFat:
           type: number
         unit:
           type: string

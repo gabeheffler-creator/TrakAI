@@ -154,6 +154,8 @@ export interface Measurement {
   leftCalf?: number | null;
   /** @nullable */
   rightCalf?: number | null;
+  /** @nullable */
+  bodyFat?: number | null;
   unit?: MeasurementUnit;
   /** @nullable */
   notes?: string | null;
@@ -416,6 +418,7 @@ export interface MeasurementInput {
   rightThigh?: number;
   leftCalf?: number;
   rightCalf?: number;
+  bodyFat?: number;
   unit?: MeasurementInputUnit;
   notes?: string;
 }

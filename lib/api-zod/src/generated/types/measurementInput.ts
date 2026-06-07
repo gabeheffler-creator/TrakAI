@@ -22,6 +22,7 @@ export interface MeasurementInput {
   rightThigh?: number;
   leftCalf?: number;
   rightCalf?: number;
+  bodyFat?: number;
   unit?: MeasurementInputUnit;
   notes?: string;
 }

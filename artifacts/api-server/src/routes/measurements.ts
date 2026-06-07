@@ -32,6 +32,7 @@ router.get("/clients/:clientId/measurements", async (req, res) => {
       rightThigh: m.rightThigh ? Number(m.rightThigh) : null,
       leftCalf: m.leftCalf ? Number(m.leftCalf) : null,
       rightCalf: m.rightCalf ? Number(m.rightCalf) : null,
+      bodyFat: m.bodyFat ? Number(m.bodyFat) : null,
       createdAt: m.createdAt.toISOString(),
     })));
   } catch (err) {
@@ -60,6 +61,7 @@ router.post("/clients/:clientId/measurements", async (req, res) => {
       rightThigh: body.rightThigh != null ? String(body.rightThigh) : null,
       leftCalf: body.leftCalf != null ? String(body.leftCalf) : null,
       rightCalf: body.rightCalf != null ? String(body.rightCalf) : null,
+      bodyFat: body.bodyFat != null ? String(body.bodyFat) : null,
       unit: body.unit ?? "imperial",
       notes: body.notes ?? null,
     }).returning();
@@ -78,6 +80,7 @@ router.post("/clients/:clientId/measurements", async (req, res) => {
       rightThigh: m.rightThigh ? Number(m.rightThigh) : null,
       leftCalf: m.leftCalf ? Number(m.leftCalf) : null,
       rightCalf: m.rightCalf ? Number(m.rightCalf) : null,
+      bodyFat: m.bodyFat ? Number(m.bodyFat) : null,
       createdAt: m.createdAt.toISOString(),
     });
   } catch (err) {

@@ -211,6 +211,7 @@ export const GetClientDashboardResponse = zod.object({
   "rightThigh": zod.number().nullish(),
   "leftCalf": zod.number().nullish(),
   "rightCalf": zod.number().nullish(),
+  "bodyFat": zod.number().nullish(),
   "unit": zod.enum(['imperial', 'metric']).optional(),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date()
@@ -605,6 +606,7 @@ export const ListMeasurementsResponseItem = zod.object({
   "rightThigh": zod.number().nullish(),
   "leftCalf": zod.number().nullish(),
   "rightCalf": zod.number().nullish(),
+  "bodyFat": zod.number().nullish(),
   "unit": zod.enum(['imperial', 'metric']).optional(),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date()
@@ -634,6 +636,7 @@ export const LogMeasurementBody = zod.object({
   "rightThigh": zod.number().optional(),
   "leftCalf": zod.number().optional(),
   "rightCalf": zod.number().optional(),
+  "bodyFat": zod.number().optional(),
   "unit": zod.enum(['imperial', 'metric']).optional(),
   "notes": zod.string().optional()
 })
