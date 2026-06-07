@@ -194,9 +194,9 @@ export function NutritionPage() {
 
   const [diarySlot, setDiarySlot] = useState<MealSlot>(makeSlot("MFP Diary Overview"));
   const [mealSlots, setMealSlots] = useState<MealSlot[]>([
-    makeSlot("Breakfast"),
-    makeSlot("Lunch"),
-    makeSlot("Dinner"),
+    makeSlot("Meal 1"),
+    makeSlot("Meal 2"),
+    makeSlot("Meal 3"),
   ]);
   const [aiResults, setAiResults] = useState<Record<string, AiResult>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -332,7 +332,7 @@ export function NutritionPage() {
     setSubmitting(false);
     toast({ title: "Nutrition logged for today!" });
     setDiarySlot(makeSlot("MFP Diary Overview"));
-    setMealSlots([makeSlot("Breakfast"), makeSlot("Lunch"), makeSlot("Dinner")]);
+    setMealSlots([makeSlot("Meal 1"), makeSlot("Meal 2"), makeSlot("Meal 3")]);
     setAiResults({});
   };
 
