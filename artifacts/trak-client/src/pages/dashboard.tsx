@@ -24,7 +24,7 @@ export function Dashboard() {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="text-center space-y-4">
-          <div className="text-4xl font-black text-primary">tRak</div>
+          <div className="text-4xl font-black text-primary">TrakAI</div>
           <p className="text-muted-foreground">You need an invite link from your coach to get started.</p>
         </div>
       </div>
