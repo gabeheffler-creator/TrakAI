@@ -62,12 +62,11 @@ function playRing() {
     osc.connect(gain);
     gain.connect(ctx.destination);
     osc.type = "sine";
-    osc.frequency.setValueAtTime(1047, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(784, ctx.currentTime + 0.18);
-    gain.gain.setValueAtTime(0.38, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.65);
+    osc.frequency.setValueAtTime(1760, ctx.currentTime); // A6 — bright ding
+    gain.gain.setValueAtTime(0.45, ctx.currentTime);     // instant full attack
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.4); // slow ring-out
     osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + 0.65);
+    osc.stop(ctx.currentTime + 1.4);
     osc.onended = () => ctx.close();
   } catch { /* silently ignore if audio not supported */ }
 }
@@ -80,12 +79,11 @@ function playConfirm() {
     osc.connect(gain);
     gain.connect(ctx.destination);
     osc.type = "sine";
-    osc.frequency.setValueAtTime(659, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(523, ctx.currentTime + 0.18);
-    gain.gain.setValueAtTime(0.18, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+    osc.frequency.setValueAtTime(1318, ctx.currentTime); // E6 — softer ding
+    gain.gain.setValueAtTime(0.28, ctx.currentTime);     // instant full attack
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.9); // medium ring-out
     osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + 0.35);
+    osc.stop(ctx.currentTime + 0.9);
     osc.onended = () => ctx.close();
   } catch { /* silently ignore if audio not supported */ }
 }
