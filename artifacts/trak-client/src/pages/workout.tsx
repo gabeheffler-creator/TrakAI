@@ -93,6 +93,28 @@ function playConfirm() {
   } catch {}
 }
 
+function playWorkoutComplete() {
+  try {
+    const ctx = new AudioContext();
+    const t = ctx.currentTime;
+    const bell = (fundamental: number, partial: number, start: number) => {
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc1.connect(gain); osc2.connect(gain); gain.connect(ctx.destination);
+      osc1.type = "sine"; osc1.frequency.value = fundamental;
+      osc2.type = "sine"; osc2.frequency.value = partial;
+      gain.gain.setValueAtTime(0.28, start);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 1.8);
+      osc1.start(start); osc1.stop(start + 2);
+      osc2.start(start); osc2.stop(start + 2);
+    };
+    bell(880, 1108, t);
+    bell(988, 1244, t + 0.35);
+    setTimeout(() => ctx.close(), 2500);
+  } catch {}
+}
+
 function RpeBottomSheet({ open, onSelect, onCancel }: { open: boolean; onSelect: (rpe: number) => void; onCancel: () => void }) {
   return (
     <>
@@ -459,7 +481,7 @@ export function WorkoutPage() {
   // ── VIDEO UPLOAD SCREEN ──────────────────────────────────────────────────
   if (mode === "upload") {
     return (
-      <VideoUploadSheet onSkip={() => setMode("done")} />
+      <VideoUploadSheet onSkip={() => { playWorkoutComplete(); setMode("done"); }} />
     );
   }
 
