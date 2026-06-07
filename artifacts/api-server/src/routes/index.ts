@@ -15,6 +15,7 @@ import uploadRouter from "./upload";
 import nutritionExtractRouter from "./nutrition_extract";
 import coachNotesRouter from "./coach_notes";
 import callLogsRouter from "./call_logs";
+import videoCallRouter from "./video_call";
 
 const router: IRouter = Router();
 
@@ -34,5 +35,6 @@ router.use(uploadRouter);
 router.use(nutritionExtractRouter);
 router.use(coachNotesRouter);
 router.use(callLogsRouter);
+router.use(videoCallRouter);
 
 export default router;

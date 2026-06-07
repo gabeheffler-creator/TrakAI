@@ -429,6 +429,16 @@ export function ClientProfile() {
   // Video call state
   const [videoCallOpen, setVideoCallOpen] = useState(false);
 
+  const handleStartVideoCall = async () => {
+    try { await fetch(`/api/clients/${clientId}/video-call/start`, { method: "POST" }); } catch { /* ignore */ }
+    setVideoCallOpen(true);
+  };
+
+  const handleEndVideoCall = async () => {
+    try { await fetch(`/api/clients/${clientId}/video-call/end`, { method: "POST" }); } catch { /* ignore */ }
+    setVideoCallOpen(false);
+  };
+
   const handleCreateNote = () => {
     if (!noteContent.trim()) return;
     createNote.mutate({ clientId, data: { content: noteContent.trim() } }, {
@@ -545,7 +555,7 @@ export function ClientProfile() {
         <VideoCall
           roomName={videoRoomName}
           displayName="Coach"
-          onClose={() => setVideoCallOpen(false)}
+          onClose={handleEndVideoCall}
         />
       )}
 
@@ -557,7 +567,7 @@ export function ClientProfile() {
           <h1 className="text-2xl font-bold">{client.name}</h1>
           <p className="text-muted-foreground text-sm">{client.email}{client.phone ? ` · ${client.phone}` : ""}</p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => setVideoCallOpen(true)}>
+        <Button variant="outline" size="sm" onClick={handleStartVideoCall}>
           <Video className="w-4 h-4 mr-2" /> Video Call
         </Button>
         <Button variant="outline" size="sm" onClick={handleCopyInvite} data-testid="button-copy-invite">

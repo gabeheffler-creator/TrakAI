@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useClientId } from "@/hooks/use-client-id";
 import { useUnitSystem } from "@/hooks/use-unit-system";
+import { useVideoCallStatus } from "@/hooks/use-video-call-status";
 import { VideoCall } from "@/components/video-call";
 import { useGetClientDashboard, getGetClientDashboardQueryKey } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +15,7 @@ export function Dashboard() {
   const { clientId } = useClientId();
   const { units, setUnits, weightLabel } = useUnitSystem();
   const [videoCallOpen, setVideoCallOpen] = useState(false);
+  const callActive = useVideoCallStatus(clientId);
   const { data: dashboard, isLoading } = useGetClientDashboard(clientId!, {
     query: { enabled: !!clientId, queryKey: getGetClientDashboardQueryKey(clientId!) }
   });
@@ -47,7 +49,22 @@ export function Dashboard() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-sm text-muted-foreground">Good work,</p>
-          <h1 className="text-2xl font-bold">{client?.name ?? "Athlete"}</h1>
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="text-2xl font-bold">{client?.name ?? "Athlete"}</h1>
+            {callActive && (
+              <button
+                onClick={() => setVideoCallOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500 hover:bg-emerald-400 text-white text-sm font-medium transition-colors"
+              >
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
+                </span>
+                <Video className="w-3.5 h-3.5" />
+                Join Video Call
+              </button>
+            )}
+          </div>
           {client?.goal && <p className="text-sm text-muted-foreground mt-1">{client.goal}</p>}
         </div>
         <Select value={units} onValueChange={v => setUnits(v as "imperial" | "metric")}>
