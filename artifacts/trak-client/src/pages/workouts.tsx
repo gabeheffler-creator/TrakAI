@@ -6,9 +6,21 @@ import { Button } from "@/components/ui/button";
 import { Dumbbell, ChevronLeft, ChevronDown, ChevronUp } from "lucide-react";
 import { Link } from "wouter";
 import { useState } from "react";
+import { useUnitSystem } from "@/hooks/use-unit-system";
+
+function convertWeight(value: number, storedUnit: string, targetSystem: "imperial" | "metric"): { value: number; unit: string } {
+  if (targetSystem === "metric" && storedUnit === "lbs") {
+    return { value: Math.round(value * 0.453592 * 10) / 10, unit: "kg" };
+  }
+  if (targetSystem === "imperial" && storedUnit === "kg") {
+    return { value: Math.round(value * 2.20462 * 10) / 10, unit: "lbs" };
+  }
+  return { value, unit: storedUnit };
+}
 
 export function WorkoutsPage() {
   const { clientId } = useClientId();
+  const { units: unitSystem } = useUnitSystem();
   const { data: logs, isLoading } = useListWorkoutLogs(clientId!, {
     query: { enabled: !!clientId, queryKey: getListWorkoutLogsQueryKey(clientId!) }
   });
@@ -82,9 +94,10 @@ export function WorkoutsPage() {
                             <div key={s.setNumber} className="flex items-center gap-3 text-xs text-muted-foreground">
                               <span className="w-12 text-right font-mono">Set {s.setNumber}</span>
                               <span>{s.reps} reps</span>
-                              {s.weight != null && (
-                                <span className="font-medium text-foreground">{s.weight} {s.weightUnit ?? "lbs"}</span>
-                              )}
+                              {s.weight != null && (() => {
+                                const converted = convertWeight(s.weight, s.weightUnit ?? "lbs", unitSystem);
+                                return <span className="font-medium text-foreground">{converted.value} {converted.unit}</span>;
+                              })()}
                             </div>
                           ))}
                         </div>
