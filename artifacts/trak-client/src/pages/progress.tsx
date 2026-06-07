@@ -10,24 +10,30 @@ import {
 import {
   LineChart,
   Line,
+  BarChart,
+  Bar,
+  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  ReferenceLine,
 } from "recharts";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { startOfWeek, format, parseISO } from "date-fns";
 
 type ChartData = { date: string; [key: string]: number | string | null };
 
-/** Linear-regression slope in units per week. Returns null if fewer than 2 points. */
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/** Linear-regression slope in units per week. Null if < 2 points. */
 function weeklyRate(points: { date: string; value: number }[]): number | null {
-  const valid = points.filter(p => p.value != null);
-  if (valid.length < 2) return null;
-  const t0 = new Date(valid[0].date).getTime();
-  const xs = valid.map(p => (new Date(p.date).getTime() - t0) / (1000 * 60 * 60 * 24 * 7));
-  const ys = valid.map(p => p.value);
+  if (points.length < 2) return null;
+  const t0 = new Date(points[0].date).getTime();
+  const xs = points.map(p => (new Date(p.date).getTime() - t0) / (1000 * 60 * 60 * 24 * 7));
+  const ys = points.map(p => p.value);
   const n = xs.length;
   const sumX = xs.reduce((a, b) => a + b, 0);
   const sumY = ys.reduce((a, b) => a + b, 0);
@@ -38,9 +44,56 @@ function weeklyRate(points: { date: string; value: number }[]): number | null {
   return (n * sumXY - sumX * sumY) / denom;
 }
 
-function RateChip({ rate, unit, lowerIsBetter = false }: { rate: number | null; unit: string; lowerIsBetter?: boolean }) {
+/** Bucket points by ISO week (Mon start), keep last value per week, return week-over-week deltas. */
+function weeklyDeltas(points: { date: string; value: number }[]): { week: string; delta: number }[] {
+  if (points.length < 2) return [];
+  // group by week start
+  const byWeek: Record<string, number> = {};
+  for (const p of points) {
+    const ws = format(startOfWeek(parseISO(p.date), { weekStartsOn: 1 }), "yyyy-MM-dd");
+    byWeek[ws] = p.value; // last value in the week wins
+  }
+  const weeks = Object.keys(byWeek).sort();
+  const deltas: { week: string; delta: number }[] = [];
+  for (let i = 1; i < weeks.length; i++) {
+    deltas.push({
+      week: format(parseISO(weeks[i]), "MMM d"),
+      delta: Number((byWeek[weeks[i]] - byWeek[weeks[i - 1]]).toFixed(2)),
+    });
+  }
+  return deltas;
+}
+
+/** Delta vs the closest measurement ~7+ days before the most recent one. */
+function lastWeekDelta(points: { date: string; value: number }[]): number | null {
+  if (points.length < 2) return null;
+  const last = points[points.length - 1];
+  const lastTime = new Date(last.date).getTime();
+  const cutoff = lastTime - 6 * 24 * 60 * 60 * 1000; // at least 6 days back
+  const prior = [...points].reverse().find(p => new Date(p.date).getTime() <= cutoff);
+  if (!prior) return null;
+  return Number((last.value - prior.value).toFixed(2));
+}
+
+// ─── Components ──────────────────────────────────────────────────────────────
+
+function RateChip({
+  rate,
+  unit,
+  lowerIsBetter = false,
+  label = "/wk avg",
+}: {
+  rate: number | null;
+  unit: string;
+  lowerIsBetter?: boolean;
+  label?: string;
+}) {
   if (rate == null || Math.abs(rate) < 0.001) {
-    return <span className="inline-flex items-center gap-0.5 text-xs text-muted-foreground"><Minus className="w-3 h-3" /> stable</span>;
+    return (
+      <span className="inline-flex items-center gap-0.5 text-xs text-muted-foreground">
+        <Minus className="w-3 h-3" /> stable {label}
+      </span>
+    );
   }
   const positive = rate > 0;
   const good = lowerIsBetter ? !positive : positive;
@@ -48,15 +101,42 @@ function RateChip({ rate, unit, lowerIsBetter = false }: { rate: number | null; 
   const sign = positive ? "+" : "";
   return (
     <span className={`inline-flex items-center gap-0.5 text-xs font-medium ${color}`}>
-      {positive
-        ? <TrendingUp className="w-3 h-3" />
-        : <TrendingDown className="w-3 h-3" />}
-      {sign}{rate.toFixed(2)} {unit}/wk
+      {positive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+      {sign}{rate.toFixed(2)} {unit}{label}
     </span>
   );
 }
 
-function MiniChart({
+function LastWeekChip({
+  delta,
+  unit,
+  lowerIsBetter = false,
+}: {
+  delta: number | null;
+  unit: string;
+  lowerIsBetter?: boolean;
+}) {
+  if (delta == null) return null;
+  if (Math.abs(delta) < 0.01) {
+    return (
+      <span className="inline-flex items-center gap-0.5 text-xs text-muted-foreground">
+        <Minus className="w-3 h-3" /> no change this week
+      </span>
+    );
+  }
+  const positive = delta > 0;
+  const good = lowerIsBetter ? !positive : positive;
+  const color = good ? "text-emerald-500" : "text-red-400";
+  const sign = positive ? "+" : "";
+  return (
+    <span className={`inline-flex items-center gap-0.5 text-xs font-medium ${color}`}>
+      {positive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+      {sign}{delta} {unit} this week
+    </span>
+  );
+}
+
+function MiniLineChart({
   data,
   dataKey,
   color,
@@ -68,7 +148,7 @@ function MiniChart({
   unit?: string;
 }) {
   return (
-    <div className="h-36 w-full">
+    <div className="h-32 w-full">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
@@ -111,6 +191,62 @@ function MiniChart({
   );
 }
 
+function WeeklyDeltaChart({
+  deltas,
+  unit,
+  lowerIsBetter = false,
+}: {
+  deltas: { week: string; delta: number }[];
+  unit: string;
+  lowerIsBetter?: boolean;
+}) {
+  if (deltas.length === 0) return null;
+  return (
+    <div className="mt-2">
+      <p className="text-[10px] text-muted-foreground mb-1 px-1">Week-over-week change ({unit})</p>
+      <div className="h-20 w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={deltas} margin={{ top: 2, right: 8, left: -20, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+            <XAxis dataKey="week" tick={{ fontSize: 9, fill: "var(--color-muted-foreground)" }} />
+            <YAxis tick={{ fontSize: 9, fill: "var(--color-muted-foreground)" }} width={38} />
+            <ReferenceLine y={0} stroke="var(--color-border)" strokeWidth={1} />
+            <Tooltip
+              contentStyle={{
+                background: "var(--color-card)",
+                border: "1px solid var(--color-border)",
+                borderRadius: 8,
+                fontSize: 11,
+              }}
+              formatter={(val: number) => {
+                const sign = val > 0 ? "+" : "";
+                return [`${sign}${val} ${unit}`, "Change"];
+              }}
+            />
+            <Bar dataKey="delta" radius={[3, 3, 0, 0]}>
+              {deltas.map((d, i) => {
+                const isGood = lowerIsBetter ? d.delta < 0 : d.delta > 0;
+                return (
+                  <Cell
+                    key={i}
+                    fill={
+                      Math.abs(d.delta) < 0.01
+                        ? "hsl(var(--muted-foreground))"
+                        : isGood
+                        ? "hsl(142,70%,45%)"
+                        : "hsl(0,72%,60%)"
+                    }
+                  />
+                );
+              })}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
 function StatCard({
   title,
   value,
@@ -138,6 +274,8 @@ function StatCard({
   );
 }
 
+// ─── Config ──────────────────────────────────────────────────────────────────
+
 const MEASUREMENT_CHARTS: {
   key: string;
   label: string;
@@ -157,17 +295,19 @@ const MEASUREMENT_CHARTS: {
   { key: "right_calf",  label: "Right Calf",   color: "hsl(260,50%,65%)", unit: "in" },
 ];
 
+// ─── Page ────────────────────────────────────────────────────────────────────
+
 export function ProgressPage() {
   const { clientId } = useClientId();
 
   const { data: measurements } = useListMeasurements(clientId!, {
-    query: { enabled: !!clientId, queryKey: getListMeasurementsQueryKey(clientId!) }
+    query: { enabled: !!clientId, queryKey: getListMeasurementsQueryKey(clientId!) },
   });
   const { data: workoutLogs } = useListWorkoutLogs(clientId!, {
-    query: { enabled: !!clientId, queryKey: getListWorkoutLogsQueryKey(clientId!) }
+    query: { enabled: !!clientId, queryKey: getListWorkoutLogsQueryKey(clientId!) },
   });
   const { data: sleepLogs } = useListSleepLogs(clientId!, {
-    query: { enabled: !!clientId, queryKey: getListSleepLogsQueryKey(clientId!) }
+    query: { enabled: !!clientId, queryKey: getListSleepLogsQueryKey(clientId!) },
   });
 
   if (!clientId) return <div className="p-4 text-muted-foreground">Please join via an invite link first.</div>;
@@ -176,15 +316,15 @@ export function ProgressPage() {
   const first = sorted[0];
   const last = sorted[sorted.length - 1];
 
-  const weightDelta = first?.weight != null && last?.weight != null
-    ? Number(last.weight) - Number(first.weight)
-    : null;
+  const weightDelta =
+    first?.weight != null && last?.weight != null
+      ? Number(last.weight) - Number(first.weight)
+      : null;
 
   const hasMeasurements = sorted.length > 0;
   const hasSleep = (sleepLogs ?? []).length > 0;
   const hasWorkouts = (workoutLogs ?? []).length > 0;
 
-  // Build chart data — one series per measurement type
   const measurementData: ChartData[] = sorted.map(m => ({
     date: m.date,
     weight:       m.weight      != null ? Number(m.weight)      : null,
@@ -201,8 +341,9 @@ export function ProgressPage() {
 
   const sortedSleep = (sleepLogs ?? []).slice().sort((a, b) => a.date.localeCompare(b.date));
   const sleepData: ChartData[] = sortedSleep.map(s => ({ date: s.date, hours: s.hoursSlept }));
+  const sleepPoints = sortedSleep.map(s => ({ date: s.date, value: Number(s.hoursSlept) }));
 
-  // Workouts per week rate
+  // Workout frequency per week
   const sortedWorkouts = (workoutLogs ?? []).slice().sort((a, b) => a.date.localeCompare(b.date));
   const workoutRate = (() => {
     if (sortedWorkouts.length < 2) return null;
@@ -212,8 +353,6 @@ export function ProgressPage() {
     if (weeks < 0.5) return null;
     return sortedWorkouts.length / weeks;
   })();
-
-  const sleepRate = weeklyRate(sortedSleep.map(s => ({ date: s.date, value: s.hoursSlept ?? 0 })));
 
   if (!hasMeasurements && !hasSleep && !hasWorkouts) {
     return (
@@ -265,30 +404,28 @@ export function ProgressPage() {
           <h2 className="text-base font-semibold mb-4">Body Measurements</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {MEASUREMENT_CHARTS.map(({ key, label, color, unit, lowerIsBetter }) => {
-              const hasData = measurementData.some(d => d[key] != null);
-              if (!hasData) return null;
+              const points = measurementData
+                .filter(d => d[key] != null)
+                .map(d => ({ date: d.date as string, value: d[key] as number }));
+              if (points.length === 0) return null;
 
-              const firstVal = measurementData.find(d => d[key] != null)?.[key] as number | null;
-              const lastVal = [...measurementData].reverse().find(d => d[key] != null)?.[key] as number | null;
-              const diff = firstVal != null && lastVal != null ? lastVal - firstVal : null;
-
-              const rate = weeklyRate(
-                measurementData
-                  .filter(d => d[key] != null)
-                  .map(d => ({ date: d.date as string, value: d[key] as number }))
-              );
+              const firstVal = points[0].value;
+              const lastVal = points[points.length - 1].value;
+              const diff = lastVal - firstVal;
+              const rate = weeklyRate(points);
+              const lwDelta = lastWeekDelta(points);
+              const deltas = weeklyDeltas(points);
 
               return (
                 <Card key={key}>
                   <CardHeader className="pb-0 pt-3 px-4">
+                    {/* Row 1: name + current value + total diff */}
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-sm font-semibold">{label}</CardTitle>
-                      <div className="text-right">
-                        {lastVal != null && (
-                          <span className="text-sm font-bold">{lastVal} {unit}</span>
-                        )}
-                        {diff != null && Math.abs(diff) > 0.05 && (
-                          <span className={`ml-2 text-xs font-medium ${
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="text-sm font-bold">{lastVal} {unit}</span>
+                        {Math.abs(diff) > 0.05 && (
+                          <span className={`text-xs font-medium ${
                             lowerIsBetter
                               ? diff < 0 ? "text-emerald-500" : "text-red-400"
                               : diff > 0 ? "text-emerald-500" : "text-red-400"
@@ -298,18 +435,16 @@ export function ProgressPage() {
                         )}
                       </div>
                     </div>
-                    {/* Rate of change row */}
-                    <div className="mt-0.5">
+                    {/* Row 2: trend avg + this-week delta */}
+                    <div className="flex items-center gap-3 mt-1 flex-wrap">
                       <RateChip rate={rate} unit={unit} lowerIsBetter={lowerIsBetter} />
+                      <span className="text-muted-foreground text-xs">·</span>
+                      <LastWeekChip delta={lwDelta} unit={unit} lowerIsBetter={lowerIsBetter} />
                     </div>
                   </CardHeader>
                   <CardContent className="pt-2 pb-3 px-2">
-                    <MiniChart
-                      data={measurementData}
-                      dataKey={key}
-                      color={color}
-                      unit={unit}
-                    />
+                    <MiniLineChart data={measurementData} dataKey={key} color={color} unit={unit} />
+                    <WeeklyDeltaChart deltas={deltas} unit={unit} lowerIsBetter={lowerIsBetter} />
                   </CardContent>
                 </Card>
               );
@@ -327,30 +462,29 @@ export function ProgressPage() {
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-semibold">Hours slept</CardTitle>
                 <span className="text-sm font-bold">
-                  {Number(sleepData[sleepData.length - 1]?.hours)?.toFixed(1)} hrs
+                  {Number(sleepData[sleepData.length - 1]?.hours).toFixed(1)} hrs
                 </span>
               </div>
-              <div className="mt-0.5">
-                <RateChip rate={sleepRate} unit="hrs" lowerIsBetter={false} />
+              <div className="flex items-center gap-3 mt-1 flex-wrap">
+                <RateChip rate={weeklyRate(sleepPoints)} unit="hrs" lowerIsBetter={false} />
+                <span className="text-muted-foreground text-xs">·</span>
+                <LastWeekChip delta={lastWeekDelta(sleepPoints)} unit="hrs" lowerIsBetter={false} />
               </div>
             </CardHeader>
             <CardContent className="pt-2 pb-3 px-2">
-              <MiniChart data={sleepData} dataKey="hours" color="hsl(200,70%,50%)" unit="hrs" />
+              <MiniLineChart data={sleepData} dataKey="hours" color="hsl(200,70%,50%)" unit="hrs" />
+              <WeeklyDeltaChart deltas={weeklyDeltas(sleepPoints)} unit="hrs" lowerIsBetter={false} />
             </CardContent>
           </Card>
         </div>
       )}
 
-      {/* Workout frequency */}
+      {/* Workouts */}
       {hasWorkouts && (
         <div>
           <h2 className="text-base font-semibold mb-3">Workouts</h2>
           <div className="grid grid-cols-2 gap-3">
-            <StatCard
-              title="Total Sessions"
-              value={workoutLogs?.length ?? 0}
-              sub="all time"
-            />
+            <StatCard title="Total Sessions" value={workoutLogs?.length ?? 0} sub="all time" />
             <Card>
               <CardContent className="pt-4 pb-4 text-center">
                 <p className="text-xs text-muted-foreground mb-1">Avg Frequency</p>
