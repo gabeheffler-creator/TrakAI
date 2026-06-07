@@ -89,8 +89,8 @@ function playConfirm() {
       osc.stop(startAt + duration);
     };
 
-    ding(1760, t,        0.9, 0.28); // high ding
-    ding(1175, t + 0.18, 0.9, 0.24); // lower ding follows
+    ding(1760, t,        0.9, 0.28); // high ding  — A6
+    ding(1319, t + 0.18, 0.9, 0.24); // lower ding — E6 (whole tone up from D6)
 
     setTimeout(() => ctx.close(), 1200);
   } catch { /* silently ignore if audio not supported */ }
