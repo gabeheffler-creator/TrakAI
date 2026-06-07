@@ -68,7 +68,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <div className="h-full flex flex-col bg-sidebar border-r border-sidebar-border">
             <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
               <div className="flex items-center flex-shrink-0 px-4">
-                <span className="text-xl font-black tracking-tight text-primary">TrakAI Coach</span>
+                <span className="text-xl font-black tracking-tight text-primary">Trak Coach</span>
               </div>
               <nav className="mt-8 flex-1 px-2 space-y-1">
                 <NavLinks />
@@ -86,7 +86,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <div className="flex-1 flex flex-col min-h-0 bg-sidebar border-r border-sidebar-border">
           <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
             <div className="flex items-center flex-shrink-0 px-4">
-              <span className="text-xl font-black tracking-tight text-primary">TrakAI Coach</span>
+              <span className="text-xl font-black tracking-tight text-primary">Trak Coach</span>
             </div>
             <nav className="mt-8 flex-1 px-2 space-y-2">
               <NavLinks />
