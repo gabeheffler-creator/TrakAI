@@ -236,6 +236,21 @@ export function WorkoutPage() {
 
   const today = new Date().toISOString().split("T")[0];
   const days = program?.days ?? [];
+
+  // Auto-select today's day based on program start date + day cycle
+  const todayAutoIdx = (() => {
+    if (!assignment?.startDate || days.length === 0) return 0;
+    const start = new Date(assignment.startDate);
+    const now = new Date(today);
+    const diff = Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    return ((diff % days.length) + days.length) % days.length;
+  })();
+
+  useEffect(() => {
+    if (!assignment?.startDate || days.length === 0) return;
+    setSelectedDayIdx(todayAutoIdx);
+  }, [assignment?.startDate, days.length, todayAutoIdx]);
+
   const selectedDay = days[selectedDayIdx];
   const baseExercises = selectedDay?.exercises ?? [];
 
@@ -690,6 +705,7 @@ export function WorkoutPage() {
       <div className="space-y-3">
         {days.map((d, i) => {
           const isSelected = selectedDayIdx === i;
+          const isToday = i === todayAutoIdx;
           return (
             <button
               key={d.id}
@@ -702,12 +718,21 @@ export function WorkoutPage() {
               )}
             >
               <div className="flex items-start justify-between">
-                <div>
-                  <p className="font-semibold">{d.name}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Day {d.dayNumber}</p>
+                <div className="flex items-center gap-2">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold">{d.name}</p>
+                      {isToday && (
+                        <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground">
+                          Today
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">Day {d.dayNumber}</p>
+                  </div>
                 </div>
                 {isSelected && (
-                  <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center mt-0.5">
+                  <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center mt-0.5 flex-shrink-0">
                     <CheckCircle className="w-3.5 h-3.5 text-primary-foreground" />
                   </div>
                 )}

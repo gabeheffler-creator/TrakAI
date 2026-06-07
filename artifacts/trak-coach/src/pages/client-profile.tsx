@@ -16,6 +16,7 @@ import {
   useUpdateAssignment,
   useGenerateInviteLink,
   useGetClientProgramAssignment,
+  useGetProgram,
   useListPrograms,
   useAssignProgram,
   getGetClientQueryKey,
@@ -23,6 +24,7 @@ import {
   getListMessagesQueryKey,
   getGetClientDashboardQueryKey,
   getGetClientProgramAssignmentQueryKey,
+  getGetProgramQueryKey,
   getListWorkoutLogsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -40,7 +42,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import { Copy, Send, Plus, CheckCircle, Circle, Trash2, Link, ArrowLeft } from "lucide-react";
+import { Copy, Send, Plus, CheckCircle, Circle, Trash2, Link, ArrowLeft, ChevronDown, ChevronRight, Dumbbell } from "lucide-react";
 import { Link as WLink } from "wouter";
 import { format, parseISO } from "date-fns";
 
@@ -56,6 +58,54 @@ const assignProgramSchema = z.object({
   programId: z.coerce.number().min(1),
   startDate: z.string().min(1),
 });
+
+function ProgramDayCard({ day, dayNumber }: { day: { id: number; name: string; notes?: string | null; exercises: Array<{ id: number; exerciseName: string; muscleGroup: string; sets: number; reps: string; restSeconds?: number | null; weight?: string | null }> }; dayNumber: number }) {
+  const [open, setOpen] = useState(false);
+  const muscleGroups = [...new Set(day.exercises.map(e => e.muscleGroup))];
+  return (
+    <Card>
+      <button
+        className="w-full text-left"
+        onClick={() => setOpen(o => !o)}
+      >
+        <CardContent className="pt-4 pb-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-bold flex-shrink-0">
+                {dayNumber}
+              </div>
+              <div>
+                <p className="font-semibold text-sm">{day.name}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {day.exercises.length} exercises · {muscleGroups.slice(0, 3).join(", ")}
+                </p>
+              </div>
+            </div>
+            {open ? <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0" /> : <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />}
+          </div>
+        </CardContent>
+      </button>
+      {open && (
+        <div className="border-t border-border px-4 pb-4 pt-3 space-y-2">
+          {day.notes && <p className="text-xs text-muted-foreground mb-3 italic">{day.notes}</p>}
+          {day.exercises.map((ex, i) => (
+            <div key={ex.id} className="flex items-center gap-3 py-2 border-b border-border/50 last:border-0">
+              <span className="text-xs text-muted-foreground w-5 text-right flex-shrink-0">{i + 1}</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium">{ex.exerciseName}</p>
+                <p className="text-xs text-muted-foreground">{ex.muscleGroup}</p>
+              </div>
+              <div className="text-right flex-shrink-0">
+                <p className="text-sm font-semibold">{ex.sets}×{ex.reps}</p>
+                {ex.restSeconds && <p className="text-xs text-muted-foreground">{ex.restSeconds}s rest</p>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
 
 export function ClientProfile() {
   const { clientId: clientIdStr } = useParams<{ clientId: string }>();
@@ -76,6 +126,7 @@ export function ClientProfile() {
   const { data: assignments } = useListAssignments(clientId, { query: { enabled: !!clientId, queryKey: getListAssignmentsQueryKey(clientId) } });
   const { data: messages } = useListMessages(clientId, { query: { enabled: !!clientId, queryKey: getListMessagesQueryKey(clientId) } });
   const { data: programAssignment } = useGetClientProgramAssignment(clientId, { query: { enabled: !!clientId, queryKey: getGetClientProgramAssignmentQueryKey(clientId) } });
+  const { data: fullProgram } = useGetProgram(programAssignment?.programId ?? 0, { query: { enabled: !!programAssignment?.programId, queryKey: getGetProgramQueryKey(programAssignment?.programId ?? 0) } });
   const { data: programs } = useListPrograms();
 
   const sendMsg = useSendMessage();
@@ -181,6 +232,7 @@ export function ClientProfile() {
       <Tabs defaultValue="overview">
         <TabsList className="w-full md:w-auto flex-wrap h-auto gap-1">
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="program">Program</TabsTrigger>
           <TabsTrigger value="workouts">Workouts</TabsTrigger>
           <TabsTrigger value="measurements">Measurements</TabsTrigger>
           <TabsTrigger value="sleep">Sleep</TabsTrigger>
@@ -276,6 +328,104 @@ export function ClientProfile() {
                 </div>
               </CardContent>
             </Card>
+          )}
+        </TabsContent>
+
+        {/* Program */}
+        <TabsContent value="program" className="mt-4 space-y-4">
+          {!programAssignment ? (
+            <div className="text-center py-16 text-muted-foreground">
+              <Dumbbell className="w-10 h-10 mx-auto mb-3 opacity-20" />
+              <p className="text-sm">No program assigned yet.</p>
+              <Dialog open={programDialogOpen} onOpenChange={setProgramDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" className="mt-4">Assign a Program</Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader><DialogTitle>Assign Program</DialogTitle></DialogHeader>
+                  <Form {...programForm}>
+                    <form onSubmit={programForm.handleSubmit(handleAssignProgram)} className="space-y-4">
+                      <FormField control={programForm.control} name="programId" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Program</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Select a program" /></SelectTrigger></FormControl>
+                            <SelectContent>
+                              {programs?.map(p => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                      <FormField control={programForm.control} name="startDate" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Start Date</FormLabel>
+                          <FormControl><Input type="date" {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                      <Button type="submit" className="w-full" disabled={assignProgram.isPending}>Assign</Button>
+                    </form>
+                  </Form>
+                </DialogContent>
+              </Dialog>
+            </div>
+          ) : (
+            <>
+              <Card>
+                <CardContent className="pt-4 pb-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="font-bold text-lg">{fullProgram?.name ?? programAssignment.programName}</p>
+                      {fullProgram?.description && <p className="text-sm text-muted-foreground mt-0.5">{fullProgram.description}</p>}
+                      <div className="flex gap-4 mt-2">
+                        {fullProgram?.durationWeeks && <p className="text-xs text-muted-foreground">{fullProgram.durationWeeks} weeks</p>}
+                        <p className="text-xs text-muted-foreground">Started {programAssignment.startDate}</p>
+                        {fullProgram?.days && <p className="text-xs text-muted-foreground">{fullProgram.days.length} days</p>}
+                      </div>
+                    </div>
+                    <Dialog open={programDialogOpen} onOpenChange={setProgramDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" size="sm">Change</Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader><DialogTitle>Assign Program</DialogTitle></DialogHeader>
+                        <Form {...programForm}>
+                          <form onSubmit={programForm.handleSubmit(handleAssignProgram)} className="space-y-4">
+                            <FormField control={programForm.control} name="programId" render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Program</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
+                                  <FormControl><SelectTrigger><SelectValue placeholder="Select a program" /></SelectTrigger></FormControl>
+                                  <SelectContent>
+                                    {programs?.map(p => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )} />
+                            <FormField control={programForm.control} name="startDate" render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Start Date</FormLabel>
+                                <FormControl><Input type="date" {...field} /></FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )} />
+                            <Button type="submit" className="w-full" disabled={assignProgram.isPending}>Assign</Button>
+                          </form>
+                        </Form>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="space-y-3">
+                {fullProgram?.days?.map((day, idx) => (
+                  <ProgramDayCard key={day.id} day={day} dayNumber={idx + 1} />
+                ))}
+              </div>
+            </>
           )}
         </TabsContent>
 
