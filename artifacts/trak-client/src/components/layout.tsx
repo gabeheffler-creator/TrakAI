@@ -8,7 +8,7 @@ const navigation = [
   { name: "Home", href: "/", icon: Home },
   { name: "Workout", href: "/workout", icon: Dumbbell },
   { name: "Progress", href: "/progress", icon: TrendingUp },
-  { name: "Stats", href: "/measurements", icon: Ruler },
+  { name: "Stats", href: "/stats", icon: Ruler },
   { name: "Sleep", href: "/sleep", icon: Moon },
   { name: "Nutrition", href: "/nutrition", icon: UtensilsCrossed },
   { name: "Photos", href: "/photos", icon: Camera },

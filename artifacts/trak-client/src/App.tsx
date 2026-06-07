@@ -14,6 +14,7 @@ import { PhotosPage } from "@/pages/photos";
 import { AssignmentsPage } from "@/pages/assignments";
 import { MessagesPage } from "@/pages/messages";
 import { ProgressPage } from "@/pages/progress";
+import { StatsPage } from "@/pages/stats";
 
 const queryClient = new QueryClient();
 
@@ -32,6 +33,7 @@ function Router() {
             <Route path="/nutrition" component={NutritionPage} />
             <Route path="/photos" component={PhotosPage} />
             <Route path="/progress" component={ProgressPage} />
+            <Route path="/stats" component={StatsPage} />
             <Route path="/assignments" component={AssignmentsPage} />
             <Route path="/messages" component={MessagesPage} />
           </Switch>

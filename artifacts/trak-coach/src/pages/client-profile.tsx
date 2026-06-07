@@ -23,6 +23,8 @@ import {
   useAddExerciseToDay,
   useUpdateProgramExercise,
   useDeleteProgramExercise,
+  useGetWorkoutLog,
+  getGetWorkoutLogQueryKey,
   getGetClientQueryKey,
   getListAssignmentsQueryKey,
   getListMessagesQueryKey,
@@ -66,6 +68,61 @@ const assignProgramSchema = z.object({
 
 type DayExercise = { id: number; exerciseName: string; muscleGroup: string; sets: number; reps: string; restSeconds?: number | null; weight?: string | null };
 type ProgramDay = { id: number; name: string; notes?: string | null; exercises: DayExercise[] };
+
+function ExpandableWorkoutCard({ log, clientId }: { log: { id: number; date: string; programDayName?: string | null; durationMinutes?: number | null; status: string }; clientId: number }) {
+  const [open, setOpen] = useState(false);
+  const { data: detail, isLoading } = useGetWorkoutLog(clientId, log.id, {
+    query: { enabled: open, queryKey: getGetWorkoutLogQueryKey(clientId, log.id) }
+  });
+
+  const byExercise = (detail?.sets ?? []).reduce<Record<string, NonNullable<typeof detail>["sets"]>>((acc, s) => {
+    (acc[s.exerciseName] ??= []).push(s);
+    return acc;
+  }, {});
+
+  return (
+    <Card data-testid={`card-workout-${log.id}`}>
+      <button className="w-full text-left" onClick={() => setOpen(o => !o)}>
+        <CardContent className="pt-4 pb-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="font-semibold text-sm">{log.programDayName ?? "Free workout"}</p>
+                <Badge variant={log.status === "completed" ? "default" : "secondary"} className="text-xs">{log.status}</Badge>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">{log.date}{log.durationMinutes ? ` · ${log.durationMinutes} min` : ""}</p>
+            </div>
+            {open ? <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0" /> : <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />}
+          </div>
+        </CardContent>
+      </button>
+      {open && (
+        <div className="border-t border-border px-4 pb-4 pt-3">
+          {isLoading && <p className="text-xs text-muted-foreground">Loading sets…</p>}
+          {!isLoading && (detail?.sets ?? []).length === 0 && (
+            <p className="text-xs text-muted-foreground italic">No sets recorded</p>
+          )}
+          {!isLoading && Object.entries(byExercise).map(([name, sets]) => (
+            <div key={name} className="mb-3 last:mb-0">
+              <p className="text-sm font-medium mb-1.5">{name}</p>
+              <div className="space-y-1">
+                {sets.map(s => (
+                  <div key={s.setNumber} className="flex items-center gap-3 text-xs">
+                    <span className="text-muted-foreground w-10 font-mono">Set {s.setNumber}</span>
+                    <span className="text-muted-foreground">{s.reps} reps</span>
+                    {s.weight != null && (
+                      <span className="font-semibold text-foreground">{s.weight} {s.weightUnit ?? "lbs"}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
 
 function EditableExerciseRow({
   ex,
@@ -639,15 +696,7 @@ export function ClientProfile() {
         <TabsContent value="workouts" className="mt-4 space-y-3">
           {(workoutLogs?.length ?? 0) === 0 && <p className="text-muted-foreground text-sm">No workouts logged yet.</p>}
           {workoutLogs?.slice().reverse().map(log => (
-            <Card key={log.id} data-testid={`card-workout-${log.id}`}>
-              <CardContent className="pt-4 pb-4 flex items-center justify-between">
-                <div>
-                  <p className="font-medium">{log.programDayName ?? "Free workout"}</p>
-                  <p className="text-xs text-muted-foreground">{log.date}{log.durationMinutes ? ` · ${log.durationMinutes}min` : ""}</p>
-                </div>
-                <Badge variant="secondary">{log.status}</Badge>
-              </CardContent>
-            </Card>
+            <ExpandableWorkoutCard key={log.id} log={log} clientId={clientId} />
           ))}
         </TabsContent>
 
