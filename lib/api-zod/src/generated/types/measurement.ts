@@ -25,6 +25,18 @@ export interface Measurement {
   thighs?: number | null;
   /** @nullable */
   calves?: number | null;
+  /** @nullable */
+  leftArm?: number | null;
+  /** @nullable */
+  rightArm?: number | null;
+  /** @nullable */
+  leftThigh?: number | null;
+  /** @nullable */
+  rightThigh?: number | null;
+  /** @nullable */
+  leftCalf?: number | null;
+  /** @nullable */
+  rightCalf?: number | null;
   unit?: MeasurementUnit;
   /** @nullable */
   notes?: string | null;

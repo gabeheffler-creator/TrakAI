@@ -26,6 +26,12 @@ router.get("/clients/:clientId/measurements", async (req, res) => {
       arms: m.arms ? Number(m.arms) : null,
       thighs: m.thighs ? Number(m.thighs) : null,
       calves: m.calves ? Number(m.calves) : null,
+      leftArm: m.leftArm ? Number(m.leftArm) : null,
+      rightArm: m.rightArm ? Number(m.rightArm) : null,
+      leftThigh: m.leftThigh ? Number(m.leftThigh) : null,
+      rightThigh: m.rightThigh ? Number(m.rightThigh) : null,
+      leftCalf: m.leftCalf ? Number(m.leftCalf) : null,
+      rightCalf: m.rightCalf ? Number(m.rightCalf) : null,
       createdAt: m.createdAt.toISOString(),
     })));
   } catch (err) {
@@ -48,6 +54,12 @@ router.post("/clients/:clientId/measurements", async (req, res) => {
       arms: body.arms != null ? String(body.arms) : null,
       thighs: body.thighs != null ? String(body.thighs) : null,
       calves: body.calves != null ? String(body.calves) : null,
+      leftArm: body.leftArm != null ? String(body.leftArm) : null,
+      rightArm: body.rightArm != null ? String(body.rightArm) : null,
+      leftThigh: body.leftThigh != null ? String(body.leftThigh) : null,
+      rightThigh: body.rightThigh != null ? String(body.rightThigh) : null,
+      leftCalf: body.leftCalf != null ? String(body.leftCalf) : null,
+      rightCalf: body.rightCalf != null ? String(body.rightCalf) : null,
       unit: body.unit ?? "imperial",
       notes: body.notes ?? null,
     }).returning();
@@ -60,6 +72,12 @@ router.post("/clients/:clientId/measurements", async (req, res) => {
       arms: m.arms ? Number(m.arms) : null,
       thighs: m.thighs ? Number(m.thighs) : null,
       calves: m.calves ? Number(m.calves) : null,
+      leftArm: m.leftArm ? Number(m.leftArm) : null,
+      rightArm: m.rightArm ? Number(m.rightArm) : null,
+      leftThigh: m.leftThigh ? Number(m.leftThigh) : null,
+      rightThigh: m.rightThigh ? Number(m.rightThigh) : null,
+      leftCalf: m.leftCalf ? Number(m.leftCalf) : null,
+      rightCalf: m.rightCalf ? Number(m.rightCalf) : null,
       createdAt: m.createdAt.toISOString(),
     });
   } catch (err) {

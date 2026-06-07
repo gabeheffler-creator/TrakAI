@@ -2,19 +2,32 @@ import { useClientId } from "@/hooks/use-client-id";
 import { useListWorkoutLogs, getListWorkoutLogsQueryKey } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Dumbbell } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Dumbbell, ChevronLeft, ChevronDown, ChevronUp } from "lucide-react";
+import { Link } from "wouter";
+import { useState } from "react";
 
 export function WorkoutsPage() {
   const { clientId } = useClientId();
   const { data: logs, isLoading } = useListWorkoutLogs(clientId!, {
     query: { enabled: !!clientId, queryKey: getListWorkoutLogsQueryKey(clientId!) }
   });
+  const [expanded, setExpanded] = useState<Record<number, boolean>>({});
+
+  const toggle = (id: number) => setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
 
   if (!clientId) return <div className="p-4 text-muted-foreground">Not logged in.</div>;
 
   return (
     <div className="max-w-lg mx-auto space-y-4">
-      <h1 className="text-2xl font-bold">Workout History</h1>
+      <div className="flex items-center gap-3">
+        <Link href="/workout">
+          <button className="p-1 rounded-lg hover:bg-accent transition-colors text-muted-foreground">
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+        </Link>
+        <h1 className="text-2xl font-bold">Workout History</h1>
+      </div>
 
       {isLoading && <p className="text-muted-foreground">Loading...</p>}
 
@@ -25,20 +38,75 @@ export function WorkoutsPage() {
         </div>
       )}
 
-      <div className="space-y-2">
-        {logs?.slice().reverse().map(log => (
-          <Card key={log.id} data-testid={`card-workout-${log.id}`}>
-            <CardContent className="pt-4 pb-4 flex items-center justify-between">
-              <div>
-                <p className="font-medium">{log.programDayName ?? "Free workout"}</p>
-                <p className="text-xs text-muted-foreground">{log.date}{log.durationMinutes ? ` · ${log.durationMinutes} min` : ""}</p>
-                {log.notes && <p className="text-xs text-muted-foreground mt-0.5">{log.notes}</p>}
-              </div>
-              <Badge variant={log.status === "completed" ? "default" : "secondary"}>{log.status}</Badge>
-            </CardContent>
-          </Card>
-        ))}
+      <div className="space-y-3">
+        {logs?.slice().reverse().map(log => {
+          const isOpen = expanded[log.id] ?? false;
+          // Group sets by exercise
+          const sets = (log as unknown as { sets?: { exerciseName: string; setNumber: number; reps: number; weight: number | null; weightUnit: string | null }[] }).sets ?? [];
+          const byExercise = sets.reduce<Record<string, typeof sets>>((acc, s) => {
+            (acc[s.exerciseName] ??= []).push(s);
+            return acc;
+          }, {});
+          const hasDetail = sets.length > 0;
+
+          return (
+            <Card key={log.id} data-testid={`card-workout-${log.id}`}>
+              <CardContent className="pt-4 pb-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-semibold">{log.programDayName ?? "Free workout"}</p>
+                      <Badge variant={log.status === "completed" ? "default" : "secondary"} className="text-xs">
+                        {log.status}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {log.date}
+                      {log.durationMinutes ? ` · ${log.durationMinutes} min` : ""}
+                    </p>
+                  </div>
+                  {hasDetail && (
+                    <button onClick={() => toggle(log.id)} className="ml-2 p-1 rounded hover:bg-accent transition-colors text-muted-foreground">
+                      {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    </button>
+                  )}
+                </div>
+
+                {isOpen && hasDetail && (
+                  <div className="mt-3 space-y-3 border-t border-border pt-3">
+                    {Object.entries(byExercise).map(([name, exSets]) => (
+                      <div key={name}>
+                        <p className="text-sm font-medium mb-1">{name}</p>
+                        <div className="space-y-1">
+                          {exSets.map(s => (
+                            <div key={s.setNumber} className="flex items-center gap-3 text-xs text-muted-foreground">
+                              <span className="w-12 text-right font-mono">Set {s.setNumber}</span>
+                              <span>{s.reps} reps</span>
+                              {s.weight != null && (
+                                <span className="font-medium text-foreground">{s.weight} {s.weightUnit ?? "lbs"}</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {!hasDetail && !isOpen && (
+                  <p className="text-xs text-muted-foreground mt-1 italic">No sets recorded</p>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
+
+      {(logs?.length ?? 0) > 0 && (
+        <Link href="/workout">
+          <Button variant="ghost" className="w-full text-muted-foreground" size="sm">← Back to Workout</Button>
+        </Link>
+      )}
     </div>
   );
 }

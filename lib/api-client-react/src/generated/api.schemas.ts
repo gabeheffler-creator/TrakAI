@@ -142,6 +142,18 @@ export interface Measurement {
   thighs?: number | null;
   /** @nullable */
   calves?: number | null;
+  /** @nullable */
+  leftArm?: number | null;
+  /** @nullable */
+  rightArm?: number | null;
+  /** @nullable */
+  leftThigh?: number | null;
+  /** @nullable */
+  rightThigh?: number | null;
+  /** @nullable */
+  leftCalf?: number | null;
+  /** @nullable */
+  rightCalf?: number | null;
   unit?: MeasurementUnit;
   /** @nullable */
   notes?: string | null;
@@ -398,6 +410,12 @@ export interface MeasurementInput {
   arms?: number;
   thighs?: number;
   calves?: number;
+  leftArm?: number;
+  rightArm?: number;
+  leftThigh?: number;
+  rightThigh?: number;
+  leftCalf?: number;
+  rightCalf?: number;
   unit?: MeasurementInputUnit;
   notes?: string;
 }
@@ -423,6 +441,8 @@ export interface SleepLog {
   /** @nullable */
   quality?: SleepLogQuality;
   /** @nullable */
+  energyRating?: number | null;
+  /** @nullable */
   notes?: string | null;
   createdAt: string;
 }
@@ -441,6 +461,7 @@ export interface SleepLogInput {
   date: string;
   hoursSlept: number;
   quality?: SleepLogInputQuality;
+  energyRating?: number;
   notes?: string;
 }
 

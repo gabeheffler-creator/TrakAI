@@ -15,6 +15,8 @@ export interface SleepLog {
   /** @nullable */
   quality?: SleepLogQuality;
   /** @nullable */
+  energyRating?: number | null;
+  /** @nullable */
   notes?: string | null;
   createdAt: Date;
 }

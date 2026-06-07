@@ -1644,6 +1644,18 @@ components:
           type: ["number", "null"]
         calves:
           type: ["number", "null"]
+        leftArm:
+          type: ["number", "null"]
+        rightArm:
+          type: ["number", "null"]
+        leftThigh:
+          type: ["number", "null"]
+        rightThigh:
+          type: ["number", "null"]
+        leftCalf:
+          type: ["number", "null"]
+        rightCalf:
+          type: ["number", "null"]
         unit:
           type: string
           enum: [imperial, metric]
@@ -1674,6 +1686,18 @@ components:
           type: number
         calves:
           type: number
+        leftArm:
+          type: number
+        rightArm:
+          type: number
+        leftThigh:
+          type: number
+        rightThigh:
+          type: number
+        leftCalf:
+          type: number
+        rightCalf:
+          type: number
         unit:
           type: string
           enum: [imperial, metric]
@@ -1697,6 +1721,8 @@ components:
         quality:
           type: ["string", "null"]
           enum: [poor, fair, good, great, null]
+        energyRating:
+          type: ["integer", "null"]
         notes:
           type: ["string", "null"]
         createdAt:
@@ -1715,6 +1741,8 @@ components:
         quality:
           type: string
           enum: [poor, fair, good, great]
+        energyRating:
+          type: integer
         notes:
           type: string
 

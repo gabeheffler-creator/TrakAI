@@ -1,6 +1,8 @@
 import { useClientId } from "@/hooks/use-client-id";
+import { useUnitSystem } from "@/hooks/use-unit-system";
 import { useGetClientDashboard, getGetClientDashboardQueryKey } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { Link } from "wouter";
 import { Dumbbell, ClipboardList, TrendingUp, ChevronRight } from "lucide-react";
@@ -8,6 +10,7 @@ import { format, parseISO } from "date-fns";
 
 export function Dashboard() {
   const { clientId } = useClientId();
+  const { units, setUnits, weightLabel } = useUnitSystem();
   const { data: dashboard, isLoading } = useGetClientDashboard(clientId!, {
     query: { enabled: !!clientId, queryKey: getGetClientDashboardQueryKey(clientId!) }
   });
@@ -29,10 +32,21 @@ export function Dashboard() {
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
-      <div>
-        <p className="text-sm text-muted-foreground">Good work,</p>
-        <h1 className="text-2xl font-bold">{client?.name ?? "Athlete"}</h1>
-        {client?.goal && <p className="text-sm text-muted-foreground mt-1">{client.goal}</p>}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm text-muted-foreground">Good work,</p>
+          <h1 className="text-2xl font-bold">{client?.name ?? "Athlete"}</h1>
+          {client?.goal && <p className="text-sm text-muted-foreground mt-1">{client.goal}</p>}
+        </div>
+        <Select value={units} onValueChange={v => setUnits(v as "imperial" | "metric")}>
+          <SelectTrigger className="w-[110px] text-xs h-8 shrink-0">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="imperial">Imperial</SelectItem>
+            <SelectItem value="metric">Metric</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="grid grid-cols-3 gap-3">
@@ -89,7 +103,7 @@ export function Dashboard() {
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={d => d.slice(5)} />
                 <YAxis domain={["auto", "auto"]} tick={{ fontSize: 10 }} />
-                <Tooltip formatter={(v) => [`${v} lbs`, "Weight"]} labelFormatter={d => format(parseISO(d), "MMM d")} />
+                <Tooltip formatter={(v) => [`${v} ${weightLabel}`, "Weight"]} labelFormatter={d => format(parseISO(d), "MMM d")} />
                 <Line type="monotone" dataKey="weight" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>

@@ -37,6 +37,7 @@ router.post("/clients/:clientId/sleep", async (req, res) => {
       date: body.date instanceof Date ? body.date.toISOString().split("T")[0] : body.date,
       hoursSlept: String(body.hoursSlept),
       quality: body.quality ?? null,
+      energyRating: body.energyRating ?? null,
       notes: body.notes ?? null,
     }).returning();
     res.status(201).json({ ...s, hoursSlept: Number(s.hoursSlept), createdAt: s.createdAt.toISOString() });

@@ -205,6 +205,12 @@ export const GetClientDashboardResponse = zod.object({
   "arms": zod.number().nullish(),
   "thighs": zod.number().nullish(),
   "calves": zod.number().nullish(),
+  "leftArm": zod.number().nullish(),
+  "rightArm": zod.number().nullish(),
+  "leftThigh": zod.number().nullish(),
+  "rightThigh": zod.number().nullish(),
+  "leftCalf": zod.number().nullish(),
+  "rightCalf": zod.number().nullish(),
   "unit": zod.enum(['imperial', 'metric']).optional(),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date()
@@ -593,6 +599,12 @@ export const ListMeasurementsResponseItem = zod.object({
   "arms": zod.number().nullish(),
   "thighs": zod.number().nullish(),
   "calves": zod.number().nullish(),
+  "leftArm": zod.number().nullish(),
+  "rightArm": zod.number().nullish(),
+  "leftThigh": zod.number().nullish(),
+  "rightThigh": zod.number().nullish(),
+  "leftCalf": zod.number().nullish(),
+  "rightCalf": zod.number().nullish(),
   "unit": zod.enum(['imperial', 'metric']).optional(),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date()
@@ -616,6 +628,12 @@ export const LogMeasurementBody = zod.object({
   "arms": zod.number().optional(),
   "thighs": zod.number().optional(),
   "calves": zod.number().optional(),
+  "leftArm": zod.number().optional(),
+  "rightArm": zod.number().optional(),
+  "leftThigh": zod.number().optional(),
+  "rightThigh": zod.number().optional(),
+  "leftCalf": zod.number().optional(),
+  "rightCalf": zod.number().optional(),
   "unit": zod.enum(['imperial', 'metric']).optional(),
   "notes": zod.string().optional()
 })
@@ -643,6 +661,7 @@ export const ListSleepLogsResponseItem = zod.object({
   "date": zod.coerce.date(),
   "hoursSlept": zod.number(),
   "quality": zod.union([zod.literal('poor'),zod.literal('fair'),zod.literal('good'),zod.literal('great'),zod.literal(null)]).nullish(),
+  "energyRating": zod.number().nullish(),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date()
 })
@@ -660,6 +679,7 @@ export const LogSleepBody = zod.object({
   "date": zod.coerce.date(),
   "hoursSlept": zod.number(),
   "quality": zod.enum(['poor', 'fair', 'good', 'great']).optional(),
+  "energyRating": zod.number().optional(),
   "notes": zod.string().optional()
 })
 

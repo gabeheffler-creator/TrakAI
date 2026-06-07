@@ -7,7 +7,7 @@ import {
   getListSleepLogsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -18,12 +18,12 @@ import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Trash2, Moon } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 
 const sleepSchema = z.object({
   date: z.string().min(1),
   hoursSlept: z.coerce.number().min(0).max(24),
   quality: z.enum(["poor", "fair", "good", "great"]).optional(),
+  energyRating: z.coerce.number().int().min(1).max(10).optional(),
   notes: z.string().optional(),
 });
 
@@ -54,7 +54,13 @@ export function SleepPage() {
   const onSubmit = (values: z.infer<typeof sleepSchema>) => {
     logSleep.mutate({
       clientId: clientId!,
-      data: { date: values.date, hoursSlept: values.hoursSlept, quality: values.quality, notes: values.notes || undefined }
+      data: {
+        date: values.date,
+        hoursSlept: values.hoursSlept,
+        quality: values.quality,
+        energyRating: values.energyRating,
+        notes: values.notes || undefined,
+      }
     }, {
       onSuccess: () => {
         qc.invalidateQueries({ queryKey: getListSleepLogsQueryKey(clientId!) });
@@ -71,7 +77,9 @@ export function SleepPage() {
     });
   };
 
-  const avgSleep = logs?.length ? (logs.reduce((acc, l) => acc + Number(l.hoursSlept), 0) / logs.length).toFixed(1) : null;
+  const avgSleep = logs?.length
+    ? (logs.reduce((acc, l) => acc + Number(l.hoursSlept), 0) / logs.length).toFixed(1)
+    : null;
 
   if (!clientId) return <div className="p-4 text-muted-foreground">Not logged in.</div>;
 
@@ -95,7 +103,7 @@ export function SleepPage() {
                 )} />
                 <FormField control={form.control} name="quality" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Quality</FormLabel>
+                    <FormLabel>Sleep Quality</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl><SelectTrigger><SelectValue placeholder="How did you sleep?" /></SelectTrigger></FormControl>
                       <SelectContent>
@@ -109,6 +117,22 @@ export function SleepPage() {
                 )} />
                 <FormField control={form.control} name="notes" render={({ field }) => (
                   <FormItem><FormLabel>Notes</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
+                )} />
+                <FormField control={form.control} name="energyRating" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Energy on Waking</FormLabel>
+                    <Select
+                      onValueChange={v => field.onChange(Number(v))}
+                      value={field.value != null ? String(field.value) : ""}
+                    >
+                      <FormControl><SelectTrigger><SelectValue placeholder="Rate your energy (1–10)" /></SelectTrigger></FormControl>
+                      <SelectContent>
+                        {Array.from({ length: 10 }, (_, i) => i + 1).map(n => (
+                          <SelectItem key={n} value={String(n)}>{n} — {n <= 3 ? "Exhausted" : n <= 5 ? "Tired" : n <= 7 ? "OK" : n <= 9 ? "Good" : "Excellent"}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
                 )} />
                 <Button type="submit" className="w-full" disabled={logSleep.isPending}>Log</Button>
               </form>
@@ -144,7 +168,12 @@ export function SleepPage() {
                 </div>
                 <div>
                   <p className="text-sm font-medium">{s.date}</p>
-                  {s.quality && <span className={`text-xs font-medium capitalize ${qualityColors[s.quality] ?? ""}`}>{s.quality}</span>}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {s.quality && <span className={`text-xs font-medium capitalize ${qualityColors[s.quality] ?? ""}`}>{s.quality}</span>}
+                    {s.energyRating != null && (
+                      <span className="text-xs text-muted-foreground">⚡ Energy {s.energyRating}/10</span>
+                    )}
+                  </div>
                   {s.notes && <p className="text-xs text-muted-foreground">{s.notes}</p>}
                 </div>
               </div>

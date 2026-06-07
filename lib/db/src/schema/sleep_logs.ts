@@ -9,6 +9,7 @@ export const sleepLogsTable = pgTable("sleep_logs", {
   date: text("date").notNull(),
   hoursSlept: numeric("hours_slept").notNull(),
   quality: text("quality"),
+  energyRating: integer("energy_rating"),
   notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

@@ -11,5 +11,6 @@ export interface SleepLogInput {
   date: Date;
   hoursSlept: number;
   quality?: SleepLogInputQuality;
+  energyRating?: number;
   notes?: string;
 }

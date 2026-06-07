@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Home, Dumbbell, Ruler, Moon, UtensilsCrossed, Camera, ClipboardList, MessageCircle, List, TrendingUp, Sun } from "lucide-react";
+import { Home, Dumbbell, Ruler, Moon, UtensilsCrossed, Camera, ClipboardList, MessageCircle, TrendingUp, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClientId } from "@/hooks/use-client-id";
 import { useDarkMode } from "@/hooks/use-dark-mode";
@@ -7,7 +7,6 @@ import { useDarkMode } from "@/hooks/use-dark-mode";
 const navigation = [
   { name: "Home", href: "/", icon: Home },
   { name: "Workout", href: "/workout", icon: Dumbbell },
-  { name: "History", href: "/workouts", icon: List },
   { name: "Progress", href: "/progress", icon: TrendingUp },
   { name: "Stats", href: "/measurements", icon: Ruler },
   { name: "Sleep", href: "/sleep", icon: Moon },

@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { CheckCircle, ChevronRight, Dumbbell, X, Trophy, ArrowRight, RefreshCw, Upload, FolderOpen, ImageIcon } from "lucide-react";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { cn } from "@/lib/utils";
 import type { Exercise } from "@workspace/api-client-react";
 
@@ -736,6 +736,14 @@ export function WorkoutPage() {
           Start {selectedDay.name}
         </Button>
       )}
+
+      <div className="pt-2">
+        <Link href="/workouts">
+          <Button variant="ghost" className="w-full text-muted-foreground" size="sm">
+            View History
+          </Button>
+        </Link>
+      </div>
     </div>
   );
 }

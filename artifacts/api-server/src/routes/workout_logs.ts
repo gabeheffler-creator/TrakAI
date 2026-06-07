@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { workoutLogsTable, setLogsTable, exercisesTable } from "@workspace/db";
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, inArray } from "drizzle-orm";
 import {
   ListWorkoutLogsParams,
   CreateWorkoutLogParams,
@@ -19,7 +19,27 @@ router.get("/clients/:clientId/workout-logs", async (req, res) => {
     const logs = await db.select().from(workoutLogsTable)
       .where(eq(workoutLogsTable.clientId, clientId))
       .orderBy(workoutLogsTable.date);
-    res.json(logs.map(l => ({ ...l, createdAt: l.createdAt.toISOString() })));
+
+    const logIds = logs.map(l => l.id);
+    const allSets = logIds.length > 0
+      ? await db.select().from(setLogsTable)
+          .where(inArray(setLogsTable.workoutLogId, logIds))
+          .orderBy(asc(setLogsTable.setNumber))
+      : [];
+
+    const setsByLog: Record<number, typeof allSets> = {};
+    for (const s of allSets) {
+      (setsByLog[s.workoutLogId] ??= []).push(s);
+    }
+
+    res.json(logs.map(l => ({
+      ...l,
+      createdAt: l.createdAt.toISOString(),
+      sets: (setsByLog[l.id] ?? []).map(s => ({
+        ...s,
+        weight: s.weight ? Number(s.weight) : null,
+      })),
+    })));
   } catch (err) {
     req.log.error(err);
     res.status(500).json({ error: "Failed to list workout logs" });

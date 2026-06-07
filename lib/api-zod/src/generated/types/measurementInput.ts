@@ -16,6 +16,12 @@ export interface MeasurementInput {
   arms?: number;
   thighs?: number;
   calves?: number;
+  leftArm?: number;
+  rightArm?: number;
+  leftThigh?: number;
+  rightThigh?: number;
+  leftCalf?: number;
+  rightCalf?: number;
   unit?: MeasurementInputUnit;
   notes?: string;
 }
