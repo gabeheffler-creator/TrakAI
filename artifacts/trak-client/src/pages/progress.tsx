@@ -1,4 +1,5 @@
 import { useClientId } from "@/hooks/use-client-id";
+import { useUnitSystem, type UnitSystem } from "@/hooks/use-unit-system";
 import {
   useListMeasurements,
   useListWorkoutLogs,
@@ -25,6 +26,22 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { startOfWeek, format, parseISO } from "date-fns";
 
 type ChartData = { date: string; [key: string]: number | string | null };
+
+// ─── Unit conversion ─────────────────────────────────────────────────────────
+
+function toDisplayWeight(val: number, stored: string | null | undefined, display: UnitSystem): number {
+  const s = stored === "metric" ? "metric" : "imperial";
+  if (s === display) return val;
+  const converted = s === "imperial" ? val * 0.453592 : val * 2.20462;
+  return Math.round(converted * 10) / 10;
+}
+
+function toDisplayLength(val: number, stored: string | null | undefined, display: UnitSystem): number {
+  const s = stored === "metric" ? "metric" : "imperial";
+  if (s === display) return val;
+  const converted = s === "imperial" ? val * 2.54 : val / 2.54;
+  return Math.round(converted * 10) / 10;
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -274,11 +291,13 @@ function StatCard({
   value,
   sub,
   delta,
+  deltaUnit = "lbs",
 }: {
   title: string;
   value: string | number;
   sub?: string;
   delta?: number | null;
+  deltaUnit?: string;
 }) {
   return (
     <Card>
@@ -288,7 +307,7 @@ function StatCard({
         {sub && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
         {delta != null && (
           <p className={`text-xs font-medium mt-1 ${delta < 0 ? "text-emerald-500" : delta > 0 ? "text-red-500" : "text-muted-foreground"}`}>
-            {delta > 0 ? "+" : ""}{delta.toFixed(1)} lbs
+            {delta > 0 ? "+" : ""}{Math.abs(delta).toFixed(1)} {deltaUnit}
           </p>
         )}
       </CardContent>
@@ -298,30 +317,27 @@ function StatCard({
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
-const MEASUREMENT_CHARTS: {
-  key: string;
-  label: string;
-  color: string;
-  unit: string;
-  lowerIsBetter?: boolean;
-}[] = [
-  { key: "weight",      label: "Body Weight",  color: "hsl(271,70%,56%)", unit: "lbs", lowerIsBetter: true },
-  { key: "body_fat",    label: "Body Fat %",   color: "hsl(15,85%,55%)",  unit: "%",   lowerIsBetter: true },
-  { key: "chest",       label: "Chest",        color: "hsl(340,75%,55%)", unit: "in" },
-  { key: "waist",       label: "Waist",        color: "hsl(200,70%,50%)", unit: "in",  lowerIsBetter: true },
-  { key: "hips",        label: "Hips",         color: "hsl(38,92%,50%)",  unit: "in",  lowerIsBetter: true },
-  { key: "left_arm",    label: "Left Arm",     color: "hsl(158,64%,38%)", unit: "in" },
-  { key: "right_arm",   label: "Right Arm",    color: "hsl(158,64%,50%)", unit: "in" },
-  { key: "left_thigh",  label: "Left Thigh",   color: "hsl(28,85%,50%)",  unit: "in" },
-  { key: "right_thigh", label: "Right Thigh",  color: "hsl(28,85%,60%)",  unit: "in" },
-  { key: "left_calf",   label: "Left Calf",    color: "hsl(260,50%,55%)", unit: "in" },
-  { key: "right_calf",  label: "Right Calf",   color: "hsl(260,50%,65%)", unit: "in" },
-];
+function getMeasurementCharts(weightUnit: string, lengthUnit: string) {
+  return [
+    { key: "weight",      label: "Body Weight",  color: "hsl(271,70%,56%)", unit: weightUnit, lowerIsBetter: true },
+    { key: "body_fat",    label: "Body Fat %",   color: "hsl(15,85%,55%)",  unit: "%",         lowerIsBetter: true },
+    { key: "chest",       label: "Chest",        color: "hsl(340,75%,55%)", unit: lengthUnit },
+    { key: "waist",       label: "Waist",        color: "hsl(200,70%,50%)", unit: lengthUnit,  lowerIsBetter: true },
+    { key: "hips",        label: "Hips",         color: "hsl(38,92%,50%)",  unit: lengthUnit,  lowerIsBetter: true },
+    { key: "left_arm",    label: "Left Arm",     color: "hsl(158,64%,38%)", unit: lengthUnit },
+    { key: "right_arm",   label: "Right Arm",    color: "hsl(158,64%,50%)", unit: lengthUnit },
+    { key: "left_thigh",  label: "Left Thigh",   color: "hsl(28,85%,50%)",  unit: lengthUnit },
+    { key: "right_thigh", label: "Right Thigh",  color: "hsl(28,85%,60%)",  unit: lengthUnit },
+    { key: "left_calf",   label: "Left Calf",    color: "hsl(260,50%,55%)", unit: lengthUnit },
+    { key: "right_calf",  label: "Right Calf",   color: "hsl(260,50%,65%)", unit: lengthUnit },
+  ];
+}
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export function ProgressPage() {
   const { clientId } = useClientId();
+  const { units, weightLabel, lengthLabel } = useUnitSystem();
 
   const { data: measurements } = useListMeasurements(clientId!, {
     query: { enabled: !!clientId, queryKey: getListMeasurementsQueryKey(clientId!) },
@@ -335,32 +351,41 @@ export function ProgressPage() {
 
   if (!clientId) return <div className="p-4 text-muted-foreground">Please join via an invite link first.</div>;
 
+  const MEASUREMENT_CHARTS = getMeasurementCharts(weightLabel, lengthLabel);
+
   const sorted = (measurements ?? []).slice().sort((a, b) => a.date.localeCompare(b.date));
   const first = sorted[0];
   const last = sorted[sorted.length - 1];
 
-  const weightDelta =
-    first?.weight != null && last?.weight != null
-      ? Number(last.weight) - Number(first.weight)
-      : null;
+  // Convert first/last weight to display unit for summary cards
+  const firstWeightDisplay = first?.weight != null
+    ? toDisplayWeight(Number(first.weight), first.unit, units)
+    : null;
+  const lastWeightDisplay = last?.weight != null
+    ? toDisplayWeight(Number(last.weight), last.unit, units)
+    : null;
+  const weightDelta = firstWeightDisplay != null && lastWeightDisplay != null
+    ? Number((lastWeightDisplay - firstWeightDisplay).toFixed(1))
+    : null;
 
   const hasMeasurements = sorted.length > 0;
   const hasSleep = (sleepLogs ?? []).length > 0;
   const hasWorkouts = (workoutLogs ?? []).length > 0;
 
+  // Convert each measurement's values from its stored unit to the current display unit
   const measurementData: ChartData[] = sorted.map(m => ({
     date: m.date,
-    weight:       m.weight      != null ? Number(m.weight)      : null,
-    body_fat:     m.bodyFat     != null ? Number(m.bodyFat)     : null,
-    chest:        m.chest       != null ? Number(m.chest)       : null,
-    waist:        m.waist       != null ? Number(m.waist)       : null,
-    hips:         m.hips        != null ? Number(m.hips)        : null,
-    left_arm:     m.leftArm     != null ? Number(m.leftArm)     : null,
-    right_arm:    m.rightArm    != null ? Number(m.rightArm)    : null,
-    left_thigh:   m.leftThigh   != null ? Number(m.leftThigh)   : null,
-    right_thigh:  m.rightThigh  != null ? Number(m.rightThigh)  : null,
-    left_calf:    m.leftCalf    != null ? Number(m.leftCalf)    : null,
-    right_calf:   m.rightCalf   != null ? Number(m.rightCalf)   : null,
+    weight:       m.weight      != null ? toDisplayWeight(Number(m.weight),    m.unit, units) : null,
+    body_fat:     m.bodyFat     != null ? Number(m.bodyFat)                                   : null,
+    chest:        m.chest       != null ? toDisplayLength(Number(m.chest),     m.unit, units) : null,
+    waist:        m.waist       != null ? toDisplayLength(Number(m.waist),     m.unit, units) : null,
+    hips:         m.hips        != null ? toDisplayLength(Number(m.hips),      m.unit, units) : null,
+    left_arm:     m.leftArm     != null ? toDisplayLength(Number(m.leftArm),   m.unit, units) : null,
+    right_arm:    m.rightArm    != null ? toDisplayLength(Number(m.rightArm),  m.unit, units) : null,
+    left_thigh:   m.leftThigh   != null ? toDisplayLength(Number(m.leftThigh), m.unit, units) : null,
+    right_thigh:  m.rightThigh  != null ? toDisplayLength(Number(m.rightThigh),m.unit, units) : null,
+    left_calf:    m.leftCalf    != null ? toDisplayLength(Number(m.leftCalf),  m.unit, units) : null,
+    right_calf:   m.rightCalf   != null ? toDisplayLength(Number(m.rightCalf), m.unit, units) : null,
   }));
 
   const sortedSleep = (sleepLogs ?? []).slice().sort((a, b) => a.date.localeCompare(b.date));
@@ -404,19 +429,20 @@ export function ProgressPage() {
         <div className="grid grid-cols-3 gap-3">
           <StatCard
             title="Starting Weight"
-            value={first?.weight != null ? `${first.weight} lbs` : "—"}
+            value={firstWeightDisplay != null ? `${firstWeightDisplay} ${weightLabel}` : "—"}
             sub={first?.date}
           />
           <StatCard
             title="Current Weight"
-            value={last?.weight != null ? `${last.weight} lbs` : "—"}
+            value={lastWeightDisplay != null ? `${lastWeightDisplay} ${weightLabel}` : "—"}
             sub={last?.date}
           />
           <StatCard
             title="Total Change"
-            value={weightDelta != null ? `${Math.abs(weightDelta).toFixed(1)} lbs` : "—"}
+            value={weightDelta != null ? `${Math.abs(weightDelta)} ${weightLabel}` : "—"}
             sub={weightDelta != null ? (weightDelta < 0 ? "lost" : "gained") : undefined}
             delta={weightDelta}
+            deltaUnit={weightLabel}
           />
         </div>
       )}

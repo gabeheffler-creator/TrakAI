@@ -64,8 +64,17 @@ export function Dashboard() {
         </Card>
         <Card>
           <CardContent className="pt-4 pb-4 text-center">
-            <p className="text-3xl font-bold">{dashboard?.latestMeasurement?.weight ?? "—"}</p>
-            <p className="text-xs text-muted-foreground mt-1">Weight</p>
+            <p className="text-3xl font-bold">
+              {(() => {
+                const m = dashboard?.latestMeasurement;
+                if (!m?.weight) return "—";
+                const stored = m.unit === "metric" ? "metric" : "imperial";
+                if (stored === units) return m.weight;
+                const converted = stored === "imperial" ? m.weight * 0.453592 : m.weight * 2.20462;
+                return Math.round(converted * 10) / 10;
+              })()}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">Weight ({weightLabel})</p>
           </CardContent>
         </Card>
       </div>
