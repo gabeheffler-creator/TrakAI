@@ -74,17 +74,25 @@ function playRing() {
 function playConfirm() {
   try {
     const ctx = new AudioContext();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.type = "sine";
-    osc.frequency.setValueAtTime(1318, ctx.currentTime); // E6 — softer ding
-    gain.gain.setValueAtTime(0.28, ctx.currentTime);     // instant full attack
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.9); // medium ring-out
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + 0.9);
-    osc.onended = () => ctx.close();
+    const t = ctx.currentTime;
+
+    const ding = (freq: number, startAt: number, duration: number, volume: number) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, startAt);
+      gain.gain.setValueAtTime(volume, startAt);
+      gain.gain.exponentialRampToValueAtTime(0.001, startAt + duration);
+      osc.start(startAt);
+      osc.stop(startAt + duration);
+    };
+
+    ding(1760, t,        0.9, 0.28); // high ding
+    ding(1175, t + 0.18, 0.9, 0.24); // lower ding follows
+
+    setTimeout(() => ctx.close(), 1200);
   } catch { /* silently ignore if audio not supported */ }
 }
 
