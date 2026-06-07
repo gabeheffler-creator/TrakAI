@@ -1,0 +1,17 @@
+{
+  "name": "Trak Client",
+  "short_name": "Trak",
+  "description": "Your personal fitness coaching app",
+  "start_url": "/client/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#7c3aed",
+  "icons": [
+    {
+      "src": "/client/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
