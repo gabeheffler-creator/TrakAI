@@ -19,6 +19,10 @@ import {
   useGetProgram,
   useListPrograms,
   useAssignProgram,
+  useListExercises,
+  useAddExerciseToDay,
+  useUpdateProgramExercise,
+  useDeleteProgramExercise,
   getGetClientQueryKey,
   getListAssignmentsQueryKey,
   getListMessagesQueryKey,
@@ -26,6 +30,7 @@ import {
   getGetClientProgramAssignmentQueryKey,
   getGetProgramQueryKey,
   getListWorkoutLogsQueryKey,
+  getListExercisesQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -42,7 +47,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import { Copy, Send, Plus, CheckCircle, Circle, Trash2, Link, ArrowLeft, ChevronDown, ChevronRight, Dumbbell } from "lucide-react";
+import { Copy, Send, Plus, CheckCircle, Circle, Trash2, Link, ArrowLeft, ChevronDown, ChevronRight, Dumbbell, Pencil, X, Check } from "lucide-react";
 import { Link as WLink } from "wouter";
 import { format, parseISO } from "date-fns";
 
@@ -59,15 +64,210 @@ const assignProgramSchema = z.object({
   startDate: z.string().min(1),
 });
 
-function ProgramDayCard({ day, dayNumber }: { day: { id: number; name: string; notes?: string | null; exercises: Array<{ id: number; exerciseName: string; muscleGroup: string; sets: number; reps: string; restSeconds?: number | null; weight?: string | null }> }; dayNumber: number }) {
+type DayExercise = { id: number; exerciseName: string; muscleGroup: string; sets: number; reps: string; restSeconds?: number | null; weight?: string | null };
+type ProgramDay = { id: number; name: string; notes?: string | null; exercises: DayExercise[] };
+
+function EditableExerciseRow({
+  ex,
+  programId,
+  dayId,
+  onDeleted,
+  onUpdated,
+}: {
+  ex: DayExercise;
+  programId: number;
+  dayId: number;
+  onDeleted: () => void;
+  onUpdated: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [sets, setSets] = useState(String(ex.sets));
+  const [reps, setReps] = useState(ex.reps);
+  const [rest, setRest] = useState(ex.restSeconds != null ? String(ex.restSeconds) : "");
+  const updateEx = useUpdateProgramExercise();
+  const deleteEx = useDeleteProgramExercise();
+  const { toast } = useToast();
+
+  const handleSave = () => {
+    updateEx.mutate(
+      { programId, dayId, peId: ex.id, data: { sets: Number(sets) || ex.sets, reps: reps || ex.reps, restSeconds: rest ? Number(rest) : null } },
+      {
+        onSuccess: () => { setEditing(false); onUpdated(); },
+        onError: () => toast({ title: "Failed to update exercise", variant: "destructive" }),
+      }
+    );
+  };
+
+  const handleDelete = () => {
+    deleteEx.mutate(
+      { programId, dayId, peId: ex.id },
+      {
+        onSuccess: onDeleted,
+        onError: () => toast({ title: "Failed to remove exercise", variant: "destructive" }),
+      }
+    );
+  };
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-2 py-2 border-b border-border/50 last:border-0">
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium truncate">{ex.exerciseName}</p>
+          <div className="flex gap-1.5 mt-1.5">
+            <input
+              className="w-12 text-xs border border-border rounded px-1.5 py-1 bg-background text-center"
+              value={sets}
+              onChange={e => setSets(e.target.value)}
+              placeholder="sets"
+              type="number"
+              min={1}
+            />
+            <span className="text-xs text-muted-foreground self-center">×</span>
+            <input
+              className="w-16 text-xs border border-border rounded px-1.5 py-1 bg-background text-center"
+              value={reps}
+              onChange={e => setReps(e.target.value)}
+              placeholder="reps"
+            />
+            <input
+              className="w-14 text-xs border border-border rounded px-1.5 py-1 bg-background text-center"
+              value={rest}
+              onChange={e => setRest(e.target.value)}
+              placeholder="rest s"
+              type="number"
+              min={0}
+            />
+          </div>
+        </div>
+        <button onClick={handleSave} disabled={updateEx.isPending} className="p-1.5 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors flex-shrink-0">
+          <Check className="w-3.5 h-3.5" />
+        </button>
+        <button onClick={() => setEditing(false)} className="p-1.5 rounded-full text-muted-foreground hover:text-foreground transition-colors flex-shrink-0">
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2 py-2 border-b border-border/50 last:border-0 group">
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium">{ex.exerciseName}</p>
+        <p className="text-xs text-muted-foreground">{ex.muscleGroup}</p>
+      </div>
+      <div className="text-right flex-shrink-0">
+        <p className="text-sm font-semibold">{ex.sets}×{ex.reps}</p>
+        {ex.restSeconds && <p className="text-xs text-muted-foreground">{ex.restSeconds}s rest</p>}
+      </div>
+      <button onClick={() => setEditing(true)} className="p-1.5 text-muted-foreground hover:text-primary opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">
+        <Pencil className="w-3.5 h-3.5" />
+      </button>
+      <button onClick={handleDelete} disabled={deleteEx.isPending} className="p-1.5 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">
+        <Trash2 className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  );
+}
+
+function AddExerciseRow({
+  programId,
+  dayId,
+  currentCount,
+  allExercises,
+  onAdded,
+}: {
+  programId: number;
+  dayId: number;
+  currentCount: number;
+  allExercises: { id: number; name: string; muscleGroup: string }[];
+  onAdded: () => void;
+}) {
   const [open, setOpen] = useState(false);
+  const [selectedId, setSelectedId] = useState("");
+  const [sets, setSets] = useState("3");
+  const [reps, setReps] = useState("10-12");
+  const [rest, setRest] = useState("90");
+  const [search, setSearch] = useState("");
+  const addEx = useAddExerciseToDay();
+  const { toast } = useToast();
+
+  const filtered = allExercises.filter(e =>
+    e.name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const handleAdd = () => {
+    if (!selectedId) return;
+    addEx.mutate(
+      { programId, dayId, data: { exerciseId: Number(selectedId), sets: Number(sets) || 3, reps: reps || "10-12", order: currentCount + 1, restSeconds: rest ? Number(rest) : undefined } },
+      {
+        onSuccess: () => { setOpen(false); setSelectedId(""); setSearch(""); onAdded(); },
+        onError: () => toast({ title: "Failed to add exercise", variant: "destructive" }),
+      }
+    );
+  };
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="w-full flex items-center gap-2 py-2 text-xs text-primary hover:text-primary/80 transition-colors"
+      >
+        <Plus className="w-3.5 h-3.5" /> Add exercise
+      </button>
+    );
+  }
+
+  return (
+    <div className="pt-2 space-y-2 border-t border-border/50">
+      <input
+        className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-background"
+        placeholder="Search exercises…"
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        autoFocus
+      />
+      <div className="max-h-40 overflow-y-auto rounded-lg border border-border bg-card divide-y divide-border/50">
+        {filtered.slice(0, 30).map(ex => (
+          <button
+            key={ex.id}
+            onClick={() => setSelectedId(String(ex.id))}
+            className={`w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors ${selectedId === String(ex.id) ? "bg-primary/10 text-primary font-medium" : ""}`}
+          >
+            {ex.name} <span className="text-xs text-muted-foreground ml-1">{ex.muscleGroup}</span>
+          </button>
+        ))}
+        {filtered.length === 0 && <p className="text-xs text-muted-foreground p-3">No exercises found</p>}
+      </div>
+      {selectedId && (
+        <div className="flex gap-2 items-center">
+          <input className="w-14 text-xs border border-border rounded px-2 py-1.5 bg-background text-center" value={sets} onChange={e => setSets(e.target.value)} placeholder="sets" type="number" min={1} />
+          <span className="text-xs text-muted-foreground">sets ×</span>
+          <input className="w-20 text-xs border border-border rounded px-2 py-1.5 bg-background text-center" value={reps} onChange={e => setReps(e.target.value)} placeholder="e.g. 8-10" />
+          <span className="text-xs text-muted-foreground">reps</span>
+          <input className="w-16 text-xs border border-border rounded px-2 py-1.5 bg-background text-center" value={rest} onChange={e => setRest(e.target.value)} placeholder="rest" type="number" min={0} />
+          <span className="text-xs text-muted-foreground">s rest</span>
+        </div>
+      )}
+      <div className="flex gap-2">
+        <Button size="sm" onClick={handleAdd} disabled={!selectedId || addEx.isPending} className="flex-1">
+          {addEx.isPending ? "Adding…" : "Add"}
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => { setOpen(false); setSelectedId(""); setSearch(""); }}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function ProgramDayCard({ day, dayNumber, programId, onChanged }: { day: ProgramDay; dayNumber: number; programId: number; onChanged: () => void }) {
+  const [open, setOpen] = useState(false);
+  const { data: allExercises } = useListExercises({ query: { enabled: open, queryKey: getListExercisesQueryKey() } });
   const muscleGroups = [...new Set(day.exercises.map(e => e.muscleGroup))];
+
   return (
     <Card>
-      <button
-        className="w-full text-left"
-        onClick={() => setOpen(o => !o)}
-      >
+      <button className="w-full text-left" onClick={() => setOpen(o => !o)}>
         <CardContent className="pt-4 pb-4">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
@@ -86,21 +286,27 @@ function ProgramDayCard({ day, dayNumber }: { day: { id: number; name: string; n
         </CardContent>
       </button>
       {open && (
-        <div className="border-t border-border px-4 pb-4 pt-3 space-y-2">
+        <div className="border-t border-border px-4 pb-4 pt-3">
           {day.notes && <p className="text-xs text-muted-foreground mb-3 italic">{day.notes}</p>}
-          {day.exercises.map((ex, i) => (
-            <div key={ex.id} className="flex items-center gap-3 py-2 border-b border-border/50 last:border-0">
-              <span className="text-xs text-muted-foreground w-5 text-right flex-shrink-0">{i + 1}</span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium">{ex.exerciseName}</p>
-                <p className="text-xs text-muted-foreground">{ex.muscleGroup}</p>
-              </div>
-              <div className="text-right flex-shrink-0">
-                <p className="text-sm font-semibold">{ex.sets}×{ex.reps}</p>
-                {ex.restSeconds && <p className="text-xs text-muted-foreground">{ex.restSeconds}s rest</p>}
-              </div>
-            </div>
-          ))}
+          <div className="space-y-0">
+            {day.exercises.map(ex => (
+              <EditableExerciseRow
+                key={ex.id}
+                ex={ex}
+                programId={programId}
+                dayId={day.id}
+                onDeleted={onChanged}
+                onUpdated={onChanged}
+              />
+            ))}
+          </div>
+          <AddExerciseRow
+            programId={programId}
+            dayId={day.id}
+            currentCount={day.exercises.length}
+            allExercises={allExercises ?? []}
+            onAdded={onChanged}
+          />
         </div>
       )}
     </Card>
@@ -422,7 +628,7 @@ export function ClientProfile() {
 
               <div className="space-y-3">
                 {fullProgram?.days?.map((day, idx) => (
-                  <ProgramDayCard key={day.id} day={day} dayNumber={idx + 1} />
+                  <ProgramDayCard key={day.id} day={day} dayNumber={idx + 1} programId={programAssignment!.programId} onChanged={() => qc.invalidateQueries({ queryKey: getGetProgramQueryKey(programAssignment!.programId) })} />
                 ))}
               </div>
             </>

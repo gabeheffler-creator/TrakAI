@@ -15,87 +15,114 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend,
 } from "recharts";
 import { TrendingUp } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 type ChartData = { date: string; [key: string]: number | string | null };
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <h2 className="text-base font-semibold mb-3">{title}</h2>
-      {children}
-    </div>
-  );
-}
-
 function EmptyChart({ label }: { label: string }) {
   return (
-    <div className="h-32 flex items-center justify-center text-sm text-muted-foreground border border-dashed border-border rounded-2xl">
+    <div className="h-36 flex items-center justify-center text-sm text-muted-foreground border border-dashed border-border rounded-2xl">
       No {label} data yet
     </div>
   );
 }
 
-function TrakLineChart({
+function MiniChart({
   data,
-  lines,
+  dataKey,
+  color,
   unit,
 }: {
   data: ChartData[];
-  lines: { key: string; color: string; label: string }[];
+  dataKey: string;
+  color: string;
   unit?: string;
 }) {
   return (
-    <div className="h-52 w-full">
+    <div className="h-36 w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+        <LineChart data={data} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
           <XAxis
             dataKey="date"
-            tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
+            tick={{ fontSize: 9, fill: "var(--color-muted-foreground)" }}
             tickFormatter={v => {
               const d = new Date(v);
               return `${d.getMonth() + 1}/${d.getDate()}`;
             }}
           />
           <YAxis
-            tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
+            tick={{ fontSize: 9, fill: "var(--color-muted-foreground)" }}
+            domain={["auto", "auto"]}
             unit={unit ? ` ${unit}` : ""}
+            width={40}
           />
           <Tooltip
             contentStyle={{
               background: "var(--color-card)",
               border: "1px solid var(--color-border)",
               borderRadius: 8,
-              fontSize: 12,
+              fontSize: 11,
             }}
-            labelFormatter={v => {
-              const d = new Date(v);
-              return d.toLocaleDateString();
-            }}
+            labelFormatter={v => new Date(v).toLocaleDateString()}
+            formatter={(val: number) => [`${val}${unit ? ` ${unit}` : ""}`, ""]}
           />
-          {lines.length > 1 && <Legend wrapperStyle={{ fontSize: 11 }} />}
-          {lines.map(l => (
-            <Line
-              key={l.key}
-              type="monotone"
-              dataKey={l.key}
-              name={l.label}
-              stroke={l.color}
-              strokeWidth={2}
-              dot={{ r: 3, fill: l.color }}
-              activeDot={{ r: 5 }}
-              connectNulls
-            />
-          ))}
+          <Line
+            type="monotone"
+            dataKey={dataKey}
+            stroke={color}
+            strokeWidth={2}
+            dot={{ r: 3, fill: color }}
+            activeDot={{ r: 5 }}
+            connectNulls
+          />
         </LineChart>
       </ResponsiveContainer>
     </div>
   );
 }
+
+function StatCard({
+  title,
+  value,
+  sub,
+  delta,
+}: {
+  title: string;
+  value: string | number;
+  sub?: string;
+  delta?: number | null;
+}) {
+  return (
+    <Card>
+      <CardContent className="pt-4 pb-4 text-center">
+        <p className="text-xs text-muted-foreground mb-1">{title}</p>
+        <p className="text-2xl font-bold">{value}</p>
+        {sub && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
+        {delta != null && (
+          <p className={`text-xs font-medium mt-1 ${delta < 0 ? "text-emerald-500" : delta > 0 ? "text-red-500" : "text-muted-foreground"}`}>
+            {delta > 0 ? "+" : ""}{delta.toFixed(1)} lbs
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+const MEASUREMENT_CHARTS = [
+  { key: "weight",  label: "Body Weight",  color: "hsl(271,70%,56%)", unit: "lbs" },
+  { key: "chest",   label: "Chest",        color: "hsl(340,75%,55%)", unit: "in" },
+  { key: "waist",   label: "Waist",        color: "hsl(200,70%,50%)", unit: "in" },
+  { key: "hips",    label: "Hips",         color: "hsl(38,92%,50%)",  unit: "in" },
+  { key: "left_arm",  label: "Left Arm",   color: "hsl(158,64%,38%)", unit: "in" },
+  { key: "right_arm", label: "Right Arm",  color: "hsl(158,64%,50%)", unit: "in" },
+  { key: "left_thigh",  label: "Left Thigh",  color: "hsl(28,85%,50%)", unit: "in" },
+  { key: "right_thigh", label: "Right Thigh", color: "hsl(28,85%,60%)", unit: "in" },
+  { key: "left_calf",   label: "Left Calf",   color: "hsl(260,50%,55%)", unit: "in" },
+  { key: "right_calf",  label: "Right Calf",  color: "hsl(260,50%,65%)", unit: "in" },
+] as const;
 
 export function ProgressPage() {
   const { clientId } = useClientId();
@@ -112,49 +139,51 @@ export function ProgressPage() {
 
   if (!clientId) return <div className="p-4 text-muted-foreground">Please join via an invite link first.</div>;
 
-  // ── Weight chart ──────────────────────────────────────
-  const weightData: ChartData[] = (measurements ?? [])
-    .filter(m => m.weight != null)
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .map(m => ({ date: m.date, weight: m.weight! }));
+  const sorted = (measurements ?? []).slice().sort((a, b) => a.date.localeCompare(b.date));
+  const first = sorted[0];
+  const last = sorted[sorted.length - 1];
 
-  // ── Body measurements chart ───────────────────────────
-  const measurementFields = [
-    { key: "chest", label: "Chest", color: "hsl(271,70%,56%)" },
-    { key: "waist", label: "Waist", color: "hsl(200,70%,50%)" },
-    { key: "hips", label: "Hips", color: "hsl(38,92%,50%)" },
-    { key: "arms", label: "Arms", color: "hsl(158,64%,38%)" },
-  ] as const;
+  const weightDelta = first?.weight != null && last?.weight != null
+    ? Number(last.weight) - Number(first.weight)
+    : null;
 
-  const bodyData: ChartData[] = (measurements ?? [])
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .map(m => ({
-      date: m.date,
-      chest: m.chest ?? null,
-      waist: m.waist ?? null,
-      hips: m.hips ?? null,
-      arms: m.arms ?? null,
-    }));
+  const hasMeasurements = sorted.length > 0;
+  const hasSleep = (sleepLogs ?? []).length > 0;
+  const hasWorkouts = (workoutLogs ?? []).length > 0;
 
-  // ── Sleep chart ───────────────────────────────────────
+  // Build chart data — one series per measurement type
+  const measurementData: ChartData[] = sorted.map(m => ({
+    date: m.date,
+    weight:       m.weight      != null ? Number(m.weight)      : null,
+    chest:        m.chest       != null ? Number(m.chest)       : null,
+    waist:        m.waist       != null ? Number(m.waist)       : null,
+    hips:         m.hips        != null ? Number(m.hips)        : null,
+    left_arm:     m.leftArm     != null ? Number(m.leftArm)     : null,
+    right_arm:    m.rightArm    != null ? Number(m.rightArm)    : null,
+    left_thigh:   m.leftThigh   != null ? Number(m.leftThigh)   : null,
+    right_thigh:  m.rightThigh  != null ? Number(m.rightThigh)  : null,
+    left_calf:    m.leftCalf    != null ? Number(m.leftCalf)    : null,
+    right_calf:   m.rightCalf   != null ? Number(m.rightCalf)   : null,
+  }));
+
   const sleepData: ChartData[] = (sleepLogs ?? [])
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .map(s => ({
-      date: s.date,
-      hours: s.hoursSlept,
-    }));
+    .slice().sort((a, b) => a.date.localeCompare(b.date))
+    .map(s => ({ date: s.date, hours: s.hoursSlept }));
 
-  // ── Workout volume chart ──────────────────────────────
-  const workoutData: ChartData[] = (workoutLogs ?? [])
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .map(w => ({
-      date: w.date,
-      sessions: 1,
-    }));
-
-  const hasMeasurements = measurements && measurements.length > 0;
-  const hasSleep = sleepLogs && sleepLogs.length > 0;
-  const hasWorkouts = workoutLogs && workoutLogs.length > 0;
+  if (!hasMeasurements && !hasSleep && !hasWorkouts) {
+    return (
+      <div className="max-w-2xl mx-auto space-y-6 pb-8">
+        <div>
+          <h1 className="text-2xl font-bold">Progress</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Your stats over time</p>
+        </div>
+        <div className="text-center py-16 text-muted-foreground">
+          <TrendingUp className="w-12 h-12 mx-auto mb-4 opacity-20" />
+          <p>No data yet. Start logging workouts and measurements!</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl mx-auto space-y-8 pb-8">
@@ -163,64 +192,117 @@ export function ProgressPage() {
         <p className="text-sm text-muted-foreground mt-0.5">Your stats over time</p>
       </div>
 
-      {!hasMeasurements && !hasSleep && !hasWorkouts && (
-        <div className="text-center py-16 text-muted-foreground">
-          <TrendingUp className="w-12 h-12 mx-auto mb-4 opacity-20" />
-          <p>No data yet. Start logging workouts, sleep, and measurements!</p>
+      {/* Summary cards */}
+      {hasMeasurements && (
+        <div className="grid grid-cols-3 gap-3">
+          <StatCard
+            title="Starting Weight"
+            value={first?.weight != null ? `${first.weight} lbs` : "—"}
+            sub={first?.date}
+          />
+          <StatCard
+            title="Current Weight"
+            value={last?.weight != null ? `${last.weight} lbs` : "—"}
+            sub={last?.date}
+          />
+          <StatCard
+            title="Total Change"
+            value={weightDelta != null ? `${Math.abs(weightDelta).toFixed(1)} lbs` : "—"}
+            sub={weightDelta != null ? (weightDelta < 0 ? "lost" : "gained") : undefined}
+            delta={weightDelta}
+          />
         </div>
       )}
 
-      {/* Weight */}
-      <Section title="Body Weight">
-        {weightData.length < 2 ? (
-          <EmptyChart label="weight" />
-        ) : (
-          <TrakLineChart
-            data={weightData}
-            lines={[{ key: "weight", color: "hsl(271,70%,56%)", label: "Weight" }]}
-            unit="lbs"
-          />
-        )}
-      </Section>
+      {/* Individual measurement charts */}
+      {hasMeasurements && measurementData.length >= 2 && (
+        <>
+          <div>
+            <h2 className="text-base font-semibold mb-4">Body Measurements</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {MEASUREMENT_CHARTS.map(({ key, label, color, unit }) => {
+                const hasData = measurementData.some(d => d[key] != null);
+                if (!hasData) return null;
 
-      {/* Body measurements */}
-      <Section title="Measurements">
-        {bodyData.length < 2 ? (
-          <EmptyChart label="measurement" />
-        ) : (
-          <TrakLineChart
-            data={bodyData}
-            lines={measurementFields.map(f => ({ key: f.key, color: f.color, label: f.label }))}
-            unit="in"
-          />
-        )}
-      </Section>
+                const firstVal = measurementData.find(d => d[key] != null)?.[key] as number | null;
+                const lastVal = [...measurementData].reverse().find(d => d[key] != null)?.[key] as number | null;
+                const diff = firstVal != null && lastVal != null ? lastVal - firstVal : null;
+
+                return (
+                  <Card key={key}>
+                    <CardHeader className="pb-0 pt-3 px-4">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-sm font-semibold">{label}</CardTitle>
+                        <div className="text-right">
+                          {lastVal != null && (
+                            <span className="text-sm font-bold">{lastVal} {unit}</span>
+                          )}
+                          {diff != null && Math.abs(diff) > 0.05 && (
+                            <span className={`ml-2 text-xs font-medium ${
+                              key === "waist" || key === "hips"
+                                ? diff < 0 ? "text-emerald-500" : "text-red-400"
+                                : diff > 0 ? "text-emerald-500" : "text-red-400"
+                            }`}>
+                              {diff > 0 ? "+" : ""}{diff.toFixed(1)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pt-2 pb-3 px-2">
+                      <MiniChart
+                        data={measurementData}
+                        dataKey={key}
+                        color={color}
+                        unit={unit}
+                      />
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Sleep */}
-      <Section title="Sleep (hours)">
-        {sleepData.length < 2 ? (
-          <EmptyChart label="sleep" />
-        ) : (
-          <TrakLineChart
-            data={sleepData}
-            lines={[
-              { key: "hours", color: "hsl(200,70%,50%)", label: "Hours slept" },
-            ]}
-          />
-        )}
-      </Section>
+      {hasSleep && sleepData.length >= 2 && (
+        <div>
+          <h2 className="text-base font-semibold mb-3">Sleep (hours)</h2>
+          <Card>
+            <CardContent className="pt-3 pb-3 px-2">
+              <MiniChart data={sleepData} dataKey="hours" color="hsl(200,70%,50%)" />
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Workout frequency */}
-      <Section title="Workout Frequency">
-        {workoutData.length < 2 ? (
-          <EmptyChart label="workout" />
-        ) : (
-          <TrakLineChart
-            data={workoutData}
-            lines={[{ key: "sessions", color: "hsl(158,64%,38%)", label: "Sessions" }]}
-          />
-        )}
-      </Section>
+      {hasWorkouts && (
+        <div>
+          <h2 className="text-base font-semibold mb-3">Workouts</h2>
+          <div className="grid grid-cols-2 gap-3">
+            <StatCard
+              title="Total Sessions"
+              value={workoutLogs?.length ?? 0}
+              sub="all time"
+            />
+            <StatCard
+              title="This Week"
+              value={
+                (workoutLogs ?? []).filter(w => {
+                  const d = new Date(w.date);
+                  const now = new Date();
+                  const startOfWeek = new Date(now);
+                  startOfWeek.setDate(now.getDate() - now.getDay());
+                  return d >= startOfWeek;
+                }).length
+              }
+              sub="sessions"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
