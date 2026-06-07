@@ -185,6 +185,28 @@ function playSound(id: SoundId) {
   } catch {}
 }
 
+function playWorkoutComplete() {
+  try {
+    const ctx = new AudioContext();
+    const t = ctx.currentTime;
+    const bell = (fundamental: number, partial: number, start: number) => {
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc1.connect(gain); osc2.connect(gain); gain.connect(ctx.destination);
+      osc1.type = "sine"; osc1.frequency.value = fundamental;
+      osc2.type = "sine"; osc2.frequency.value = partial;
+      gain.gain.setValueAtTime(0.28, start);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 1.8);
+      osc1.start(start); osc1.stop(start + 2);
+      osc2.start(start); osc2.stop(start + 2);
+    };
+    bell(880, 1108, t);
+    bell(988, 1244, t + 0.35);
+    setTimeout(() => ctx.close(), 2500);
+  } catch {}
+}
+
 function SoundCard({
   sound,
   selected,
@@ -266,6 +288,32 @@ export function ToneTester() {
                 onTap={() => { setRpeConfirm(s.id); playSound(s.id); }} />
             ))}
           </div>
+        </div>
+
+        {/* Workout complete */}
+        <div style={{ background: "#fff", borderRadius: 20, padding: "20px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#64748b", marginBottom: 2, textTransform: "uppercase", letterSpacing: "0.06em" }}>Workout complete</div>
+          <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 16 }}>Bell × 2 — ascending whole tone (A5 → B5)</div>
+          <button
+            onClick={playWorkoutComplete}
+            style={{
+              width: "100%",
+              padding: "14px",
+              borderRadius: 14,
+              border: "none",
+              background: "#7c3aed",
+              color: "#fff",
+              fontWeight: 700,
+              fontSize: 15,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+            }}
+          >
+            <span style={{ fontSize: 20 }}>🏆</span> Preview workout complete
+          </button>
         </div>
 
         <div style={{ background: "#f1f5f9", borderRadius: 16, padding: "14px 18px" }}>

@@ -762,7 +762,7 @@ export function WorkoutPage() {
           </div>
 
           {/* Bottom action */}
-          <div className="px-4 pb-6 pt-3 border-t border-border bg-background">
+          <div className="px-4 pb-20 md:pb-6 pt-3 border-t border-border bg-background">
             {allCurrentSetsLogged ? (
               <Button size="lg" className="w-full text-base font-bold h-14" onClick={handleNextExercise}>
                 {currentExIdx < exercises.length - 1 ? (
