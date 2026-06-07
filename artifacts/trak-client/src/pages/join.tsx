@@ -72,12 +72,12 @@ export function JoinPage() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center pb-2">
-          <div className="text-3xl font-light tracking-widest text-violet-600 uppercase mb-2">TRAK</div>
-          <CardTitle className="text-xl">Welcome to Trak</CardTitle>
+          <div className="text-3xl font-black text-violet-600 mb-2">tRak</div>
+          <CardTitle className="text-xl">Welcome to tRak</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6 text-center">
           <p className="text-muted-foreground">
-            Your coach has invited you to join Trak. You'll be able to log workouts, track your progress, and stay connected.
+            Your coach has invited you to join tRak. You'll be able to log workouts, track your progress, and stay connected.
           </p>
           <div className="bg-accent rounded-lg p-4">
             <p className="text-sm text-muted-foreground">Joining as</p>
