@@ -54,32 +54,83 @@ function ProgressBar({ value, total }: { value: number; total: number }) {
   );
 }
 
-function RpePicker({ onSelect, onCancel }: { onSelect: (rpe: number) => void; onCancel: () => void }) {
+function playRing() {
+  try {
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(1047, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(784, ctx.currentTime + 0.18);
+    gain.gain.setValueAtTime(0.38, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.65);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.65);
+    osc.onended = () => ctx.close();
+  } catch { /* silently ignore if audio not supported */ }
+}
+
+function playConfirm() {
+  try {
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(659, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(523, ctx.currentTime + 0.18);
+    gain.gain.setValueAtTime(0.18, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.35);
+    osc.onended = () => ctx.close();
+  } catch { /* silently ignore if audio not supported */ }
+}
+
+function RpeBottomSheet({ open, onSelect, onCancel }: { open: boolean; onSelect: (rpe: number) => void; onCancel: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex flex-col items-center justify-center p-6">
-      <button onClick={onCancel} className="absolute top-4 right-4 p-2 rounded-full text-muted-foreground hover:text-foreground">
-        <X className="w-5 h-5" />
-      </button>
-      <h2 className="text-2xl font-bold mb-2">How hard was that?</h2>
-      <p className="text-muted-foreground mb-8 text-sm">Rate of Perceived Exertion (1–10)</p>
-      <div className="grid grid-cols-5 gap-3 w-full max-w-xs">
-        {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => {
-          const color =
-            n <= 3 ? "bg-emerald-500 hover:bg-emerald-600 text-white" :
-            n <= 6 ? "bg-yellow-500 hover:bg-yellow-600 text-white" :
-            n <= 8 ? "bg-orange-500 hover:bg-orange-600 text-white" :
-            "bg-red-600 hover:bg-red-700 text-white";
-          return (
-            <button key={n} onClick={() => onSelect(n)} className={cn("h-14 rounded-xl text-xl font-bold transition-transform active:scale-95", color)}>
-              {n}
-            </button>
-          );
-        })}
+    <>
+      <div
+        className={cn(
+          "fixed inset-0 z-50 bg-black/50 transition-opacity duration-300",
+          open ? "opacity-100" : "opacity-0 pointer-events-none"
+        )}
+        onClick={onCancel}
+      />
+      <div
+        className={cn(
+          "fixed bottom-0 left-0 right-0 z-50 bg-background rounded-t-3xl px-6 pt-4 pb-10 transition-transform duration-300 ease-out shadow-2xl",
+          open ? "translate-y-0" : "translate-y-full"
+        )}
+      >
+        <div className="w-10 h-1 bg-muted-foreground/30 rounded-full mx-auto mb-5" />
+        <h2 className="text-xl font-bold mb-1 text-center">How hard was that?</h2>
+        <p className="text-muted-foreground mb-6 text-sm text-center">Rate of Perceived Exertion (1–10)</p>
+        <div className="grid grid-cols-5 gap-3 w-full max-w-xs mx-auto">
+          {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => {
+            const color =
+              n <= 3 ? "bg-emerald-500 hover:bg-emerald-600 text-white" :
+              n <= 6 ? "bg-yellow-500 hover:bg-yellow-600 text-white" :
+              n <= 8 ? "bg-orange-500 hover:bg-orange-600 text-white" :
+              "bg-red-600 hover:bg-red-700 text-white";
+            return (
+              <button key={n} onClick={() => onSelect(n)} className={cn("h-14 rounded-xl text-xl font-bold transition-transform active:scale-95", color)}>
+                {n}
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex justify-between w-full max-w-xs mx-auto mt-4 text-xs text-muted-foreground">
+          <span>Easy</span><span>Max effort</span>
+        </div>
+        <button onClick={onCancel} className="mt-6 w-full text-center text-sm text-muted-foreground hover:text-foreground transition-colors">
+          Cancel
+        </button>
       </div>
-      <div className="flex justify-between w-full max-w-xs mt-4 text-xs text-muted-foreground">
-        <span>Easy</span><span>Max effort</span>
-      </div>
-    </div>
+    </>
   );
 }
 
@@ -216,6 +267,7 @@ export function WorkoutPage() {
   const [currentExIdx, setCurrentExIdx] = useState(0);
   const [sets, setSets] = useState<SetState[][]>([]);
   const [rpeModal, setRpeModal] = useState<RpeModal | null>(null);
+  const [rpeSheetOpen, setRpeSheetOpen] = useState(false);
   const [swapModal, setSwapModal] = useState(false);
   const [swappedExercises, setSwappedExercises] = useState<Record<number, { exerciseName: string; muscleGroup: string; exerciseId: number }>>({});
 
@@ -295,9 +347,23 @@ export function WorkoutPage() {
     });
   };
 
+  // Open the bottom sheet whenever a set is tapped
+  useEffect(() => {
+    if (rpeModal) setRpeSheetOpen(true);
+  }, [rpeModal]);
+
+  const closeRpeSheet = (cb?: () => void) => {
+    setRpeSheetOpen(false);
+    setTimeout(() => {
+      setRpeModal(null);
+      cb?.();
+    }, 300);
+  };
+
   const handleCheckSet = (setIdx: number) => {
     const s = currentSets[setIdx];
     if (!s || s.logged) return;
+    playRing();
     setRpeModal({ exIdx: currentExIdx, setIdx });
   };
 
@@ -328,7 +394,11 @@ export function WorkoutPage() {
       );
       return next;
     });
-    setRpeModal(null);
+  };
+
+  const handleRpeConfirm = (rpe: number) => {
+    playConfirm();
+    closeRpeSheet(() => handleRpeSelect(rpe));
   };
 
   const updateWeight = (setIdx: number, value: string) => {
@@ -539,7 +609,7 @@ export function WorkoutPage() {
   if (mode === "active" && currentEx) {
     return (
       <>
-        {rpeModal && <RpePicker onSelect={handleRpeSelect} onCancel={() => setRpeModal(null)} />}
+        <RpeBottomSheet open={rpeSheetOpen} onSelect={handleRpeConfirm} onCancel={() => closeRpeSheet()} />
         {swapModal && (
           <SwapModal
             currentExercise={{ exerciseName: currentEx.exerciseName, muscleGroup: currentEx.muscleGroup }}
