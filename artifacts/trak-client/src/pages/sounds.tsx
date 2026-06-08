@@ -18,55 +18,7 @@ function playWorkoutComplete() {
     ping(1567.98, t + 0.090, 0.22, 0.8); // G6
     ping(2093.00, t + 0.135, 0.18, 0.5); // C7 ping
 
-    const cs = t + 0.38;
-    [480, 504, 528, 552, 576, 600, 624, 648, 672, 696].forEach((f, i) => {
-      const jitter = (Math.random() - 0.5) * 20;
-      const base = f + jitter;
-      const sine = ctx.createOscillator(); sine.type = "sine";
-      sine.frequency.setValueAtTime(base, cs);
-      sine.frequency.linearRampToValueAtTime(base * 1.10, cs + 0.10);
-      sine.frequency.linearRampToValueAtTime(base * 1.05, cs + 0.45);
-      const tri = ctx.createOscillator(); tri.type = "triangle";
-      tri.frequency.setValueAtTime(base, cs);
-      tri.frequency.linearRampToValueAtTime(base * 1.10, cs + 0.10);
-      tri.frequency.linearRampToValueAtTime(base * 1.05, cs + 0.45);
-      const lfo = ctx.createOscillator();
-      const lfoGain = ctx.createGain();
-      lfo.frequency.value = 5.5 + Math.random() * 1.5;
-      lfoGain.gain.value = base * 0.012;
-      lfo.connect(lfoGain); lfoGain.connect(sine.frequency); lfoGain.connect(tri.frequency);
-      const f1 = ctx.createBiquadFilter();
-      f1.type = "peaking"; f1.Q.value = 3.5; f1.gain.value = 14;
-      f1.frequency.setValueAtTime(750, cs); f1.frequency.linearRampToValueAtTime(320, cs + 0.42);
-      const f2 = ctx.createBiquadFilter();
-      f2.type = "peaking"; f2.Q.value = 3.0; f2.gain.value = 10;
-      f2.frequency.setValueAtTime(1100, cs); f2.frequency.linearRampToValueAtTime(2200, cs + 0.42);
-      const mix = ctx.createGain(); mix.gain.value = 0.5;
-      sine.connect(mix); tri.connect(mix); mix.connect(f1); f1.connect(f2);
-      const vg = ctx.createGain(); f2.connect(vg); vg.connect(ctx.destination);
-      vg.gain.setValueAtTime(0, cs + i * 0.009);
-      vg.gain.linearRampToValueAtTime(0.055, cs + i * 0.009 + 0.06);
-      vg.gain.setValueAtTime(0.055, cs + 0.28);
-      vg.gain.exponentialRampToValueAtTime(0.001, cs + 0.58);
-      lfo.start(cs); lfo.stop(cs + 0.62);
-      sine.start(cs + i * 0.009); sine.stop(cs + 0.62);
-      tri.start(cs + i * 0.009); tri.stop(cs + 0.62);
-    });
-    const clapStart = cs + 0.52;
-    [0, 0.20, 0.40, 0.60, 0.80].forEach(offset => {
-      const cLen = Math.floor(ctx.sampleRate * 0.10);
-      const cBuf = ctx.createBuffer(1, cLen, ctx.sampleRate);
-      const cd = cBuf.getChannelData(0);
-      for (let i = 0; i < cLen; i++) cd[i] = (Math.random() * 2 - 1) * Math.exp(-i / (cLen * 0.25));
-      const cSrc = ctx.createBufferSource(); cSrc.buffer = cBuf;
-      const cf = ctx.createBiquadFilter(); cf.type = "bandpass"; cf.frequency.value = 1600; cf.Q.value = 0.9;
-      const cg = ctx.createGain();
-      cg.gain.setValueAtTime(0.55, clapStart + offset);
-      cg.gain.exponentialRampToValueAtTime(0.001, clapStart + offset + 0.10);
-      cSrc.connect(cf); cf.connect(cg); cg.connect(ctx.destination);
-      cSrc.start(clapStart + offset);
-    });
-    setTimeout(() => ctx.close(), 2800);
+    setTimeout(() => ctx.close(), 2000);
   } catch {}
 }
 
