@@ -150,9 +150,9 @@ function playWorkoutComplete() {
 
     // Cmaj arpeggio: C6 → E6 → G6 → C7, each 45ms apart — high ping
     ping(1046.50, t + 0.000, 0.28, 1.2); // C6
-    ping(1318.51, t + 0.045, 0.25, 1.0); // E6
-    ping(1567.98, t + 0.090, 0.22, 0.8); // G6
-    ping(2093.00, t + 0.135, 0.18, 0.5); // C7 ping
+    ping(1318.51, t + 0.090, 0.25, 1.0); // E6
+    ping(1567.98, t + 0.180, 0.22, 0.8); // G6
+    ping(2093.00, t + 0.270, 0.18, 0.5); // C7 ping
 
     setTimeout(() => ctx.close(), 2000);
   } catch {}
