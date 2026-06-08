@@ -97,27 +97,25 @@ function playSwipe() {
   try {
     const ctx = new AudioContext();
     const t = ctx.currentTime;
-    const dur = 0.38;
-
-    // Clean sine whoop — upward pitch sweep, no noise
-    const osc = ctx.createOscillator();
-    osc.type = "sine";
-    osc.frequency.setValueAtTime(320, t);
-    osc.frequency.exponentialRampToValueAtTime(1050, t + dur * 0.55);
-    osc.frequency.exponentialRampToValueAtTime(900, t + dur);
-
+    const dur = 0.22;
+    const bufLen = Math.floor(ctx.sampleRate * dur);
+    const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) d[i] = Math.random() * 2 - 1;
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    const bp = ctx.createBiquadFilter();
+    bp.type = "bandpass"; bp.Q.value = 3.5;
+    bp.frequency.setValueAtTime(3200, t);
+    bp.frequency.exponentialRampToValueAtTime(520, t + dur);
     const env = ctx.createGain();
     env.gain.setValueAtTime(0, t);
-    env.gain.linearRampToValueAtTime(0.32, t + 0.04);
-    env.gain.setValueAtTime(0.32, t + dur * 0.5);
+    env.gain.linearRampToValueAtTime(0.55, t + 0.015);
     env.gain.exponentialRampToValueAtTime(0.001, t + dur);
-
-    osc.connect(env); env.connect(ctx.destination);
-    osc.start(t); osc.stop(t + dur + 0.05);
-    setTimeout(() => ctx.close(), 800);
+    src.connect(bp); bp.connect(env); env.connect(ctx.destination);
+    src.start(t);
+    setTimeout(() => ctx.close(), 600);
   } catch {}
 }
-
 
 function playWorkoutComplete() {
   try {
