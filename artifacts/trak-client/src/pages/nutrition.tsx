@@ -31,8 +31,13 @@ interface AiResult {
   protein: number | null;
   carbs: number | null;
   fat: number | null;
+  sodium: number | null;
   editing: boolean;
 }
+
+const OZ_PER_GLASS = 8;
+const ML_PER_OZ = 29.5735;
+const GLASS_ML = Math.round(OZ_PER_GLASS * ML_PER_OZ); // 237
 
 function PhotoBox({
   slot,
@@ -54,6 +59,7 @@ function PhotoBox({
   onAiEdit: () => void;
   onAiSave: () => void;
   onAiFieldChange: (field: keyof Omit<AiResult, "editing">, value: string) => void;
+  onSodiumChange?: (v: string) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -139,7 +145,7 @@ function PhotoBox({
               </div>
               {aiResult.editing ? (
                 <div className="grid grid-cols-2 gap-2">
-                  {(["calories", "protein", "carbs", "fat"] as const).map(field => (
+                  {(["calories", "protein", "carbs", "fat", "sodium"] as const).map(field => (
                     <div key={field}>
                       <label className="text-[10px] text-muted-foreground uppercase tracking-wide">{field}</label>
                       <Input
@@ -152,12 +158,13 @@ function PhotoBox({
                   ))}
                 </div>
               ) : (
-                <div className="grid grid-cols-4 gap-2 text-center">
+                <div className="grid grid-cols-5 gap-1 text-center">
                   {([
                     { label: "Cal", val: aiResult.calories, unit: "kcal" },
                     { label: "Protein", val: aiResult.protein, unit: "g" },
                     { label: "Carbs", val: aiResult.carbs, unit: "g" },
                     { label: "Fat", val: aiResult.fat, unit: "g" },
+                    { label: "Sodium", val: aiResult.sodium, unit: "mg" },
                   ] as const).map(m => (
                     <div key={m.label}>
                       <p className="text-xs font-bold text-foreground">{m.val ?? "–"}</p>
@@ -199,6 +206,7 @@ export function NutritionPage() {
     makeSlot("Meal 3"),
   ]);
   const [aiResults, setAiResults] = useState<Record<string, AiResult>>({});
+  const [waterGlasses, setWaterGlasses] = useState(0);
   const [submitting, setSubmitting] = useState(false);
 
   const { data: logs, isLoading } = useListNutritionLogs(clientId!, {
@@ -239,6 +247,7 @@ export function NutritionPage() {
           protein: data.protein ?? null,
           carbs: data.carbs ?? null,
           fat: data.fat ?? null,
+          sodium: data.sodium ?? null,
           editing: false,
         },
       }));
@@ -322,10 +331,26 @@ export function NutritionPage() {
               protein: ai?.protein ?? undefined,
               carbs: ai?.carbs ?? undefined,
               fat: ai?.fat ?? undefined,
+              sodium: ai?.sodium ?? undefined,
             }
           }, { onSuccess: () => resolve(), onError: () => resolve() });
         });
       }
+    }
+
+    // Log a water entry if any glasses recorded
+    if (waterGlasses > 0) {
+      await new Promise<void>(resolve => {
+        createNutritionLog.mutate({
+          clientId,
+          data: {
+            date: today,
+            imageUrl: "water_only",
+            notes: `Water: ${waterGlasses} glass${waterGlasses !== 1 ? "es" : ""} (${waterGlasses * OZ_PER_GLASS} oz)`,
+            waterMl: waterGlasses * GLASS_ML,
+          }
+        }, { onSuccess: () => resolve(), onError: () => resolve() });
+      });
     }
 
     qc.invalidateQueries({ queryKey: getListNutritionLogsQueryKey(clientId) });
@@ -334,6 +359,7 @@ export function NutritionPage() {
     setDiarySlot(makeSlot("MFP Diary Overview"));
     setMealSlots([makeSlot("Meal 1"), makeSlot("Meal 2"), makeSlot("Meal 3")]);
     setAiResults({});
+    setWaterGlasses(0);
   };
 
   if (!clientId) return <div className="p-4 text-muted-foreground">Please join via an invite link first.</div>;
@@ -392,6 +418,43 @@ export function NutritionPage() {
         </Button>
       </div>
 
+      {/* Water intake */}
+      <div className="border border-border rounded-2xl bg-card px-4 py-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-semibold">Water intake</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {waterGlasses === 0
+                ? "How many glasses today?"
+                : `${waterGlasses} × 8 oz = ${waterGlasses * OZ_PER_GLASS} oz`}
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setWaterGlasses(g => Math.max(0, g - 1))}
+              disabled={waterGlasses === 0}
+              className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:border-primary/50 disabled:opacity-30 transition-colors"
+            >
+              <Minus className="w-4 h-4" />
+            </button>
+            <span className="text-xl font-bold w-6 text-center">{waterGlasses}</span>
+            <button
+              onClick={() => setWaterGlasses(g => g + 1)}
+              className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:border-primary/50 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+        {waterGlasses > 0 && (
+          <div className="flex gap-1.5 mt-3 flex-wrap">
+            {Array.from({ length: waterGlasses }).map((_, i) => (
+              <span key={i} className="text-lg">💧</span>
+            ))}
+          </div>
+        )}
+      </div>
+
       <Button
         size="lg"
         className="w-full h-13 font-semibold"
@@ -406,9 +469,15 @@ export function NutritionPage() {
         <div>
           <h2 className="text-base font-semibold mb-3">Past Logs</h2>
           <div className="space-y-2">
-            {logs?.slice().reverse().map(n => (
+            {logs?.slice().reverse().map(n => {
+              const isWaterOnly = n.imageUrl === "water_only";
+              return (
               <div key={n.id} className="flex items-center gap-3 p-3 rounded-xl border border-border bg-card">
-                {n.imageUrl && n.imageUrl !== "cant_track" ? (
+                {isWaterOnly ? (
+                  <div className="w-12 h-12 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0 text-2xl">
+                    💧
+                  </div>
+                ) : n.imageUrl && n.imageUrl !== "cant_track" ? (
                   <img src={n.imageUrl} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
                 ) : (
                   <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
@@ -417,11 +486,13 @@ export function NutritionPage() {
                 )}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium">{n.notes ?? n.date}</p>
-                  <div className="flex gap-3 mt-0.5">
+                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
                     {n.calories && <span className="text-xs text-muted-foreground">{n.calories} kcal</span>}
                     {n.protein && <span className="text-xs text-muted-foreground">P: {n.protein}g</span>}
                     {n.carbs && <span className="text-xs text-muted-foreground">C: {n.carbs}g</span>}
                     {n.fat && <span className="text-xs text-muted-foreground">F: {n.fat}g</span>}
+                    {n.sodium && <span className="text-xs text-muted-foreground">Na: {n.sodium}mg</span>}
+                    {n.waterMl && <span className="text-xs text-muted-foreground">{Math.round(n.waterMl / ML_PER_OZ)} oz water</span>}
                   </div>
                 </div>
                 <button
@@ -433,7 +504,8 @@ export function NutritionPage() {
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

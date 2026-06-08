@@ -22,6 +22,8 @@ router.get("/clients/:clientId/nutrition", async (req, res) => {
       protein: n.protein ? Number(n.protein) : null,
       carbs: n.carbs ? Number(n.carbs) : null,
       fat: n.fat ? Number(n.fat) : null,
+      sodium: n.sodium ?? null,
+      waterMl: n.waterMl ?? null,
       createdAt: n.createdAt.toISOString(),
     })));
   } catch (err) {
@@ -42,6 +44,8 @@ router.post("/clients/:clientId/nutrition", async (req, res) => {
       protein: body.protein != null ? String(body.protein) : null,
       carbs: body.carbs != null ? String(body.carbs) : null,
       fat: body.fat != null ? String(body.fat) : null,
+      sodium: body.sodium ?? null,
+      waterMl: body.waterMl ?? null,
       notes: body.notes ?? null,
     }).returning();
     res.status(201).json({
@@ -49,6 +53,8 @@ router.post("/clients/:clientId/nutrition", async (req, res) => {
       protein: n.protein ? Number(n.protein) : null,
       carbs: n.carbs ? Number(n.carbs) : null,
       fat: n.fat ? Number(n.fat) : null,
+      sodium: n.sodium ?? null,
+      waterMl: n.waterMl ?? null,
       createdAt: n.createdAt.toISOString(),
     });
   } catch (err) {

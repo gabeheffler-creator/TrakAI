@@ -25,7 +25,7 @@ router.post("/nutrition/extract", async (req, res) => {
           role: "system",
           content:
             "You are a nutrition extraction assistant. The user will send a food diary screenshot (e.g. from MyFitnessPal or a meal photo). " +
-            "Extract the total macros visible. Return ONLY valid JSON with keys: calories (number), protein (number, grams), carbs (number, grams), fat (number, grams). " +
+            "Extract the total macros visible. Return ONLY valid JSON with keys: calories (number), protein (number, grams), carbs (number, grams), fat (number, grams), sodium (number, milligrams). " +
             "If a value is not visible or unclear, use null. Do not include any other text.",
         },
         {
@@ -46,7 +46,7 @@ router.post("/nutrition/extract", async (req, res) => {
 
     const raw = response.choices[0]?.message?.content ?? "{}";
 
-    let parsed: { calories?: number | null; protein?: number | null; carbs?: number | null; fat?: number | null } = {};
+    let parsed: { calories?: number | null; protein?: number | null; carbs?: number | null; fat?: number | null; sodium?: number | null } = {};
     try {
       // Strip markdown code fences if model wrapped output in them
       const clean = raw.replace(/^```[a-z]*\n?/i, "").replace(/```\s*$/, "").trim();
@@ -60,6 +60,7 @@ router.post("/nutrition/extract", async (req, res) => {
       protein: parsed.protein ?? null,
       carbs: parsed.carbs ?? null,
       fat: parsed.fat ?? null,
+      sodium: parsed.sodium ?? null,
     });
   } catch (err) {
     req.log.error(err);

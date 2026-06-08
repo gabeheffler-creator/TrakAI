@@ -13,5 +13,9 @@ export interface NutritionLogInput {
   protein?: number;
   carbs?: number;
   fat?: number;
+  /** Sodium in milligrams */
+  sodium?: number;
+  /** Water intake in millilitres */
+  waterMl?: number;
   notes?: string;
 }

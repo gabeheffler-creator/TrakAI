@@ -714,6 +714,8 @@ export const ListNutritionLogsResponseItem = zod.object({
   "protein": zod.number().nullish(),
   "carbs": zod.number().nullish(),
   "fat": zod.number().nullish(),
+  "sodium": zod.number().nullish().describe('Sodium in milligrams'),
+  "waterMl": zod.number().nullish().describe('Water intake in millilitres'),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date()
 })
@@ -734,6 +736,8 @@ export const CreateNutritionLogBody = zod.object({
   "protein": zod.number().optional(),
   "carbs": zod.number().optional(),
   "fat": zod.number().optional(),
+  "sodium": zod.number().optional().describe('Sodium in milligrams'),
+  "waterMl": zod.number().optional().describe('Water intake in millilitres'),
   "notes": zod.string().optional()
 })
 

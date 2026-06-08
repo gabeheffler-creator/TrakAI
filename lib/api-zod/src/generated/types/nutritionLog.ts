@@ -19,6 +19,16 @@ export interface NutritionLog {
   carbs?: number | null;
   /** @nullable */
   fat?: number | null;
+  /**
+     * Sodium in milligrams
+     * @nullable
+     */
+  sodium?: number | null;
+  /**
+     * Water intake in millilitres
+     * @nullable
+     */
+  waterMl?: number | null;
   /** @nullable */
   notes?: string | null;
   createdAt: Date;

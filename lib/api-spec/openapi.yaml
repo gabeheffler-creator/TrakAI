@@ -2017,6 +2017,12 @@ components:
           type: ["number", "null"]
         fat:
           type: ["number", "null"]
+        sodium:
+          type: ["integer", "null"]
+          description: Sodium in milligrams
+        waterMl:
+          type: ["integer", "null"]
+          description: Water intake in millilitres
         notes:
           type: ["string", "null"]
         createdAt:
@@ -2040,6 +2046,12 @@ components:
           type: number
         fat:
           type: number
+        sodium:
+          type: integer
+          description: Sodium in milligrams
+        waterMl:
+          type: integer
+          description: Water intake in millilitres
         notes:
           type: string
 

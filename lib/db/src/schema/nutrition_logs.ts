@@ -12,6 +12,8 @@ export const nutritionLogsTable = pgTable("nutrition_logs", {
   protein: numeric("protein"),
   carbs: numeric("carbs"),
   fat: numeric("fat"),
+  sodium: integer("sodium"),
+  waterMl: integer("water_ml"),
   notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
