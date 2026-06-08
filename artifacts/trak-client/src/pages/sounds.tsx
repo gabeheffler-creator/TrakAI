@@ -13,11 +13,10 @@ function playWorkoutComplete() {
       gain.gain.exponentialRampToValueAtTime(0.001, start + decay);
       osc.start(start); osc.stop(start + decay + 0.05);
     };
-    ping(523.25, t, 0.30, 2.2);
-    ping(659.25, t, 0.26, 2.0);
-    ping(783.99, t, 0.22, 1.8);
-    ping(1046.50, t, 0.18, 0.6);
-    ping(1318.51, t, 0.10, 0.4);
+    ping(523.25,  t + 0.00, 0.30, 2.2); // C5
+    ping(659.25,  t + 0.09, 0.28, 2.0); // E5
+    ping(783.99,  t + 0.18, 0.25, 1.8); // G5
+    ping(1046.50, t + 0.27, 0.20, 0.8); // C6 ping
     setTimeout(() => ctx.close(), 2800);
   } catch {}
 }
