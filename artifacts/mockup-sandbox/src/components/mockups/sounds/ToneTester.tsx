@@ -189,7 +189,7 @@ function playSwipe() {
   try {
     const ctx = new AudioContext();
     const t = ctx.currentTime;
-    const dur = 0.38;
+    const dur = 0.42;
 
     const bufLen = Math.floor(ctx.sampleRate * dur);
     const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
@@ -198,29 +198,25 @@ function playSwipe() {
     const src = ctx.createBufferSource();
     src.buffer = buf;
 
-    const filter = ctx.createBiquadFilter();
-    filter.type = "bandpass";
-    filter.frequency.setValueAtTime(700, t);
-    filter.frequency.exponentialRampToValueAtTime(120, t + dur);
-    filter.Q.value = 0.4;
+    const hp = ctx.createBiquadFilter();
+    hp.type = "highpass";
+    hp.frequency.value = 300;
+    hp.Q.value = 0.3;
+
+    const lp = ctx.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.setValueAtTime(1800, t);
+    lp.frequency.exponentialRampToValueAtTime(450, t + dur);
+    lp.Q.value = 0.5;
 
     const env = ctx.createGain();
     env.gain.setValueAtTime(0, t);
-    env.gain.linearRampToValueAtTime(0.65, t + 0.04);
+    env.gain.linearRampToValueAtTime(0.45, t + 0.08);
+    env.gain.linearRampToValueAtTime(0.38, t + 0.18);
     env.gain.exponentialRampToValueAtTime(0.001, t + dur);
 
-    src.connect(filter); filter.connect(env); env.connect(ctx.destination);
+    src.connect(hp); hp.connect(lp); lp.connect(env); env.connect(ctx.destination);
     src.start(t);
-
-    const body = ctx.createOscillator();
-    const bodyGain = ctx.createGain();
-    body.connect(bodyGain); bodyGain.connect(ctx.destination);
-    body.type = "sine";
-    body.frequency.setValueAtTime(110, t);
-    body.frequency.exponentialRampToValueAtTime(55, t + dur);
-    bodyGain.gain.setValueAtTime(0.18, t);
-    bodyGain.gain.exponentialRampToValueAtTime(0.001, t + dur * 0.6);
-    body.start(t); body.stop(t + dur);
 
     setTimeout(() => ctx.close(), 800);
   } catch {}
