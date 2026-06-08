@@ -148,10 +148,10 @@ function playWorkoutComplete() {
       osc.start(start); osc.stop(start + decay + 0.05);
     };
 
-    // Cmaj triad: C6 → E6 → G6, 90ms apart
-    ping(1046.50, t + 0.000, 0.26, 1.0); // C6
-    ping(1318.51, t + 0.090, 0.26, 1.0); // E6
-    ping(1567.98, t + 0.180, 0.30, 1.4); // G6 (resolution)
+    // Fmaj triad: F6 → A6 → C7, 90ms apart
+    ping(1396.91, t + 0.000, 0.26, 1.0); // F6
+    ping(1760.00, t + 0.090, 0.26, 1.0); // A6
+    ping(2093.00, t + 0.180, 0.30, 1.4); // C7 (resolution)
 
     setTimeout(() => ctx.close(), 2000);
   } catch {}
