@@ -201,8 +201,8 @@ function playWorkoutComplete() {
       osc1.start(start); osc1.stop(start + 2);
       osc2.start(start); osc2.stop(start + 2);
     };
-    bell(698, 880, t);
-    bell(784, 987, t + 0.2);
+    bell(784, 987, t);
+    bell(880, 1108, t + 0.2);
     setTimeout(() => ctx.close(), 2500);
   } catch {}
 }
@@ -293,7 +293,7 @@ export function ToneTester() {
         {/* Workout complete */}
         <div style={{ background: "#fff", borderRadius: 20, padding: "20px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#64748b", marginBottom: 2, textTransform: "uppercase", letterSpacing: "0.06em" }}>Workout complete</div>
-          <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 16 }}>Bell × 2 — ascending whole tone (F5 → G5)</div>
+          <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 16 }}>Bell × 2 — ascending whole tone (G5 → A5)</div>
           <button
             onClick={playWorkoutComplete}
             style={{
