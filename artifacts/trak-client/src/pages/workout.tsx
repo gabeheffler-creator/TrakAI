@@ -97,7 +97,7 @@ function playSwipe() {
   try {
     const ctx = new AudioContext();
     const t = ctx.currentTime;
-    const dur = 0.18;
+    const dur = 0.38;
 
     const bufLen = Math.floor(ctx.sampleRate * dur);
     const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
@@ -105,28 +105,32 @@ function playSwipe() {
     for (let i = 0; i < bufLen; i++) data[i] = Math.random() * 2 - 1;
     const src = ctx.createBufferSource();
     src.buffer = buf;
-    const noiseFilter = ctx.createBiquadFilter();
-    noiseFilter.type = "bandpass";
-    noiseFilter.frequency.setValueAtTime(3200, t);
-    noiseFilter.frequency.exponentialRampToValueAtTime(280, t + dur);
-    noiseFilter.Q.value = 1.2;
-    const noiseGain = ctx.createGain();
-    noiseGain.gain.setValueAtTime(0.35, t);
-    noiseGain.gain.exponentialRampToValueAtTime(0.001, t + dur);
-    src.connect(noiseFilter); noiseFilter.connect(noiseGain); noiseGain.connect(ctx.destination);
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = "bandpass";
+    filter.frequency.setValueAtTime(700, t);
+    filter.frequency.exponentialRampToValueAtTime(120, t + dur);
+    filter.Q.value = 0.4;
+
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0, t);
+    env.gain.linearRampToValueAtTime(0.65, t + 0.04);
+    env.gain.exponentialRampToValueAtTime(0.001, t + dur);
+
+    src.connect(filter); filter.connect(env); env.connect(ctx.destination);
     src.start(t);
 
-    const osc = ctx.createOscillator();
-    const oscGain = ctx.createGain();
-    osc.connect(oscGain); oscGain.connect(ctx.destination);
-    osc.type = "sine";
-    osc.frequency.setValueAtTime(2200, t);
-    osc.frequency.exponentialRampToValueAtTime(220, t + dur);
-    oscGain.gain.setValueAtTime(0.18, t);
-    oscGain.gain.exponentialRampToValueAtTime(0.001, t + dur);
-    osc.start(t); osc.stop(t + dur + 0.01);
+    const body = ctx.createOscillator();
+    const bodyGain = ctx.createGain();
+    body.connect(bodyGain); bodyGain.connect(ctx.destination);
+    body.type = "sine";
+    body.frequency.setValueAtTime(110, t);
+    body.frequency.exponentialRampToValueAtTime(55, t + dur);
+    bodyGain.gain.setValueAtTime(0.18, t);
+    bodyGain.gain.exponentialRampToValueAtTime(0.001, t + dur * 0.6);
+    body.start(t); body.stop(t + dur);
 
-    setTimeout(() => ctx.close(), 600);
+    setTimeout(() => ctx.close(), 800);
   } catch {}
 }
 
