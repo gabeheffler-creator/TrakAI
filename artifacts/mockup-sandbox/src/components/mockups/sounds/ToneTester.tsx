@@ -189,22 +189,17 @@ function playSwipe() {
   try {
     const ctx = new AudioContext();
     const t = ctx.currentTime;
-    const dur = 0.28;
-    [-6, 0, +6].forEach((cents) => {
-      const f = Math.pow(2, cents / 1200);
-      const osc = ctx.createOscillator();
-      osc.type = "sawtooth";
-      osc.frequency.setValueAtTime(500 * f, t);
-      osc.frequency.exponentialRampToValueAtTime(100 * f, t + dur);
-      const lp = ctx.createBiquadFilter();
-      lp.type = "lowpass"; lp.frequency.value = 900;
-      const g = ctx.createGain();
-      g.gain.setValueAtTime(0, t);
-      g.gain.linearRampToValueAtTime(0.18, t + 0.022);
-      g.gain.exponentialRampToValueAtTime(0.001, t + dur);
-      osc.connect(lp); lp.connect(g); g.connect(ctx.destination);
-      osc.start(t); osc.stop(t + dur + 0.05);
-    });
+    const dur = 0.22;
+    const osc = ctx.createOscillator();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(180, t);
+    osc.frequency.exponentialRampToValueAtTime(1100, t + dur);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.45, t + 0.015);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    osc.connect(g); g.connect(ctx.destination);
+    osc.start(t); osc.stop(t + dur + 0.05);
     setTimeout(() => ctx.close(), 600);
   } catch {}
 }
