@@ -93,6 +93,43 @@ function playConfirm() {
   } catch {}
 }
 
+function playSwipe() {
+  try {
+    const ctx = new AudioContext();
+    const t = ctx.currentTime;
+    const dur = 0.18;
+
+    const bufLen = Math.floor(ctx.sampleRate * dur);
+    const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) data[i] = Math.random() * 2 - 1;
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const noiseFilter = ctx.createBiquadFilter();
+    noiseFilter.type = "bandpass";
+    noiseFilter.frequency.setValueAtTime(3200, t);
+    noiseFilter.frequency.exponentialRampToValueAtTime(280, t + dur);
+    noiseFilter.Q.value = 1.2;
+    const noiseGain = ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.35, t);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    src.connect(noiseFilter); noiseFilter.connect(noiseGain); noiseGain.connect(ctx.destination);
+    src.start(t);
+
+    const osc = ctx.createOscillator();
+    const oscGain = ctx.createGain();
+    osc.connect(oscGain); oscGain.connect(ctx.destination);
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(2200, t);
+    osc.frequency.exponentialRampToValueAtTime(220, t + dur);
+    oscGain.gain.setValueAtTime(0.18, t);
+    oscGain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    osc.start(t); osc.stop(t + dur + 0.01);
+
+    setTimeout(() => ctx.close(), 600);
+  } catch {}
+}
+
 function playWorkoutComplete() {
   try {
     const ctx = new AudioContext();
@@ -634,7 +671,7 @@ export function WorkoutPage() {
   if (mode === "active" && currentEx) {
     return (
       <>
-        <RpeBottomSheet open={rpeSheetOpen} onSelect={handleRpeConfirm} onCancel={() => closeRpeSheet()} />
+        <RpeBottomSheet open={rpeSheetOpen} onSelect={handleRpeConfirm} onCancel={() => { playSwipe(); closeRpeSheet(); }} />
         {swapModal && (
           <SwapModal
             currentExercise={{ exerciseName: currentEx.exerciseName, muscleGroup: currentEx.muscleGroup }}

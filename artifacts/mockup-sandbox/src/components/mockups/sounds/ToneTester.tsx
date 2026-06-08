@@ -185,6 +185,43 @@ function playSound(id: SoundId) {
   } catch {}
 }
 
+function playSwipe() {
+  try {
+    const ctx = new AudioContext();
+    const t = ctx.currentTime;
+    const dur = 0.18;
+
+    const bufLen = Math.floor(ctx.sampleRate * dur);
+    const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) data[i] = Math.random() * 2 - 1;
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const noiseFilter = ctx.createBiquadFilter();
+    noiseFilter.type = "bandpass";
+    noiseFilter.frequency.setValueAtTime(3200, t);
+    noiseFilter.frequency.exponentialRampToValueAtTime(280, t + dur);
+    noiseFilter.Q.value = 1.2;
+    const noiseGain = ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.35, t);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    src.connect(noiseFilter); noiseFilter.connect(noiseGain); noiseGain.connect(ctx.destination);
+    src.start(t);
+
+    const osc = ctx.createOscillator();
+    const oscGain = ctx.createGain();
+    osc.connect(oscGain); oscGain.connect(ctx.destination);
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(2200, t);
+    osc.frequency.exponentialRampToValueAtTime(220, t + dur);
+    oscGain.gain.setValueAtTime(0.18, t);
+    oscGain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    osc.start(t); osc.stop(t + dur + 0.01);
+
+    setTimeout(() => ctx.close(), 600);
+  } catch {}
+}
+
 function playWorkoutComplete() {
   try {
     const ctx = new AudioContext();
@@ -288,6 +325,32 @@ export function ToneTester() {
                 onTap={() => { setRpeConfirm(s.id); playSound(s.id); }} />
             ))}
           </div>
+        </div>
+
+        {/* RPE dismiss swipe */}
+        <div style={{ background: "#fff", borderRadius: 20, padding: "20px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#64748b", marginBottom: 2, textTransform: "uppercase", letterSpacing: "0.06em" }}>RPE dismissed</div>
+          <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 16 }}>Plays when the RPE sheet slides back down</div>
+          <button
+            onClick={playSwipe}
+            style={{
+              width: "100%",
+              padding: "14px",
+              borderRadius: 14,
+              border: "none",
+              background: "#334155",
+              color: "#fff",
+              fontWeight: 700,
+              fontSize: 15,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+            }}
+          >
+            <span style={{ fontSize: 20 }}>⚔️</span> Preview swipe dismiss
+          </button>
         </div>
 
         {/* Workout complete */}
