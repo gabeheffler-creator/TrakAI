@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useClientId } from "@/hooks/use-client-id";
 import { useUnitSystem, type UnitSystem } from "@/hooks/use-unit-system";
 import {
@@ -333,9 +334,95 @@ function getMeasurementCharts(weightUnit: string, lengthUnit: string) {
   ];
 }
 
+// ─── History list view ───────────────────────────────────────────────────────
+
+type MeasurementEntry = ChartData & { date: string };
+
+function RateRow({
+  label,
+  rate,
+  unit,
+  lowerIsBetter = false,
+}: {
+  label: string;
+  rate: number | null;
+  unit: string;
+  lowerIsBetter?: boolean;
+}) {
+  if (rate == null || Math.abs(rate) < 0.001) return null;
+  const positive = rate > 0;
+  const good = lowerIsBetter ? !positive : positive;
+  const color = good ? "text-emerald-500" : "text-red-400";
+  const sign = positive ? "+" : "";
+  return (
+    <div className="flex items-center justify-between py-1.5 border-b border-border/40 last:border-0">
+      <span className="text-sm text-muted-foreground">{label}</span>
+      <span className={`text-sm font-semibold ${color}`}>
+        {positive ? <TrendingUp className="w-3 h-3 inline mr-0.5" /> : <TrendingDown className="w-3 h-3 inline mr-0.5" />}
+        {sign}{rate.toFixed(2)} {unit}/wk
+      </span>
+    </div>
+  );
+}
+
+function HistoryList({
+  entries,
+  charts,
+}: {
+  entries: MeasurementEntry[];
+  charts: ReturnType<typeof getMeasurementCharts>;
+}) {
+  const newest = [...entries].reverse();
+
+  return (
+    <div className="space-y-3">
+      {newest.map((entry, revIdx) => {
+        const origIdx = entries.length - 1 - revIdx;
+        const prev = origIdx > 0 ? entries[origIdx - 1] : null;
+
+        const presentMetrics = charts.filter(({ key }) => entry[key] != null);
+        if (presentMetrics.length === 0) return null;
+
+        return (
+          <Card key={entry.date}>
+            <CardContent className="pt-3 pb-3 px-4">
+              <p className="text-sm font-bold mb-2">
+                {format(parseISO(entry.date), "MMM d, yyyy")}
+              </p>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-1">
+                {presentMetrics.map(({ key, label, unit, lowerIsBetter }) => {
+                  const val = entry[key] as number;
+                  const prevVal = prev?.[key] as number | null | undefined;
+                  const delta = prevVal != null ? Number((val - prevVal).toFixed(2)) : null;
+                  const showDelta = delta != null && Math.abs(delta) > 0.01;
+                  const good = showDelta && (lowerIsBetter ? delta! < 0 : delta! > 0);
+                  return (
+                    <div key={key} className="flex items-baseline justify-between text-xs gap-1">
+                      <span className="text-muted-foreground truncate">{label}</span>
+                      <span className="font-medium shrink-0">
+                        {val} {unit}
+                        {showDelta && (
+                          <span className={`ml-1 ${good ? "text-emerald-500" : "text-red-400"}`}>
+                            {delta! > 0 ? "+" : ""}{delta}
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })}
+    </div>
+  );
+}
+
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export function ProgressPage() {
+  const [view, setView] = useState<"charts" | "history">("charts");
   const { clientId } = useClientId();
   const { units, weightLabel, lengthLabel } = useUnitSystem();
 
@@ -417,14 +504,41 @@ export function ProgressPage() {
     );
   }
 
+  // Rate-of-change summary for history view header
+  const rateRows = MEASUREMENT_CHARTS.map(({ key, label, unit, lowerIsBetter }) => {
+    const points = measurementData
+      .filter(d => d[key] != null)
+      .map(d => ({ date: d.date as string, value: d[key] as number }));
+    return { label, unit, lowerIsBetter, rate: weeklyRate(points) };
+  }).filter(r => r.rate != null && Math.abs(r.rate) >= 0.001);
+
   return (
     <div className="max-w-2xl mx-auto space-y-8 pb-8">
-      <div>
-        <h1 className="text-2xl font-bold">Progress</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">Your stats over time</p>
+      {/* Header + toggle */}
+      <div className="flex items-end justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Progress</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Your stats over time</p>
+        </div>
+        {hasMeasurements && (
+          <div className="flex rounded-lg border border-border overflow-hidden text-sm">
+            <button
+              onClick={() => setView("charts")}
+              className={`px-3 py-1.5 transition-colors ${view === "charts" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+            >
+              Charts
+            </button>
+            <button
+              onClick={() => setView("history")}
+              className={`px-3 py-1.5 transition-colors ${view === "history" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+            >
+              History
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Summary cards */}
+      {/* Summary cards — always visible */}
       {hasMeasurements && (
         <div className="grid grid-cols-3 gap-3">
           <StatCard
@@ -447,106 +561,139 @@ export function ProgressPage() {
         </div>
       )}
 
-      {/* Individual measurement charts */}
-      {hasMeasurements && measurementData.length >= 2 && (
-        <div>
-          <h2 className="text-base font-semibold mb-4">Body Measurements</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {MEASUREMENT_CHARTS.map(({ key, label, color, unit, lowerIsBetter }) => {
-              const points = measurementData
-                .filter(d => d[key] != null)
-                .map(d => ({ date: d.date as string, value: d[key] as number }));
-              if (points.length === 0) return null;
-
-              const firstVal = points[0].value;
-              const lastVal = points[points.length - 1].value;
-              const diff = lastVal - firstVal;
-              const rate = weeklyRate(points);
-              const lwDelta = lastWeekDelta(points);
-              const deltas = rolling7dDeltas(points);
-
-              return (
-                <Card key={key}>
-                  <CardHeader className="pb-0 pt-3 px-4">
-                    {/* Row 1: name + current value + total diff */}
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-sm font-semibold">{label}</CardTitle>
-                      <div className="flex items-baseline gap-1.5">
-                        <span className="text-sm font-bold">{lastVal} {unit}</span>
-                        {Math.abs(diff) > 0.05 && (
-                          <span className={`text-xs font-medium ${
-                            lowerIsBetter
-                              ? diff < 0 ? "text-emerald-500" : "text-red-400"
-                              : diff > 0 ? "text-emerald-500" : "text-red-400"
-                          }`}>
-                            {diff > 0 ? "+" : ""}{diff.toFixed(1)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    {/* Row 2: trend avg + this-week delta */}
-                    <div className="flex items-center gap-3 mt-1 flex-wrap">
-                      <RateChip rate={rate} unit={unit} lowerIsBetter={lowerIsBetter} />
-                      <span className="text-muted-foreground text-xs">·</span>
-                      <LastWeekChip delta={lwDelta} unit={unit} lowerIsBetter={lowerIsBetter} />
-                    </div>
-                  </CardHeader>
-                  <CardContent className="pt-2 pb-3 px-2">
-                    {/* Value over time */}
-                    <MiniLineChart data={measurementData} dataKey={key} color={color} unit={unit} />
-                    {/* Rolling 7-day net change history */}
-                    <DeltaHistoryChart deltas={deltas} unit={unit} lowerIsBetter={lowerIsBetter} />
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Sleep */}
-      {hasSleep && sleepData.length >= 2 && (
-        <div>
-          <h2 className="text-base font-semibold mb-3">Sleep</h2>
-          <Card>
-            <CardHeader className="pb-0 pt-3 px-4">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-semibold">Hours slept</CardTitle>
-                <span className="text-sm font-bold">
-                  {Number(sleepData[sleepData.length - 1]?.hours).toFixed(1)} hrs
-                </span>
-              </div>
-              <div className="flex items-center gap-3 mt-1 flex-wrap">
-                <RateChip rate={weeklyRate(sleepPoints)} unit="hrs" lowerIsBetter={false} />
-                <span className="text-muted-foreground text-xs">·</span>
-                <LastWeekChip delta={lastWeekDelta(sleepPoints)} unit="hrs" lowerIsBetter={false} />
-              </div>
-            </CardHeader>
-            <CardContent className="pt-2 pb-3 px-2">
-              <MiniLineChart data={sleepData} dataKey="hours" color="hsl(200,70%,50%)" unit="hrs" />
-              <DeltaHistoryChart deltas={rolling7dDeltas(sleepPoints)} unit="hrs" lowerIsBetter={false} />
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Workouts */}
-      {hasWorkouts && (
-        <div>
-          <h2 className="text-base font-semibold mb-3">Workouts</h2>
-          <div className="grid grid-cols-2 gap-3">
-            <StatCard title="Total Sessions" value={workoutLogs?.length ?? 0} sub="all time" />
+      {/* ── History view ────────────────────────────────────────────── */}
+      {view === "history" && hasMeasurements && (
+        <div className="space-y-4">
+          {/* Rate-of-change summary */}
+          {rateRows.length > 0 && (
             <Card>
-              <CardContent className="pt-4 pb-4 text-center">
-                <p className="text-xs text-muted-foreground mb-1">Avg Frequency</p>
-                <p className="text-2xl font-bold">
-                  {workoutRate != null ? workoutRate.toFixed(1) : "—"}
-                </p>
-                <p className="text-xs text-muted-foreground mt-0.5">sessions/week</p>
+              <CardHeader className="pb-1 pt-3 px-4">
+                <CardTitle className="text-sm font-semibold">Avg rate of change</CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-3">
+                {rateRows.map(r => (
+                  <RateRow
+                    key={r.label}
+                    label={r.label}
+                    rate={r.rate}
+                    unit={r.unit}
+                    lowerIsBetter={r.lowerIsBetter}
+                  />
+                ))}
               </CardContent>
             </Card>
-          </div>
+          )}
+
+          {/* Measurement entries */}
+          <h2 className="text-base font-semibold">Measurement entries</h2>
+          <HistoryList
+            entries={measurementData as MeasurementEntry[]}
+            charts={MEASUREMENT_CHARTS}
+          />
         </div>
+      )}
+
+      {/* ── Charts view ─────────────────────────────────────────────── */}
+      {view === "charts" && (
+        <>
+          {/* Individual measurement charts */}
+          {hasMeasurements && measurementData.length >= 2 && (
+            <div>
+              <h2 className="text-base font-semibold mb-4">Body Measurements</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {MEASUREMENT_CHARTS.map(({ key, label, color, unit, lowerIsBetter }) => {
+                  const points = measurementData
+                    .filter(d => d[key] != null)
+                    .map(d => ({ date: d.date as string, value: d[key] as number }));
+                  if (points.length === 0) return null;
+
+                  const firstVal = points[0].value;
+                  const lastVal = points[points.length - 1].value;
+                  const diff = lastVal - firstVal;
+                  const rate = weeklyRate(points);
+                  const lwDelta = lastWeekDelta(points);
+                  const deltas = rolling7dDeltas(points);
+
+                  return (
+                    <Card key={key}>
+                      <CardHeader className="pb-0 pt-3 px-4">
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-sm font-semibold">{label}</CardTitle>
+                          <div className="flex items-baseline gap-1.5">
+                            <span className="text-sm font-bold">{lastVal} {unit}</span>
+                            {Math.abs(diff) > 0.05 && (
+                              <span className={`text-xs font-medium ${
+                                lowerIsBetter
+                                  ? diff < 0 ? "text-emerald-500" : "text-red-400"
+                                  : diff > 0 ? "text-emerald-500" : "text-red-400"
+                              }`}>
+                                {diff > 0 ? "+" : ""}{diff.toFixed(1)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 mt-1 flex-wrap">
+                          <RateChip rate={rate} unit={unit} lowerIsBetter={lowerIsBetter} />
+                          <span className="text-muted-foreground text-xs">·</span>
+                          <LastWeekChip delta={lwDelta} unit={unit} lowerIsBetter={lowerIsBetter} />
+                        </div>
+                      </CardHeader>
+                      <CardContent className="pt-2 pb-3 px-2">
+                        <MiniLineChart data={measurementData} dataKey={key} color={color} unit={unit} />
+                        <DeltaHistoryChart deltas={deltas} unit={unit} lowerIsBetter={lowerIsBetter} />
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Sleep */}
+          {hasSleep && sleepData.length >= 2 && (
+            <div>
+              <h2 className="text-base font-semibold mb-3">Sleep</h2>
+              <Card>
+                <CardHeader className="pb-0 pt-3 px-4">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-semibold">Hours slept</CardTitle>
+                    <span className="text-sm font-bold">
+                      {Number(sleepData[sleepData.length - 1]?.hours).toFixed(1)} hrs
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 mt-1 flex-wrap">
+                    <RateChip rate={weeklyRate(sleepPoints)} unit="hrs" lowerIsBetter={false} />
+                    <span className="text-muted-foreground text-xs">·</span>
+                    <LastWeekChip delta={lastWeekDelta(sleepPoints)} unit="hrs" lowerIsBetter={false} />
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-2 pb-3 px-2">
+                  <MiniLineChart data={sleepData} dataKey="hours" color="hsl(200,70%,50%)" unit="hrs" />
+                  <DeltaHistoryChart deltas={rolling7dDeltas(sleepPoints)} unit="hrs" lowerIsBetter={false} />
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Workouts */}
+          {hasWorkouts && (
+            <div>
+              <h2 className="text-base font-semibold mb-3">Workouts</h2>
+              <div className="grid grid-cols-2 gap-3">
+                <StatCard title="Total Sessions" value={workoutLogs?.length ?? 0} sub="all time" />
+                <Card>
+                  <CardContent className="pt-4 pb-4 text-center">
+                    <p className="text-xs text-muted-foreground mb-1">Avg Frequency</p>
+                    <p className="text-2xl font-bold">
+                      {workoutRate != null ? workoutRate.toFixed(1) : "—"}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">sessions/week</p>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
