@@ -10,11 +10,11 @@ const navigation = [
   { name: "Workout", href: "/workout", icon: Dumbbell },
   { name: "Progress", href: "/progress", icon: TrendingUp },
   { name: "Nutrition", href: "/nutrition", icon: UtensilsCrossed },
-  { name: "Messages", href: "/messages", icon: MessageCircle },
   { name: "Stats", href: "/stats", icon: Ruler },
   { name: "Sleep", href: "/sleep", icon: Moon },
   { name: "Photos", href: "/photos", icon: Camera },
   { name: "Tasks", href: "/assignments", icon: ClipboardList },
+  { name: "Messages", href: "/messages", icon: MessageCircle },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -25,15 +25,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
   if (!clientId) {
     return (
       <div className="flex min-h-screen w-full bg-background">
-        <main className="flex-1 p-4 md:p-6">{children}</main>
+        <main className="flex-1 p-4">{children}</main>
       </div>
     );
   }
 
   return (
     <div className="flex min-h-screen w-full bg-background">
-      {/* Desktop sidebar */}
-      <div className="hidden md:flex md:w-56 md:flex-col md:fixed md:inset-y-0">
+      {/* Sidebar — always visible */}
+      <div className="flex w-56 flex-col fixed inset-y-0">
         <div className="flex-1 flex flex-col min-h-0 bg-sidebar border-r border-sidebar-border">
           <div className="flex-1 flex flex-col pt-6 pb-4 overflow-y-auto">
             <div className="flex items-center flex-shrink-0 px-4 mb-6">
@@ -74,32 +74,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Main content */}
-      <div className="md:pl-56 flex flex-col flex-1 w-full">
-        <main className="flex-1 p-4 md:p-6 pb-20 md:pb-6">
+      <div className="pl-56 flex flex-col flex-1 w-full">
+        <main className="flex-1 p-4 md:p-6">
           {children}
         </main>
-      </div>
-
-      {/* Mobile bottom nav */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-card border-t border-border z-50">
-        <div className="grid grid-cols-5 h-16">
-          {navigation.slice(0, 5).map((item) => {
-            const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
-            return (
-              <Link
-                key={item.name}
-                href={item.href}
-                className={cn(
-                  "flex flex-col items-center justify-center h-full text-xs transition-colors",
-                  isActive ? "text-primary" : "text-muted-foreground"
-                )}
-              >
-                <item.icon className="h-5 w-5 mb-0.5" />
-                <span className="text-[10px]">{item.name}</span>
-              </Link>
-            );
-          })}
-        </div>
       </div>
     </div>
   );
