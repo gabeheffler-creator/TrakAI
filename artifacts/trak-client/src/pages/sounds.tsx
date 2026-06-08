@@ -59,31 +59,31 @@ function playSwipe() {
   try {
     const ctx = new AudioContext();
     const t = ctx.currentTime;
-    const dur = 0.35;
+    const dur = 0.20;
     const bufLen = Math.floor(ctx.sampleRate * dur);
     const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
     const d = buf.getChannelData(0);
     for (let i = 0; i < bufLen; i++) d[i] = Math.random() * 2 - 1;
     const src = ctx.createBufferSource(); src.buffer = buf;
-    const lp = ctx.createBiquadFilter();
-    lp.type = "lowpass"; lp.Q.value = 6;
-    lp.frequency.setValueAtTime(1800, t);
-    lp.frequency.exponentialRampToValueAtTime(65, t + dur);
+    const bp = ctx.createBiquadFilter();
+    bp.type = "bandpass"; bp.Q.value = 9;
+    bp.frequency.setValueAtTime(3400, t);
+    bp.frequency.exponentialRampToValueAtTime(700, t + dur);
     const ng = ctx.createGain();
-    ng.gain.setValueAtTime(0, t); ng.gain.linearRampToValueAtTime(0.7, t + 0.02);
+    ng.gain.setValueAtTime(0, t); ng.gain.linearRampToValueAtTime(0.9, t + 0.010);
     ng.gain.exponentialRampToValueAtTime(0.001, t + dur);
-    src.connect(lp); lp.connect(ng); ng.connect(ctx.destination);
+    src.connect(bp); bp.connect(ng); ng.connect(ctx.destination);
     src.start(t);
     const osc = ctx.createOscillator();
     osc.type = "sine";
-    osc.frequency.setValueAtTime(380, t);
-    osc.frequency.exponentialRampToValueAtTime(50, t + dur);
+    osc.frequency.setValueAtTime(3000, t);
+    osc.frequency.exponentialRampToValueAtTime(600, t + dur);
     const og = ctx.createGain();
-    og.gain.setValueAtTime(0, t); og.gain.linearRampToValueAtTime(0.38, t + 0.03);
+    og.gain.setValueAtTime(0, t); og.gain.linearRampToValueAtTime(0.25, t + 0.010);
     og.gain.exponentialRampToValueAtTime(0.001, t + dur);
     osc.connect(og); og.connect(ctx.destination);
     osc.start(t); osc.stop(t + dur + 0.05);
-    setTimeout(() => ctx.close(), 700);
+    setTimeout(() => ctx.close(), 600);
   } catch {}
 }
 
