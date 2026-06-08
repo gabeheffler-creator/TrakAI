@@ -9,12 +9,12 @@ const navigation = [
   { name: "Home", href: "/", icon: Home },
   { name: "Workout", href: "/workout", icon: Dumbbell },
   { name: "Progress", href: "/progress", icon: TrendingUp },
+  { name: "Nutrition", href: "/nutrition", icon: UtensilsCrossed },
+  { name: "Messages", href: "/messages", icon: MessageCircle },
   { name: "Stats", href: "/stats", icon: Ruler },
   { name: "Sleep", href: "/sleep", icon: Moon },
-  { name: "Nutrition", href: "/nutrition", icon: UtensilsCrossed },
   { name: "Photos", href: "/photos", icon: Camera },
   { name: "Tasks", href: "/assignments", icon: ClipboardList },
-  { name: "Messages", href: "/messages", icon: MessageCircle },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
