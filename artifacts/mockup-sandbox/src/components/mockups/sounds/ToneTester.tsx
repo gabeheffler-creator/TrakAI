@@ -239,11 +239,11 @@ function playWorkoutComplete() {
       osc.start(start); osc.stop(start + decay + 0.05);
     };
 
-    // Cmaj arpeggio: C5 → E5 → G5 → C6, each 45ms apart
-    ping(523.25,  t + 0.000, 0.30, 2.2); // C5
-    ping(659.25,  t + 0.045, 0.28, 2.0); // E5
-    ping(783.99,  t + 0.090, 0.25, 1.8); // G5
-    ping(1046.50, t + 0.135, 0.20, 0.8); // C6 ping
+    // Cmaj arpeggio: C6 → E6 → G6 → C7, each 45ms apart — high ping
+    ping(1046.50, t + 0.000, 0.28, 1.2); // C6
+    ping(1318.51, t + 0.045, 0.25, 1.0); // E6
+    ping(1567.98, t + 0.090, 0.22, 0.8); // G6
+    ping(2093.00, t + 0.135, 0.18, 0.5); // C7 ping
 
     setTimeout(() => ctx.close(), 2800);
   } catch {}
