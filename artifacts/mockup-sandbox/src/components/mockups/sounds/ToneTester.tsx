@@ -189,35 +189,19 @@ function playSwipe() {
   try {
     const ctx = new AudioContext();
     const t = ctx.currentTime;
-    const dur = 0.42;
-
-    const bufLen = Math.floor(ctx.sampleRate * dur);
-    const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
-    const data = buf.getChannelData(0);
-    for (let i = 0; i < bufLen; i++) data[i] = Math.random() * 2 - 1;
-    const src = ctx.createBufferSource();
-    src.buffer = buf;
-
-    const hp = ctx.createBiquadFilter();
-    hp.type = "highpass";
-    hp.frequency.value = 300;
-    hp.Q.value = 0.3;
-
-    const lp = ctx.createBiquadFilter();
-    lp.type = "lowpass";
-    lp.frequency.setValueAtTime(1800, t);
-    lp.frequency.exponentialRampToValueAtTime(450, t + dur);
-    lp.Q.value = 0.5;
-
+    const dur = 0.38;
+    const osc = ctx.createOscillator();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(320, t);
+    osc.frequency.exponentialRampToValueAtTime(1050, t + dur * 0.55);
+    osc.frequency.exponentialRampToValueAtTime(900, t + dur);
     const env = ctx.createGain();
     env.gain.setValueAtTime(0, t);
-    env.gain.linearRampToValueAtTime(0.45, t + 0.08);
-    env.gain.linearRampToValueAtTime(0.38, t + 0.18);
+    env.gain.linearRampToValueAtTime(0.32, t + 0.04);
+    env.gain.setValueAtTime(0.32, t + dur * 0.5);
     env.gain.exponentialRampToValueAtTime(0.001, t + dur);
-
-    src.connect(hp); hp.connect(lp); lp.connect(env); env.connect(ctx.destination);
-    src.start(t);
-
+    osc.connect(env); env.connect(ctx.destination);
+    osc.start(t); osc.stop(t + dur + 0.05);
     setTimeout(() => ctx.close(), 800);
   } catch {}
 }
