@@ -19,36 +19,44 @@ function playWorkoutComplete() {
     ping(2093.00, t + 0.135, 0.18, 0.5); // C7 ping
 
     const cs = t + 0.38;
-    const noiseLen = Math.floor(ctx.sampleRate * 1.6);
-    const noiseBuf = ctx.createBuffer(1, noiseLen, ctx.sampleRate);
-    const nd = noiseBuf.getChannelData(0);
-    for (let i = 0; i < noiseLen; i++) nd[i] = Math.random() * 2 - 1;
-    const nsrc = ctx.createBufferSource(); nsrc.buffer = noiseBuf;
-    const nhp = ctx.createBiquadFilter(); nhp.type = "highpass"; nhp.frequency.value = 1200;
-    const nlp = ctx.createBiquadFilter(); nlp.type = "lowpass"; nlp.frequency.value = 5000;
-    const ng = ctx.createGain();
-    ng.gain.setValueAtTime(0, cs);
-    ng.gain.linearRampToValueAtTime(0.14, cs + 0.18);
-    ng.gain.setValueAtTime(0.14, cs + 0.9);
-    ng.gain.exponentialRampToValueAtTime(0.001, cs + 1.6);
-    nsrc.connect(nhp); nhp.connect(nlp); nlp.connect(ng); ng.connect(ctx.destination);
-    nsrc.start(cs); nsrc.stop(cs + 1.6);
-    [520, 548, 574, 600, 626, 652, 678, 704, 730, 754].forEach((f, i) => {
+    [540, 568, 594, 618, 644, 668, 694, 718, 742, 766].forEach((f, i) => {
       const osc = ctx.createOscillator();
-      const bp = ctx.createBiquadFilter();
+      const f1 = ctx.createBiquadFilter();
+      const f2 = ctx.createBiquadFilter();
       const vg = ctx.createGain();
-      osc.connect(bp); bp.connect(vg); vg.connect(ctx.destination);
       osc.type = "sawtooth";
-      const jitter = (Math.random() - 0.5) * 18;
-      osc.frequency.setValueAtTime(f + jitter, cs);
-      osc.frequency.linearRampToValueAtTime((f + jitter) * 1.07, cs + 0.14);
-      osc.frequency.linearRampToValueAtTime((f + jitter) * 1.03, cs + 0.65);
-      bp.type = "bandpass"; bp.frequency.value = 1400; bp.Q.value = 1.4;
-      vg.gain.setValueAtTime(0, cs + i * 0.01);
-      vg.gain.linearRampToValueAtTime(0.055, cs + i * 0.01 + 0.07);
-      vg.gain.setValueAtTime(0.055, cs + 0.38);
-      vg.gain.exponentialRampToValueAtTime(0.001, cs + 0.9);
-      osc.start(cs + i * 0.01); osc.stop(cs + 0.95);
+      const jitter = (Math.random() - 0.5) * 24;
+      const base = f + jitter;
+      osc.frequency.setValueAtTime(base, cs);
+      osc.frequency.linearRampToValueAtTime(base * 1.09, cs + 0.12);
+      osc.frequency.linearRampToValueAtTime(base * 1.04, cs + 0.42);
+      f1.type = "bandpass"; f1.Q.value = 2.5;
+      f1.frequency.setValueAtTime(800, cs);
+      f1.frequency.linearRampToValueAtTime(350, cs + 0.40);
+      f2.type = "bandpass"; f2.Q.value = 2.5;
+      f2.frequency.setValueAtTime(1200, cs);
+      f2.frequency.linearRampToValueAtTime(2400, cs + 0.40);
+      osc.connect(f1); osc.connect(f2);
+      f1.connect(vg); f2.connect(vg); vg.connect(ctx.destination);
+      vg.gain.setValueAtTime(0, cs + i * 0.008);
+      vg.gain.linearRampToValueAtTime(0.07, cs + i * 0.008 + 0.05);
+      vg.gain.setValueAtTime(0.07, cs + 0.30);
+      vg.gain.exponentialRampToValueAtTime(0.001, cs + 0.55);
+      osc.start(cs + i * 0.008); osc.stop(cs + 0.6);
+    });
+    const clapStart = cs + 0.52;
+    [0, 0.20, 0.40, 0.60, 0.80].forEach(offset => {
+      const cLen = Math.floor(ctx.sampleRate * 0.10);
+      const cBuf = ctx.createBuffer(1, cLen, ctx.sampleRate);
+      const cd = cBuf.getChannelData(0);
+      for (let i = 0; i < cLen; i++) cd[i] = (Math.random() * 2 - 1) * Math.exp(-i / (cLen * 0.25));
+      const cSrc = ctx.createBufferSource(); cSrc.buffer = cBuf;
+      const cf = ctx.createBiquadFilter(); cf.type = "bandpass"; cf.frequency.value = 1600; cf.Q.value = 0.9;
+      const cg = ctx.createGain();
+      cg.gain.setValueAtTime(0.55, clapStart + offset);
+      cg.gain.exponentialRampToValueAtTime(0.001, clapStart + offset + 0.10);
+      cSrc.connect(cf); cf.connect(cg); cg.connect(ctx.destination);
+      cSrc.start(clapStart + offset);
     });
     setTimeout(() => ctx.close(), 2800);
   } catch {}
