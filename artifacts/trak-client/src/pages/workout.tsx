@@ -97,37 +97,36 @@ function playSwipe() {
   try {
     const ctx = new AudioContext();
     const t = ctx.currentTime;
-    const dur = 0.32;
+    const dur = 0.35;
     const bufLen = Math.floor(ctx.sampleRate * dur);
     const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
     const d = buf.getChannelData(0);
     for (let i = 0; i < bufLen; i++) d[i] = Math.random() * 2 - 1;
 
-    // Upper body: airy mid sweep 1200 → 120 Hz
-    const src1 = ctx.createBufferSource(); src1.buffer = buf;
-    const bp1 = ctx.createBiquadFilter();
-    bp1.type = "bandpass"; bp1.Q.value = 1.4;
-    bp1.frequency.setValueAtTime(1200, t);
-    bp1.frequency.exponentialRampToValueAtTime(120, t + dur);
-    const g1 = ctx.createGain();
-    g1.gain.setValueAtTime(0, t);
-    g1.gain.linearRampToValueAtTime(0.5, t + 0.018);
-    g1.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    // Resonant lowpass sweep — cuts static, resonance peak gives "whooom"
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    const lp = ctx.createBiquadFilter();
+    lp.type = "lowpass"; lp.Q.value = 6;
+    lp.frequency.setValueAtTime(1800, t);
+    lp.frequency.exponentialRampToValueAtTime(65, t + dur);
+    const ng = ctx.createGain();
+    ng.gain.setValueAtTime(0, t);
+    ng.gain.linearRampToValueAtTime(0.7, t + 0.02);
+    ng.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    src.connect(lp); lp.connect(ng); ng.connect(ctx.destination);
+    src.start(t);
 
-    // Low body: sub thump 350 → 55 Hz, peaks slightly later for weight
-    const src2 = ctx.createBufferSource(); src2.buffer = buf;
-    const bp2 = ctx.createBiquadFilter();
-    bp2.type = "bandpass"; bp2.Q.value = 1.0;
-    bp2.frequency.setValueAtTime(350, t);
-    bp2.frequency.exponentialRampToValueAtTime(55, t + dur);
-    const g2 = ctx.createGain();
-    g2.gain.setValueAtTime(0, t);
-    g2.gain.linearRampToValueAtTime(0.6, t + 0.04);
-    g2.gain.exponentialRampToValueAtTime(0.001, t + dur);
-
-    src1.connect(bp1); bp1.connect(g1); g1.connect(ctx.destination);
-    src2.connect(bp2); bp2.connect(g2); g2.connect(ctx.destination);
-    src1.start(t); src2.start(t);
+    // Pitched sine sweep — clean low body, no noise
+    const osc = ctx.createOscillator();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(380, t);
+    osc.frequency.exponentialRampToValueAtTime(50, t + dur);
+    const og = ctx.createGain();
+    og.gain.setValueAtTime(0, t);
+    og.gain.linearRampToValueAtTime(0.38, t + 0.03);
+    og.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    osc.connect(og); og.connect(ctx.destination);
+    osc.start(t); osc.stop(t + dur + 0.05);
     setTimeout(() => ctx.close(), 700);
   } catch {}
 }
