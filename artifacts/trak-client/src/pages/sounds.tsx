@@ -13,10 +13,10 @@ function playWorkoutComplete() {
       gain.gain.exponentialRampToValueAtTime(0.001, start + decay);
       osc.start(start); osc.stop(start + decay + 0.05);
     };
-    // Fmaj triad: F6 → A6 → C7, 90ms apart
-    ping(1396.91, t + 0.000, 0.26, 1.0); // F6
-    ping(1760.00, t + 0.090, 0.26, 1.0); // A6
-    ping(2093.00, t + 0.180, 0.30, 1.4); // C7 (resolution)
+    // C major 1-5-8: C6 → G6 → C7, 90ms apart
+    ping(1046.50, t + 0.000, 0.26, 1.0); // C6 (1)
+    ping(1567.98, t + 0.090, 0.26, 1.0); // G6 (5)
+    ping(2093.00, t + 0.180, 0.30, 1.4); // C7 (8)
 
     setTimeout(() => ctx.close(), 2000);
   } catch {}
