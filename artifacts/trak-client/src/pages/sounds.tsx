@@ -17,6 +17,39 @@ function playWorkoutComplete() {
     ping(1318.51, t + 0.045, 0.25, 1.0); // E6
     ping(1567.98, t + 0.090, 0.22, 0.8); // G6
     ping(2093.00, t + 0.135, 0.18, 0.5); // C7 ping
+
+    const cs = t + 0.38;
+    const noiseLen = Math.floor(ctx.sampleRate * 1.6);
+    const noiseBuf = ctx.createBuffer(1, noiseLen, ctx.sampleRate);
+    const nd = noiseBuf.getChannelData(0);
+    for (let i = 0; i < noiseLen; i++) nd[i] = Math.random() * 2 - 1;
+    const nsrc = ctx.createBufferSource(); nsrc.buffer = noiseBuf;
+    const nhp = ctx.createBiquadFilter(); nhp.type = "highpass"; nhp.frequency.value = 1200;
+    const nlp = ctx.createBiquadFilter(); nlp.type = "lowpass"; nlp.frequency.value = 5000;
+    const ng = ctx.createGain();
+    ng.gain.setValueAtTime(0, cs);
+    ng.gain.linearRampToValueAtTime(0.14, cs + 0.18);
+    ng.gain.setValueAtTime(0.14, cs + 0.9);
+    ng.gain.exponentialRampToValueAtTime(0.001, cs + 1.6);
+    nsrc.connect(nhp); nhp.connect(nlp); nlp.connect(ng); ng.connect(ctx.destination);
+    nsrc.start(cs); nsrc.stop(cs + 1.6);
+    [520, 548, 574, 600, 626, 652, 678, 704, 730, 754].forEach((f, i) => {
+      const osc = ctx.createOscillator();
+      const bp = ctx.createBiquadFilter();
+      const vg = ctx.createGain();
+      osc.connect(bp); bp.connect(vg); vg.connect(ctx.destination);
+      osc.type = "sawtooth";
+      const jitter = (Math.random() - 0.5) * 18;
+      osc.frequency.setValueAtTime(f + jitter, cs);
+      osc.frequency.linearRampToValueAtTime((f + jitter) * 1.07, cs + 0.14);
+      osc.frequency.linearRampToValueAtTime((f + jitter) * 1.03, cs + 0.65);
+      bp.type = "bandpass"; bp.frequency.value = 1400; bp.Q.value = 1.4;
+      vg.gain.setValueAtTime(0, cs + i * 0.01);
+      vg.gain.linearRampToValueAtTime(0.055, cs + i * 0.01 + 0.07);
+      vg.gain.setValueAtTime(0.055, cs + 0.38);
+      vg.gain.exponentialRampToValueAtTime(0.001, cs + 0.9);
+      osc.start(cs + i * 0.01); osc.stop(cs + 0.95);
+    });
     setTimeout(() => ctx.close(), 2800);
   } catch {}
 }
