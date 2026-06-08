@@ -96,19 +96,6 @@ function playConfirm() {
 function playSwipe() {
   try {
     const ctx = new AudioContext();
-    const t = ctx.currentTime;
-    const dur = 0.22;
-    const osc = ctx.createOscillator();
-    osc.type = "sine";
-    osc.frequency.setValueAtTime(180, t);
-    osc.frequency.exponentialRampToValueAtTime(1100, t + dur);
-    const g = ctx.createGain();
-    g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(0.45, t + 0.015);
-    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
-    osc.connect(g); g.connect(ctx.destination);
-    osc.start(t); osc.stop(t + dur + 0.05);
-    setTimeout(() => ctx.close(), 600);
   } catch {}
 }
 
