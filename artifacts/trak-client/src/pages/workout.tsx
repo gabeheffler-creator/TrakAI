@@ -97,36 +97,25 @@ function playSwipe() {
   try {
     const ctx = new AudioContext();
     const t = ctx.currentTime;
-    const dur = 0.20;
-    const bufLen = Math.floor(ctx.sampleRate * dur);
-    const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
-    const d = buf.getChannelData(0);
-    for (let i = 0; i < bufLen; i++) d[i] = Math.random() * 2 - 1;
-
-    // High-Q narrow bandpass — nearly tonal, just enough air texture, no static
-    const src = ctx.createBufferSource(); src.buffer = buf;
-    const bp = ctx.createBiquadFilter();
-    bp.type = "bandpass"; bp.Q.value = 9;
-    bp.frequency.setValueAtTime(3400, t);
-    bp.frequency.exponentialRampToValueAtTime(700, t + dur);
-    const ng = ctx.createGain();
-    ng.gain.setValueAtTime(0, t);
-    ng.gain.linearRampToValueAtTime(0.9, t + 0.010);
-    ng.gain.exponentialRampToValueAtTime(0.001, t + dur);
-    src.connect(bp); bp.connect(ng); ng.connect(ctx.destination);
-    src.start(t);
-
-    // Sine sweep on top — clean tonal edge
-    const osc = ctx.createOscillator();
-    osc.type = "sine";
-    osc.frequency.setValueAtTime(3000, t);
-    osc.frequency.exponentialRampToValueAtTime(600, t + dur);
-    const og = ctx.createGain();
-    og.gain.setValueAtTime(0, t);
-    og.gain.linearRampToValueAtTime(0.25, t + 0.010);
-    og.gain.exponentialRampToValueAtTime(0.001, t + dur);
-    osc.connect(og); og.connect(ctx.destination);
-    osc.start(t); osc.stop(t + dur + 0.05);
+    const dur = 0.28;
+    // Pure oscillators only — no noise, no static
+    // 3 detuned sawtooth sweeps (rich harmonics) through a lowpass
+    // Bat barrel: lower + fuller than a thin rod (500→100 Hz)
+    [-6, 0, +6].forEach((cents) => {
+      const f = Math.pow(2, cents / 1200);
+      const osc = ctx.createOscillator();
+      osc.type = "sawtooth";
+      osc.frequency.setValueAtTime(500 * f, t);
+      osc.frequency.exponentialRampToValueAtTime(100 * f, t + dur);
+      const lp = ctx.createBiquadFilter();
+      lp.type = "lowpass"; lp.frequency.value = 900;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.18, t + 0.022);
+      g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      osc.connect(lp); lp.connect(g); g.connect(ctx.destination);
+      osc.start(t); osc.stop(t + dur + 0.05);
+    });
     setTimeout(() => ctx.close(), 600);
   } catch {}
 }
