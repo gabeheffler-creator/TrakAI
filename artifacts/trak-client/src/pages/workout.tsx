@@ -157,32 +157,60 @@ function playWorkoutComplete() {
     // Crowd cheer: starts just as arpeggio peaks
     const cs = t + 0.38;
 
-    // "YAY!" — crowd of children voices with formant shaping
-    // F1: 800→350 Hz (ah→ay), F2: 1200→2400 Hz (ah→ay)
-    [540, 568, 594, 618, 644, 668, 694, 718, 742, 766].forEach((f, i) => {
-      const osc = ctx.createOscillator();
-      const f1 = ctx.createBiquadFilter();
-      const f2 = ctx.createBiquadFilter();
-      const vg = ctx.createGain();
-      osc.type = "sawtooth";
-      const jitter = (Math.random() - 0.5) * 24;
+    // "YAY!" — smoother children voices using sine+triangle blend with vibrato
+    // F1: 750→320 Hz (ah→ay), F2: 1100→2200 Hz, gentle formant shaping
+    [480, 504, 528, 552, 576, 600, 624, 648, 672, 696].forEach((f, i) => {
+      const jitter = (Math.random() - 0.5) * 20;
       const base = f + jitter;
-      osc.frequency.setValueAtTime(base, cs);
-      osc.frequency.linearRampToValueAtTime(base * 1.09, cs + 0.12); // excited pitch up
-      osc.frequency.linearRampToValueAtTime(base * 1.04, cs + 0.42);
-      f1.type = "bandpass"; f1.Q.value = 2.5;
-      f1.frequency.setValueAtTime(800, cs);
-      f1.frequency.linearRampToValueAtTime(350, cs + 0.40); // ah → ay
-      f2.type = "bandpass"; f2.Q.value = 2.5;
-      f2.frequency.setValueAtTime(1200, cs);
-      f2.frequency.linearRampToValueAtTime(2400, cs + 0.40); // ah → ay
-      osc.connect(f1); osc.connect(f2);
-      f1.connect(vg); f2.connect(vg); vg.connect(ctx.destination);
-      vg.gain.setValueAtTime(0, cs + i * 0.008);
-      vg.gain.linearRampToValueAtTime(0.07, cs + i * 0.008 + 0.05);
-      vg.gain.setValueAtTime(0.07, cs + 0.30);
-      vg.gain.exponentialRampToValueAtTime(0.001, cs + 0.55);
-      osc.start(cs + i * 0.008); osc.stop(cs + 0.6);
+
+      // Sine layer (smooth, fundamental)
+      const sine = ctx.createOscillator();
+      sine.type = "sine";
+      sine.frequency.setValueAtTime(base, cs);
+      sine.frequency.linearRampToValueAtTime(base * 1.10, cs + 0.10);
+      sine.frequency.linearRampToValueAtTime(base * 1.05, cs + 0.45);
+
+      // Triangle layer (adds warmth without buzz)
+      const tri = ctx.createOscillator();
+      tri.type = "triangle";
+      tri.frequency.setValueAtTime(base, cs);
+      tri.frequency.linearRampToValueAtTime(base * 1.10, cs + 0.10);
+      tri.frequency.linearRampToValueAtTime(base * 1.05, cs + 0.45);
+
+      // Vibrato LFO ~6 Hz
+      const lfo = ctx.createOscillator();
+      const lfoGain = ctx.createGain();
+      lfo.frequency.value = 5.5 + Math.random() * 1.5;
+      lfoGain.gain.value = base * 0.012;
+      lfo.connect(lfoGain);
+      lfoGain.connect(sine.frequency);
+      lfoGain.connect(tri.frequency);
+
+      // Formant filters — ah→ay shape
+      const f1 = ctx.createBiquadFilter();
+      f1.type = "peaking"; f1.Q.value = 3.5; f1.gain.value = 14;
+      f1.frequency.setValueAtTime(750, cs);
+      f1.frequency.linearRampToValueAtTime(320, cs + 0.42);
+      const f2 = ctx.createBiquadFilter();
+      f2.type = "peaking"; f2.Q.value = 3.0; f2.gain.value = 10;
+      f2.frequency.setValueAtTime(1100, cs);
+      f2.frequency.linearRampToValueAtTime(2200, cs + 0.42);
+
+      // Mix sine + tri into shared gain
+      const mix = ctx.createGain(); mix.gain.value = 0.5;
+      sine.connect(mix); tri.connect(mix);
+      mix.connect(f1); f1.connect(f2);
+
+      const vg = ctx.createGain();
+      f2.connect(vg); vg.connect(ctx.destination);
+      vg.gain.setValueAtTime(0, cs + i * 0.009);
+      vg.gain.linearRampToValueAtTime(0.055, cs + i * 0.009 + 0.06);
+      vg.gain.setValueAtTime(0.055, cs + 0.28);
+      vg.gain.exponentialRampToValueAtTime(0.001, cs + 0.58);
+
+      lfo.start(cs); lfo.stop(cs + 0.62);
+      sine.start(cs + i * 0.009); sine.stop(cs + 0.62);
+      tri.start(cs + i * 0.009); tri.stop(cs + 0.62);
     });
 
     // Rhythmic claps after "yay!" — 5 claps at 200ms intervals
