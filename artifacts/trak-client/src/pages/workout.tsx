@@ -110,7 +110,7 @@ function playWorkoutComplete() {
       osc2.start(start); osc2.stop(start + 2);
     };
     bell(698, 880, t);
-    bell(784, 987, t + 0.35);
+    bell(784, 987, t + 0.2);
     setTimeout(() => ctx.close(), 2500);
   } catch {}
 }
