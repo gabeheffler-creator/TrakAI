@@ -97,23 +97,38 @@ function playSwipe() {
   try {
     const ctx = new AudioContext();
     const t = ctx.currentTime;
-    const dur = 0.22;
+    const dur = 0.32;
     const bufLen = Math.floor(ctx.sampleRate * dur);
     const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
     const d = buf.getChannelData(0);
     for (let i = 0; i < bufLen; i++) d[i] = Math.random() * 2 - 1;
-    const src = ctx.createBufferSource(); src.buffer = buf;
-    const bp = ctx.createBiquadFilter();
-    bp.type = "bandpass"; bp.Q.value = 3.5;
-    bp.frequency.setValueAtTime(3200, t);
-    bp.frequency.exponentialRampToValueAtTime(520, t + dur);
-    const env = ctx.createGain();
-    env.gain.setValueAtTime(0, t);
-    env.gain.linearRampToValueAtTime(0.55, t + 0.015);
-    env.gain.exponentialRampToValueAtTime(0.001, t + dur);
-    src.connect(bp); bp.connect(env); env.connect(ctx.destination);
-    src.start(t);
-    setTimeout(() => ctx.close(), 600);
+
+    // Upper body: airy mid sweep 1200 → 120 Hz
+    const src1 = ctx.createBufferSource(); src1.buffer = buf;
+    const bp1 = ctx.createBiquadFilter();
+    bp1.type = "bandpass"; bp1.Q.value = 1.4;
+    bp1.frequency.setValueAtTime(1200, t);
+    bp1.frequency.exponentialRampToValueAtTime(120, t + dur);
+    const g1 = ctx.createGain();
+    g1.gain.setValueAtTime(0, t);
+    g1.gain.linearRampToValueAtTime(0.5, t + 0.018);
+    g1.gain.exponentialRampToValueAtTime(0.001, t + dur);
+
+    // Low body: sub thump 350 → 55 Hz, peaks slightly later for weight
+    const src2 = ctx.createBufferSource(); src2.buffer = buf;
+    const bp2 = ctx.createBiquadFilter();
+    bp2.type = "bandpass"; bp2.Q.value = 1.0;
+    bp2.frequency.setValueAtTime(350, t);
+    bp2.frequency.exponentialRampToValueAtTime(55, t + dur);
+    const g2 = ctx.createGain();
+    g2.gain.setValueAtTime(0, t);
+    g2.gain.linearRampToValueAtTime(0.6, t + 0.04);
+    g2.gain.exponentialRampToValueAtTime(0.001, t + dur);
+
+    src1.connect(bp1); bp1.connect(g1); g1.connect(ctx.destination);
+    src2.connect(bp2); bp2.connect(g2); g2.connect(ctx.destination);
+    src1.start(t); src2.start(t);
+    setTimeout(() => ctx.close(), 700);
   } catch {}
 }
 
