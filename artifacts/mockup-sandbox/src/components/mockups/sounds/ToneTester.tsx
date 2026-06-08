@@ -226,21 +226,29 @@ function playWorkoutComplete() {
   try {
     const ctx = new AudioContext();
     const t = ctx.currentTime;
-    const bell = (fundamental: number, partial: number, start: number) => {
-      const osc1 = ctx.createOscillator();
-      const osc2 = ctx.createOscillator();
+
+    const ping = (freq: number, start: number, vol: number, decay: number) => {
+      const osc = ctx.createOscillator();
       const gain = ctx.createGain();
-      osc1.connect(gain); osc2.connect(gain); gain.connect(ctx.destination);
-      osc1.type = "sine"; osc1.frequency.value = fundamental;
-      osc2.type = "sine"; osc2.frequency.value = partial;
-      gain.gain.setValueAtTime(0.28, start);
-      gain.gain.exponentialRampToValueAtTime(0.001, start + 1.8);
-      osc1.start(start); osc1.stop(start + 2);
-      osc2.start(start); osc2.stop(start + 2);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0, start);
+      gain.gain.linearRampToValueAtTime(vol, start + 0.008);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + decay);
+      osc.start(start); osc.stop(start + decay + 0.05);
     };
-    bell(784, 987, t);
-    bell(880, 1108, t + 0.2);
-    setTimeout(() => ctx.close(), 2500);
+
+    // Cmaj triad: C5, E5, G5 — sustained ring
+    ping(523.25, t, 0.30, 2.2); // C5
+    ping(659.25, t, 0.26, 2.0); // E5
+    ping(783.99, t, 0.22, 1.8); // G5
+
+    // Bright ping overtone: C6 — short & crisp on top
+    ping(1046.50, t, 0.18, 0.6); // C6 ping
+    ping(1318.51, t, 0.10, 0.4); // E6 shimmer
+
+    setTimeout(() => ctx.close(), 2800);
   } catch {}
 }
 
@@ -356,7 +364,7 @@ export function ToneTester() {
         {/* Workout complete */}
         <div style={{ background: "#fff", borderRadius: 20, padding: "20px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#64748b", marginBottom: 2, textTransform: "uppercase", letterSpacing: "0.06em" }}>Workout complete</div>
-          <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 16 }}>Bell × 2 — ascending whole tone (G5 → A5)</div>
+          <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 16 }}>Cmaj triad (C5·E5·G5) + ping overtone (C6·E6)</div>
           <button
             onClick={playWorkoutComplete}
             style={{
