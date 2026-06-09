@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Home, Dumbbell, Ruler, Moon, UtensilsCrossed, Camera, ClipboardList, MessageCircle, TrendingUp, Sun, X, AlignJustify } from "lucide-react";
+import { Home, Dumbbell, Ruler, Moon, UtensilsCrossed, Camera, ClipboardList, MessageCircle, TrendingUp, Sun, AlignJustify } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClientId } from "@/hooks/use-client-id";
 import { useDarkMode } from "@/hooks/use-dark-mode";
@@ -83,11 +83,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <div className="md:hidden fixed inset-0 z-40 flex">
           <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setDrawerOpen(false)} />
           <div className="relative flex flex-col w-64 bg-sidebar border-r border-sidebar-border shadow-xl z-50 animate-in slide-in-from-left duration-200">
-            <div className="flex items-center justify-between px-4 pt-6 pb-4">
+            <div className="flex items-center px-4 pt-6 pb-4">
               <TrakLogo />
-              <button onClick={() => setDrawerOpen(false)} className="p-1.5 rounded-md text-muted-foreground hover:bg-sidebar-accent">
-                <X className="h-4 w-4" />
-              </button>
             </div>
             <div className="flex-1 flex flex-col overflow-y-auto pb-4">
               <NavContent onNav={() => setDrawerOpen(false)} />
