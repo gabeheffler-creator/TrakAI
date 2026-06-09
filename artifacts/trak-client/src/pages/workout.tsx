@@ -362,7 +362,9 @@ export function WorkoutPage() {
   const [editRpe, setEditRpe] = useState<number | null>(null);
   const [isExiting, setIsExiting] = useState(false);
   const [exitAnimation, setExitAnimation] = useState("ex-fly-right");
+  const [exitOrigin, setExitOrigin] = useState("center center");
   const [exerciseExitDirs, setExerciseExitDirs] = useState<string[]>([]);
+  const [exerciseExitOrigins, setExerciseExitOrigins] = useState<string[]>([]);
   const [swappedExercises, setSwappedExercises] = useState<Record<number, { exerciseName: string; muscleGroup: string; exerciseId: number }>>({});
 
   // Pre-workout checkin
@@ -428,23 +430,34 @@ export function WorkoutPage() {
     if (!clientId || !selectedDay) return;
 
     // Pre-compute a unique exit animation per exercise — cycle through all before repeating
-    const ANIMS = [
-      "ex-fly-right",
-      "ex-bounce-up",
-      "ex-fly-left",
-      "ex-bounce-down",
-      "ex-spin-throw",
-      "ex-card-flip",
-      "ex-fling-diag",
-      "ex-slam-up",
+    const ANIMS: { anim: string; origin: string }[] = [
+      { anim: "ex-fly-right",    origin: "center center" },
+      { anim: "ex-bounce-up",    origin: "center center" },
+      { anim: "ex-fly-left",     origin: "center center" },
+      { anim: "ex-bounce-down",  origin: "center center" },
+      { anim: "ex-spin-throw",   origin: "center center" },
+      { anim: "ex-card-flip",    origin: "center center" },
+      { anim: "ex-fling-diag",   origin: "center center" },
+      { anim: "ex-slam-up",      origin: "center center" },
+      { anim: "ex-roll-left",    origin: "left center"   },
+      { anim: "ex-roll-right",   origin: "right center"  },
+      { anim: "ex-peel-br",      origin: "bottom right"  },
+      { anim: "ex-peel-tl",      origin: "top left"      },
+      { anim: "ex-peel-bl",      origin: "bottom left"   },
+      { anim: "ex-peel-tr",      origin: "top right"     },
     ];
     const pool = [...ANIMS];
-    const dirs = exercises.map(() => {
+    const dirs: string[] = [];
+    const origins: string[] = [];
+    exercises.forEach(() => {
       if (pool.length === 0) pool.push(...ANIMS);
       const idx = Math.floor(Math.random() * pool.length);
-      return pool.splice(idx, 1)[0];
+      const picked = pool.splice(idx, 1)[0];
+      dirs.push(picked.anim);
+      origins.push(picked.origin);
     });
     setExerciseExitDirs(dirs);
+    setExerciseExitOrigins(origins);
 
     createWorkoutLog.mutate({
       clientId,
@@ -567,7 +580,9 @@ export function WorkoutPage() {
 
   const handleNextExercise = () => {
     const dir = exerciseExitDirs[currentExIdx] ?? "ex-fly-right";
+    const origin = exerciseExitOrigins[currentExIdx] ?? "center center";
     setExitAnimation(dir);
+    setExitOrigin(origin);
     setIsExiting(true);
     setEditingSetIdx(null);
     setTimeout(() => {
@@ -779,8 +794,9 @@ export function WorkoutPage() {
             className="absolute inset-0 bg-background flex flex-col"
             style={{
               animation: isExiting
-                ? `${exitAnimation} 0.46s ease-in forwards`
+                ? `${exitAnimation} 0.48s ease-in forwards`
                 : "none",
+              transformOrigin: exitOrigin,
             }}
           >
           {/* Header */}
