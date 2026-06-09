@@ -838,18 +838,124 @@ export function ClientProfile() {
 
         {/* Nutrition */}
         <TabsContent value="nutrition" className="mt-4">
-          {(nutritionLogs?.length ?? 0) === 0 && <p className="text-muted-foreground text-sm">No nutrition logs.</p>}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {nutritionLogs?.slice().reverse().map(n => (
-              <Card key={n.id} data-testid={`card-nutrition-${n.id}`} className="overflow-hidden">
-                <img src={n.imageUrl} alt="Nutrition" className="w-full aspect-square object-cover" />
-                <CardContent className="p-2">
-                  <p className="text-xs font-medium">{n.date}</p>
-                  {n.calories && <p className="text-xs text-muted-foreground">{n.calories} kcal</p>}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          {(nutritionLogs?.length ?? 0) === 0 && <p className="text-muted-foreground text-sm">No nutrition logs yet.</p>}
+          {nutritionLogs && nutritionLogs.length > 0 && (() => {
+            // Group by date, most recent first
+            const byDate = nutritionLogs.reduce<Record<string, typeof nutritionLogs>>((acc, n) => {
+              (acc[n.date] ??= []).push(n);
+              return acc;
+            }, {});
+            const sortedDates = Object.keys(byDate).sort((a, b) => b.localeCompare(a));
+
+            return (
+              <div className="space-y-5">
+                {sortedDates.map(date => {
+                  const entries = byDate[date];
+                  const photos = entries.filter(n => n.imageUrl && n.imageUrl !== "cant_track" && n.imageUrl !== "water_only");
+                  const cantTrack = entries.filter(n => n.imageUrl === "cant_track");
+                  const water = entries.find(n => n.imageUrl === "water_only");
+                  const ML_PER_OZ = 29.5735;
+                  const OZ_PER_GLASS = 8;
+
+                  // Sum macros across all photo entries that have them
+                  const totals = photos.reduce((acc, n) => ({
+                    calories: acc.calories + (n.calories ?? 0),
+                    protein: acc.protein + (n.protein ?? 0),
+                    carbs: acc.carbs + (n.carbs ?? 0),
+                    fat: acc.fat + (n.fat ?? 0),
+                    sodium: acc.sodium + (n.sodium ?? 0),
+                  }), { calories: 0, protein: 0, carbs: 0, fat: 0, sodium: 0 });
+
+                  const hasMacros = totals.calories > 0 || totals.protein > 0;
+
+                  return (
+                    <div key={date} className="border border-border rounded-xl overflow-hidden">
+                      {/* Date header + macro summary */}
+                      <div className="px-4 py-3 bg-muted/40 border-b border-border flex flex-wrap items-center gap-3">
+                        <span className="text-sm font-semibold">{format(parseISO(date), "EEE, MMM d")}</span>
+                        {hasMacros && (
+                          <div className="flex flex-wrap gap-2 ml-auto">
+                            {totals.calories > 0 && (
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+                                {totals.calories} kcal
+                              </span>
+                            )}
+                            {totals.protein > 0 && (
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 font-medium">
+                                P {totals.protein}g
+                              </span>
+                            )}
+                            {totals.carbs > 0 && (
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 font-medium">
+                                C {totals.carbs}g
+                              </span>
+                            )}
+                            {totals.fat > 0 && (
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-600 dark:text-orange-400 font-medium">
+                                F {totals.fat}g
+                              </span>
+                            )}
+                            {totals.sodium > 0 && (
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">
+                                Na {totals.sodium}mg
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="p-3 space-y-3">
+                        {/* Screenshot entries */}
+                        {photos.length > 0 && (
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                            {photos.map(n => (
+                              <div key={n.id} className="rounded-lg overflow-hidden border border-border bg-card">
+                                <img
+                                  src={n.imageUrl}
+                                  alt={n.notes ?? "MFP screenshot"}
+                                  className="w-full aspect-[3/4] object-cover object-top cursor-pointer"
+                                  onClick={() => window.open(n.imageUrl, "_blank")}
+                                />
+                                <div className="px-2 py-1.5">
+                                  {n.notes && <p className="text-[11px] text-muted-foreground truncate">{n.notes}</p>}
+                                  <div className="flex flex-wrap gap-x-2 mt-0.5">
+                                    {n.calories != null && <span className="text-[11px] font-semibold text-primary">{n.calories} kcal</span>}
+                                    {n.protein != null && <span className="text-[11px] text-muted-foreground">P{n.protein}g</span>}
+                                    {n.carbs != null && <span className="text-[11px] text-muted-foreground">C{n.carbs}g</span>}
+                                    {n.fat != null && <span className="text-[11px] text-muted-foreground">F{n.fat}g</span>}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Water */}
+                        {water && water.waterMl && (
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <span className="text-base">💧</span>
+                            <span>{Math.round(water.waterMl / ML_PER_OZ / OZ_PER_GLASS)} glasses ({Math.round(water.waterMl / ML_PER_OZ)} oz)</span>
+                          </div>
+                        )}
+
+                        {/* Can't track entries */}
+                        {cantTrack.map(n => (
+                          <div key={n.id} className="flex items-start gap-2 rounded-lg bg-destructive/5 border border-destructive/15 px-3 py-2">
+                            <span className="text-sm mt-0.5">⚠️</span>
+                            <div>
+                              <p className="text-xs font-medium text-destructive">Can't track</p>
+                              {n.notes && <p className="text-xs text-muted-foreground mt-0.5">{n.notes}</p>}
+                              {n.calories != null && <p className="text-xs text-muted-foreground">~{n.calories} kcal</p>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
         </TabsContent>
 
         {/* Photos */}
