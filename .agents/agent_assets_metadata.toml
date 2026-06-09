@@ -1,0 +1,38 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "G0cHooUGzd1dOH8k-lL3c"
+uri = "file://attached_assets/seed/mfp-day1.png"
+type = "image"
+title = "mfp diary day 1"
+
+[[generated]]
+id = "HmWfASWQfNEySGPo_IcaC"
+uri = "file://attached_assets/seed/mfp-day2.png"
+type = "image"
+title = "mfp diary day 2"
+
+[[generated]]
+id = "znqZjWltPKCXyuOtDXBq_"
+uri = "file://attached_assets/seed/mfp-day3.png"
+type = "image"
+title = "mfp diary day 3"
+
+[[generated]]
+id = "q4nrd8obGEYhZWYMGauUD"
+uri = "file://attached_assets/seed/progress-front-week1.png"
+type = "image"
+title = "progress photo front week 1"
+
+[[generated]]
+id = "xWBLBAeH4T9SBkEC0xaCS"
+uri = "file://attached_assets/seed/progress-front-week6.png"
+type = "image"
+title = "progress photo front week 6"
+
+[[generated]]
+id = "1h518je4Al1Qu9GgnMRsU"
+uri = "file://attached_assets/seed/progress-back-week6.png"
+type = "image"
+title = "progress photo back week 6"

@@ -122,7 +122,7 @@ export function PhotosPage() {
     });
   };
 
-  const mfpPhotos = nutritionLogs?.filter(n => n.imageUrl && n.imageUrl !== "cant_track") ?? [];
+  const mfpPhotos = nutritionLogs?.filter(n => n.imageUrl && n.imageUrl !== "cant_track" && n.imageUrl !== "water_only") ?? [];
 
   if (!clientId) return <div className="p-4 text-muted-foreground">Please join via an invite link first.</div>;
 
