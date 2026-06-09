@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle, ChevronRight, Dumbbell, X, Trophy, ArrowRight, RefreshCw, Upload, FolderOpen, ImageIcon } from "lucide-react";
+import { CheckCircle, ChevronRight, Dumbbell, X, Trophy, ArrowRight, RefreshCw, Upload, FolderOpen, ImageIcon, Pencil, RotateCcw, Check } from "lucide-react";
 import { useLocation, Link } from "wouter";
 import { cn } from "@/lib/utils";
 import type { Exercise } from "@workspace/api-client-react";
@@ -356,6 +356,10 @@ export function WorkoutPage() {
   const [rpeModal, setRpeModal] = useState<RpeModal | null>(null);
   const [rpeSheetOpen, setRpeSheetOpen] = useState(false);
   const [swapModal, setSwapModal] = useState(false);
+  const [editingSetIdx, setEditingSetIdx] = useState<number | null>(null);
+  const [editWeight, setEditWeight] = useState("");
+  const [editReps, setEditReps] = useState("");
+  const [editRpe, setEditRpe] = useState<number | null>(null);
   const [swappedExercises, setSwappedExercises] = useState<Record<number, { exerciseName: string; muscleGroup: string; exerciseId: number }>>({});
 
   // Pre-workout checkin
@@ -502,6 +506,38 @@ export function WorkoutPage() {
       next[currentExIdx] = next[currentExIdx].map((s, i) => i === setIdx ? { ...s, reps: value } : s);
       return next;
     });
+  };
+
+  const openEditSet = (i: number) => {
+    const s = currentSets[i];
+    if (!s) return;
+    setEditingSetIdx(i);
+    setEditWeight(s.weight);
+    setEditReps(s.reps);
+    setEditRpe(s.rpe);
+  };
+
+  const saveEditSet = () => {
+    if (editingSetIdx === null) return;
+    setSets(prev => {
+      const next = prev.map(arr => [...arr]);
+      next[currentExIdx] = next[currentExIdx].map((s, i) =>
+        i === editingSetIdx ? { ...s, weight: editWeight, reps: editReps, rpe: editRpe } : s
+      );
+      return next;
+    });
+    setEditingSetIdx(null);
+  };
+
+  const undoSet = (setIdx: number) => {
+    setSets(prev => {
+      const next = prev.map(arr => [...arr]);
+      next[currentExIdx] = next[currentExIdx].map((s, i) =>
+        i === setIdx ? { ...s, logged: false, rpe: null } : s
+      );
+      return next;
+    });
+    setEditingSetIdx(null);
   };
 
   const allCurrentSetsLogged = currentSets.length > 0 && currentSets.every(s => s.logged);
@@ -738,77 +774,160 @@ export function WorkoutPage() {
             <div className="space-y-3 mb-6">
               {currentSets.map((s, i) => {
                 const isNext = !s.logged && currentSets.slice(0, i).every(prev => prev.logged);
+                const isEditing = editingSetIdx === i;
+
                 return (
                   <div
                     key={i}
                     className={cn(
                       "rounded-2xl border transition-all duration-200",
                       s.logged
-                        ? "bg-primary/8 border-primary/20"
+                        ? isEditing ? "bg-amber-50 dark:bg-amber-950/30 border-amber-400/60" : "bg-primary/8 border-primary/20"
                         : isNext
                         ? "bg-card border-2 border-primary shadow-sm"
                         : "bg-muted/40 border-transparent opacity-60"
                     )}
                   >
                     {/* Set label row */}
-                    <div className="px-4 pt-3 pb-1">
+                    <div className="px-4 pt-3 pb-1 flex items-center justify-between">
                       <span className={cn("text-xs font-semibold uppercase tracking-wide", s.logged ? "text-primary" : "text-muted-foreground")}>
                         Set {i + 1}
-                        {s.logged && s.rpe != null && ` · RPE ${s.rpe}`}
+                        {s.logged && !isEditing && s.rpe != null && ` · RPE ${s.rpe}`}
                       </span>
+                      {s.logged && !isEditing && (
+                        <button
+                          onClick={() => openEditSet(i)}
+                          className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors py-0.5 px-1.5 rounded-md hover:bg-muted"
+                        >
+                          <Pencil className="w-3 h-3" /> Edit
+                        </button>
+                      )}
                     </div>
 
-                    {/* Weight + Reps boxes */}
-                    <div className="px-4 pb-4 flex items-center gap-3">
-                      <div className="flex-1">
-                        <label className="text-[10px] text-muted-foreground uppercase tracking-wide block mb-1">Weight</label>
-                        {s.logged ? (
-                          <div className="h-12 rounded-xl bg-muted/40 flex items-center justify-center text-sm font-semibold text-muted-foreground">
-                            {s.weight ? `${s.weight} lbs` : "—"}
+                    {/* ── EDIT MODE ── */}
+                    {isEditing ? (
+                      <div className="px-4 pb-4 space-y-3">
+                        <div className="flex gap-3">
+                          <div className="flex-1">
+                            <label className="text-[10px] text-muted-foreground uppercase tracking-wide block mb-1">Weight</label>
+                            <Input
+                              type="number"
+                              value={editWeight}
+                              onChange={e => setEditWeight(e.target.value)}
+                              placeholder="lbs"
+                              className="h-11 text-center text-base font-semibold rounded-xl"
+                              autoFocus
+                            />
                           </div>
-                        ) : (
-                          <Input
-                            type="number"
-                            value={s.weight}
-                            onChange={e => updateWeight(i, e.target.value)}
-                            placeholder="lbs"
-                            className="h-12 text-center text-base font-semibold rounded-xl"
-                          />
-                        )}
-                      </div>
-
-                      <div className="flex-1">
-                        <label className="text-[10px] text-muted-foreground uppercase tracking-wide block mb-1">Reps</label>
-                        {s.logged ? (
-                          <div className="h-12 rounded-xl bg-muted/40 flex items-center justify-center text-sm font-semibold text-muted-foreground">
-                            {s.reps}
+                          <div className="flex-1">
+                            <label className="text-[10px] text-muted-foreground uppercase tracking-wide block mb-1">Reps</label>
+                            <Input
+                              type="number"
+                              value={editReps}
+                              onChange={e => setEditReps(e.target.value)}
+                              placeholder={s.targetReps}
+                              className="h-11 text-center text-base font-semibold rounded-xl"
+                            />
                           </div>
-                        ) : (
-                          <Input
-                            type="number"
-                            value={s.reps}
-                            onChange={e => updateReps(i, e.target.value)}
-                            placeholder={s.targetReps}
-                            className="h-12 text-center text-base font-semibold rounded-xl"
-                          />
-                        )}
-                      </div>
+                        </div>
 
-                      <button
-                        onClick={() => handleCheckSet(i)}
-                        disabled={s.logged || (!isNext && i !== 0)}
-                        className={cn(
-                          "w-12 h-12 rounded-full flex items-center justify-center transition-all active:scale-95 flex-shrink-0 mt-5",
-                          s.logged
-                            ? "bg-primary/20 text-primary cursor-default"
-                            : isNext || i === 0
-                            ? "bg-primary text-primary-foreground shadow-md hover:bg-primary/90"
-                            : "bg-muted text-muted-foreground cursor-not-allowed"
-                        )}
-                      >
-                        {s.logged ? <CheckCircle className="w-6 h-6" /> : <ChevronRight className="w-6 h-6" />}
-                      </button>
-                    </div>
+                        {/* Compact RPE row */}
+                        <div>
+                          <label className="text-[10px] text-muted-foreground uppercase tracking-wide block mb-1.5">RPE</label>
+                          <div className="flex gap-1">
+                            {Array.from({ length: 10 }, (_, j) => j + 1).map(n => {
+                              const m = RPE_META[n];
+                              const sel = editRpe === n;
+                              return (
+                                <button
+                                  key={n}
+                                  onClick={() => setEditRpe(n)}
+                                  className={cn(
+                                    "flex-1 h-9 rounded-lg text-xs font-bold transition-all",
+                                    sel ? `${m.bg} text-white shadow` : "bg-muted text-muted-foreground hover:bg-muted/80"
+                                  )}
+                                >
+                                  {n}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          {editRpe && (
+                            <p className={cn("text-[11px] mt-1", RPE_META[editRpe].color)}>
+                              {RPE_META[editRpe].label} — {RPE_META[editRpe].detail}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex gap-2 pt-1">
+                          <button
+                            onClick={() => undoSet(i)}
+                            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive border border-border rounded-xl px-3 h-9 transition-colors"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" /> Undo set
+                          </button>
+                          <button
+                            onClick={saveEditSet}
+                            className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold bg-primary text-primary-foreground rounded-xl h-9 transition-all active:scale-[.98]"
+                          >
+                            <Check className="w-3.5 h-3.5" /> Save changes
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      /* ── NORMAL DISPLAY MODE ── */
+                      <div className="px-4 pb-4 flex items-center gap-3">
+                        <div className="flex-1">
+                          <label className="text-[10px] text-muted-foreground uppercase tracking-wide block mb-1">Weight</label>
+                          {s.logged ? (
+                            <div className="h-12 rounded-xl bg-muted/40 flex items-center justify-center text-sm font-semibold text-muted-foreground">
+                              {s.weight ? `${s.weight} lbs` : "—"}
+                            </div>
+                          ) : (
+                            <Input
+                              type="number"
+                              value={s.weight}
+                              onChange={e => updateWeight(i, e.target.value)}
+                              placeholder="lbs"
+                              className="h-12 text-center text-base font-semibold rounded-xl"
+                            />
+                          )}
+                        </div>
+
+                        <div className="flex-1">
+                          <label className="text-[10px] text-muted-foreground uppercase tracking-wide block mb-1">Reps</label>
+                          {s.logged ? (
+                            <div className="h-12 rounded-xl bg-muted/40 flex items-center justify-center text-sm font-semibold text-muted-foreground">
+                              {s.reps}
+                            </div>
+                          ) : (
+                            <Input
+                              type="number"
+                              value={s.reps}
+                              onChange={e => updateReps(i, e.target.value)}
+                              placeholder={s.targetReps}
+                              className="h-12 text-center text-base font-semibold rounded-xl"
+                            />
+                          )}
+                        </div>
+
+                        <button
+                          onClick={() => handleCheckSet(i)}
+                          disabled={s.logged || (!isNext && i !== 0)}
+                          className={cn(
+                            "w-12 h-12 rounded-full flex items-center justify-center transition-all active:scale-95 flex-shrink-0 mt-5",
+                            s.logged
+                              ? "bg-primary/20 text-primary cursor-default"
+                              : isNext || i === 0
+                              ? "bg-primary text-primary-foreground shadow-md hover:bg-primary/90"
+                              : "bg-muted text-muted-foreground cursor-not-allowed"
+                          )}
+                        >
+                          {s.logged ? <CheckCircle className="w-6 h-6" /> : <ChevronRight className="w-6 h-6" />}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               })}
