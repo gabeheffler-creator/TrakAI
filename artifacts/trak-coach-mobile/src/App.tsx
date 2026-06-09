@@ -22,7 +22,7 @@ export default function App() {
         }}
       >
         <iframe
-          src="/"
+          src="/?mobile=1"
           style={{
             width: "100%",
             height: "100%",

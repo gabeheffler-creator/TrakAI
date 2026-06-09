@@ -7,6 +7,14 @@ import { useDarkMode } from "@/hooks/use-dark-mode";
 import { TrakLogo } from "@/components/trak-logo";
 import { useListMessages, getListMessagesQueryKey } from "@workspace/api-client-react";
 
+// Detect mobile-frame mode once on load and persist so navigation doesn't lose it
+if (typeof window !== "undefined") {
+  if (new URLSearchParams(window.location.search).get("mobile") === "1") {
+    sessionStorage.setItem("trak_mobile", "1");
+  }
+}
+const IS_MOBILE_FRAME = typeof window !== "undefined" && sessionStorage.getItem("trak_mobile") === "1";
+
 const navigation = [
   { name: "Home", href: "/", icon: Home },
   { name: "Workout", href: "/workout", icon: Dumbbell },
@@ -45,26 +53,30 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen w-full bg-background">
-      {/* Mobile backdrop */}
-      {open && (
-        <div className="fixed inset-0 z-40 bg-black/50 sm:hidden" onClick={() => setOpen(false)} />
+      {/* Mobile backdrop — only in mobile frame */}
+      {IS_MOBILE_FRAME && open && (
+        <div className="fixed inset-0 z-40 bg-black/50" onClick={() => setOpen(false)} />
       )}
 
       {/* Sidebar */}
       <div className={cn(
-        "flex w-48 flex-col fixed inset-y-0 z-50 transition-transform duration-200 ease-in-out",
-        open ? "translate-x-0" : "-translate-x-full sm:translate-x-0"
+        "flex w-48 flex-col fixed inset-y-0 z-50",
+        IS_MOBILE_FRAME
+          ? cn("transition-transform duration-200 ease-in-out", open ? "translate-x-0" : "-translate-x-full")
+          : "translate-x-0"
       )}>
         <div className="flex-1 flex flex-col min-h-0 bg-sidebar border-r border-sidebar-border">
           <div className="flex-1 flex flex-col pt-6 pb-4 overflow-y-auto">
             <div className="flex items-center justify-between flex-shrink-0 px-4 mb-6">
               <TrakLogo />
-              <button
-                className="sm:hidden p-1 rounded-md text-muted-foreground hover:text-foreground"
-                onClick={() => setOpen(false)}
-              >
-                <X className="w-4 h-4" />
-              </button>
+              {IS_MOBILE_FRAME && (
+                <button
+                  className="p-1 rounded-md text-muted-foreground hover:text-foreground"
+                  onClick={() => setOpen(false)}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
             </div>
             <nav className="flex-1 px-3 space-y-1">
               {navigation.map((item) => {
@@ -109,25 +121,27 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Main content */}
-      <div className="sm:pl-48 flex flex-col flex-1 w-full min-w-0">
-        {/* Mobile top bar — hidden on desktop */}
-        <div className="sm:hidden sticky top-0 z-30 flex items-center gap-3 px-3 py-2 bg-background border-b border-border">
-          <button
-            onClick={() => setOpen(true)}
-            className="p-2 rounded-lg bg-primary text-primary-foreground"
-            aria-label="Open menu"
-          >
-            <Menu className="w-5 h-5" />
-          </button>
-          <TrakLogo />
-          {unreadCount > 0 && (
-            <Link href="/messages" className="ml-auto">
-              <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center">
-                {unreadCount > 99 ? "99+" : unreadCount}
-              </span>
-            </Link>
-          )}
-        </div>
+      <div className={cn("flex flex-col flex-1 w-full min-w-0", IS_MOBILE_FRAME ? "" : "pl-48")}>
+        {/* Top bar — only in mobile frame */}
+        {IS_MOBILE_FRAME && (
+          <div className="sticky top-0 z-30 flex items-center gap-3 px-3 py-2 bg-background border-b border-border">
+            <button
+              onClick={() => setOpen(true)}
+              className="p-2 rounded-lg bg-primary text-primary-foreground"
+              aria-label="Open menu"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <TrakLogo />
+            {unreadCount > 0 && (
+              <Link href="/messages" className="ml-auto">
+                <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              </Link>
+            )}
+          </div>
+        )}
         <main className="flex-1 p-4 md:p-6">
           {children}
         </main>
