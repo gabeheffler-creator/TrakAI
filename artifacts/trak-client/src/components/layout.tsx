@@ -71,9 +71,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-screen w-full bg-background">
       {/* Mobile hamburger — purple square */}
       <button
-        onClick={() => setDrawerOpen(true)}
-        className="md:hidden fixed top-4 left-4 z-50 flex items-center justify-center w-10 h-10 rounded-lg bg-primary text-primary-foreground shadow-md"
-        aria-label="Open menu"
+        onClick={() => setDrawerOpen((o) => !o)}
+        className="md:hidden fixed top-4 left-4 z-[60] flex items-center justify-center w-10 h-10 rounded-lg bg-primary text-primary-foreground shadow-md"
+        aria-label="Toggle menu"
       >
         <AlignJustify className="h-5 w-5" />
       </button>
