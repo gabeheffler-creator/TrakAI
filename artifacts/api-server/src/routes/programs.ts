@@ -165,6 +165,7 @@ router.post("/programs/:programId/phases", async (req, res) => {
       name: body.name,
       order: nextOrder,
       durationWeeks: body.durationWeeks,
+      daysPerWeek: body.daysPerWeek ?? null,
     }).returning();
     res.status(201).json(phase);
   } catch (err) {
@@ -183,6 +184,7 @@ router.patch("/programs/:programId/phases/:phaseId", async (req, res) => {
     const [phase] = await db.update(programPhasesTable).set({
       name: body.name,
       durationWeeks: body.durationWeeks ?? undefined,
+      daysPerWeek: body.daysPerWeek !== undefined ? body.daysPerWeek : undefined,
       order: body.order ?? undefined,
     }).where(eq(programPhasesTable.id, phaseId)).returning();
     if (!phase) { res.status(404).json({ error: "Phase not found" }); return; }

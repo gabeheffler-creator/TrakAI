@@ -12,5 +12,6 @@ export interface ProgramPhaseDetail {
   name: string;
   order: number;
   durationWeeks: number;
+  daysPerWeek?: number | null;
   days: ProgramDayDetail[];
 }

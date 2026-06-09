@@ -11,5 +11,10 @@ export interface ProgramPhaseInput {
   name: string;
   /** @minimum 1 */
   durationWeeks: number;
+  /**
+     * @minimum 1
+     * @maximum 7
+     */
+  daysPerWeek?: number | null;
   order?: number;
 }

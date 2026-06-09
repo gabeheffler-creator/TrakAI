@@ -3,6 +3,7 @@ import { useParams } from "wouter";
 import {
   useGetProgram,
   useCreateProgramPhase,
+  useUpdateProgramPhase,
   useDeleteProgramPhase,
   useCreateProgramDay,
   useDeleteProgramDay,
@@ -23,14 +24,16 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, ArrowLeft, GripVertical, Layers } from "lucide-react";
+import { Plus, Trash2, ArrowLeft, GripVertical, Layers, Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 const WEEK_OPTIONS = [1, 2, 3, 4, 5, 6, 8, 10, 12, 16];
+const DAYS_PER_WEEK_OPTIONS = [1, 2, 3, 4, 5, 6, 7];
 
 const phaseSchema = z.object({
   name: z.string().min(1, "Name is required"),
   durationWeeks: z.coerce.number().min(1).max(52),
+  daysPerWeek: z.coerce.number().min(1).max(7).optional(),
 });
 
 const daySchema = z.object({
@@ -57,13 +60,17 @@ export function ProgramBuilder() {
   const { toast } = useToast();
   const [selectedDayId, setSelectedDayId] = useState<number | null>(null);
   const [phaseDialogOpen, setPhaseDialogOpen] = useState(false);
+  const [editPhaseId, setEditPhaseId] = useState<number | null>(null);
   const [dayDialogOpen, setDayDialogOpen] = useState(false);
   const [exDialogOpen, setExDialogOpen] = useState(false);
   const [dayDialogPhaseId, setDayDialogPhaseId] = useState<number | undefined>(undefined);
 
-  const { data: program, isLoading } = useGetProgram(programId, { query: { enabled: !!programId, queryKey: getGetProgramQueryKey(programId) } });
+  const { data: program, isLoading } = useGetProgram(programId, {
+    query: { enabled: !!programId, queryKey: getGetProgramQueryKey(programId) },
+  });
   const { data: exercises } = useListExercises();
   const createPhase = useCreateProgramPhase();
+  const updatePhase = useUpdateProgramPhase();
   const deletePhase = useDeleteProgramPhase();
   const createDay = useCreateProgramDay();
   const deleteDay = useDeleteProgramDay();
@@ -72,7 +79,11 @@ export function ProgramBuilder() {
 
   const phaseForm = useForm<z.infer<typeof phaseSchema>>({
     resolver: zodResolver(phaseSchema),
-    defaultValues: { name: "", durationWeeks: 4 },
+    defaultValues: { name: "", durationWeeks: 4, daysPerWeek: undefined },
+  });
+  const editPhaseForm = useForm<z.infer<typeof phaseSchema>>({
+    resolver: zodResolver(phaseSchema),
+    defaultValues: { name: "", durationWeeks: 4, daysPerWeek: undefined },
   });
   const dayForm = useForm<z.infer<typeof daySchema>>({
     resolver: zodResolver(daySchema),
@@ -86,10 +97,52 @@ export function ProgramBuilder() {
   const invalidate = () => qc.invalidateQueries({ queryKey: getGetProgramQueryKey(programId) });
 
   const handleCreatePhase = (values: z.infer<typeof phaseSchema>) => {
-    createPhase.mutate({ programId, data: { name: values.name, durationWeeks: values.durationWeeks } }, {
-      onSuccess: () => { invalidate(); setPhaseDialogOpen(false); phaseForm.reset({ name: "", durationWeeks: 4 }); },
-      onError: () => toast({ title: "Failed to create phase", variant: "destructive" }),
+    createPhase.mutate(
+      {
+        programId,
+        data: {
+          name: values.name,
+          durationWeeks: values.durationWeeks,
+          daysPerWeek: values.daysPerWeek ?? null,
+        },
+      },
+      {
+        onSuccess: () => {
+          invalidate();
+          setPhaseDialogOpen(false);
+          phaseForm.reset({ name: "", durationWeeks: 4, daysPerWeek: undefined });
+        },
+        onError: () => toast({ title: "Failed to create phase", variant: "destructive" }),
+      }
+    );
+  };
+
+  const openEditPhase = (ph: { id: number; name: string; durationWeeks: number; daysPerWeek?: number | null }) => {
+    setEditPhaseId(ph.id);
+    editPhaseForm.reset({
+      name: ph.name,
+      durationWeeks: ph.durationWeeks,
+      daysPerWeek: ph.daysPerWeek ?? undefined,
     });
+  };
+
+  const handleEditPhase = (values: z.infer<typeof phaseSchema>) => {
+    if (!editPhaseId) return;
+    updatePhase.mutate(
+      {
+        programId,
+        phaseId: editPhaseId,
+        data: {
+          name: values.name,
+          durationWeeks: values.durationWeeks,
+          daysPerWeek: values.daysPerWeek ?? null,
+        },
+      },
+      {
+        onSuccess: () => { invalidate(); setEditPhaseId(null); },
+        onError: () => toast({ title: "Failed to update phase", variant: "destructive" }),
+      }
+    );
   };
 
   const handleDeletePhase = (phaseId: number) => {
@@ -106,9 +159,10 @@ export function ProgramBuilder() {
   };
 
   const handleCreateDay = (values: z.infer<typeof daySchema>) => {
-    createDay.mutate({ programId, data: { dayNumber: values.dayNumber, name: values.name, notes: values.notes || undefined, phaseId: values.phaseId || undefined } }, {
-      onSuccess: () => { invalidate(); setDayDialogOpen(false); dayForm.reset(); },
-    });
+    createDay.mutate(
+      { programId, data: { dayNumber: values.dayNumber, name: values.name, notes: values.notes || undefined, phaseId: values.phaseId || undefined } },
+      { onSuccess: () => { invalidate(); setDayDialogOpen(false); dayForm.reset(); } }
+    );
   };
 
   const handleDeleteDay = (dayId: number) => {
@@ -119,9 +173,10 @@ export function ProgramBuilder() {
 
   const handleAddExercise = (values: z.infer<typeof exerciseSchema>) => {
     if (!selectedDayId) return;
-    addExercise.mutate({ programId, dayId: selectedDayId, data: { exerciseId: values.exerciseId, sets: values.sets, reps: values.reps, weight: values.weight || undefined, restSeconds: values.restSeconds || undefined, notes: values.notes || undefined, order: values.order } }, {
-      onSuccess: () => { invalidate(); setExDialogOpen(false); exForm.reset({ exerciseId: 0, sets: 3, reps: "8-12", weight: "", restSeconds: 60, notes: "", order: 0 }); },
-    });
+    addExercise.mutate(
+      { programId, dayId: selectedDayId, data: { exerciseId: values.exerciseId, sets: values.sets, reps: values.reps, weight: values.weight || undefined, restSeconds: values.restSeconds || undefined, notes: values.notes || undefined, order: values.order } },
+      { onSuccess: () => { invalidate(); setExDialogOpen(false); exForm.reset({ exerciseId: 0, sets: 3, reps: "8-12", weight: "", restSeconds: 60, notes: "", order: 0 }); } }
+    );
   };
 
   const handleDeleteExercise = (dayId: number, peId: number) => {
@@ -176,7 +231,7 @@ export function ProgramBuilder() {
               {hasPhases ? "Phases & Days" : "Days"}
             </CardTitle>
             <div className="flex items-center gap-1">
-              {/* Add Phase */}
+              {/* Add Phase dialog */}
               <Dialog open={phaseDialogOpen} onOpenChange={setPhaseDialogOpen}>
                 <DialogTrigger asChild>
                   <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" data-testid="button-add-phase">
@@ -194,27 +249,47 @@ export function ProgramBuilder() {
                           <FormMessage />
                         </FormItem>
                       )} />
-                      <FormField control={phaseForm.control} name="durationWeeks" render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Duration</FormLabel>
-                          <Select onValueChange={v => field.onChange(Number(v))} value={String(field.value)}>
-                            <FormControl><SelectTrigger><SelectValue placeholder="Select weeks" /></SelectTrigger></FormControl>
-                            <SelectContent>
-                              {WEEK_OPTIONS.map(w => (
-                                <SelectItem key={w} value={String(w)}>{w} {w === 1 ? "week" : "weeks"}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )} />
+                      <div className="grid grid-cols-2 gap-3">
+                        <FormField control={phaseForm.control} name="durationWeeks" render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Duration</FormLabel>
+                            <Select onValueChange={v => field.onChange(Number(v))} value={String(field.value)}>
+                              <FormControl><SelectTrigger><SelectValue placeholder="Weeks" /></SelectTrigger></FormControl>
+                              <SelectContent>
+                                {WEEK_OPTIONS.map(w => (
+                                  <SelectItem key={w} value={String(w)}>{w} {w === 1 ? "week" : "weeks"}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )} />
+                        <FormField control={phaseForm.control} name="daysPerWeek" render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Days / week</FormLabel>
+                            <Select
+                              onValueChange={v => field.onChange(v === "any" ? undefined : Number(v))}
+                              value={field.value ? String(field.value) : "any"}
+                            >
+                              <FormControl><SelectTrigger><SelectValue placeholder="Any" /></SelectTrigger></FormControl>
+                              <SelectContent>
+                                <SelectItem value="any">Any</SelectItem>
+                                {DAYS_PER_WEEK_OPTIONS.map(d => (
+                                  <SelectItem key={d} value={String(d)}>{d}×/wk</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )} />
+                      </div>
                       <Button type="submit" className="w-full" disabled={createPhase.isPending}>Add Phase</Button>
                     </form>
                   </Form>
                 </DialogContent>
               </Dialog>
 
-              {/* Add Day (global, no phase) */}
+              {/* Add Day */}
               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openAddDay(undefined)} data-testid="button-add-day">
                 <Plus className="w-4 h-4" />
               </Button>
@@ -222,16 +297,25 @@ export function ProgramBuilder() {
           </CardHeader>
 
           <CardContent className="space-y-1 p-3">
-            {/* Phases with their days */}
-            {program.phases.map((ph, phIdx) => (
+            {program.phases.map((ph) => (
               <div key={ph.id} className="mb-3">
                 <div className="flex items-center justify-between px-2 py-1.5 rounded-md bg-muted/40 mb-1 group">
-                  <div className="flex items-center gap-2 min-w-0">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
                     <Layers className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
                     <span className="text-xs font-semibold truncate">{ph.name}</span>
                     <Badge variant="outline" className="text-xs px-1.5 py-0 flex-shrink-0">{ph.durationWeeks}w</Badge>
+                    {ph.daysPerWeek && (
+                      <Badge variant="secondary" className="text-xs px-1.5 py-0 flex-shrink-0">{ph.daysPerWeek}×/wk</Badge>
+                    )}
                   </div>
                   <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => openEditPhase(ph)}
+                      className="p-0.5 rounded text-muted-foreground hover:text-foreground"
+                      title="Edit phase"
+                    >
+                      <Pencil className="w-3 h-3" />
+                    </button>
                     <button
                       onClick={() => openAddDay(ph.id)}
                       className="p-0.5 rounded text-muted-foreground hover:text-foreground"
@@ -255,7 +339,6 @@ export function ProgramBuilder() {
               </div>
             ))}
 
-            {/* Unphased days */}
             {unphasedDays.length > 0 && (
               <div className={hasPhases ? "mt-2" : ""}>
                 {hasPhases && (
@@ -265,7 +348,6 @@ export function ProgramBuilder() {
               </div>
             )}
 
-            {/* Empty state */}
             {program.days.length === 0 && program.phases.length === 0 && (
               <p className="text-muted-foreground text-xs text-center py-4">
                 Add a phase or day to get started
@@ -297,7 +379,11 @@ export function ProgramBuilder() {
                           <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
                             <FormControl><SelectTrigger><SelectValue placeholder="Choose exercise" /></SelectTrigger></FormControl>
                             <SelectContent>
-                              {exercises?.map(e => <SelectItem key={e.id} value={String(e.id)}>{e.name} <span className="text-muted-foreground text-xs">({e.muscleGroup})</span></SelectItem>)}
+                              {exercises?.map(e => (
+                                <SelectItem key={e.id} value={String(e.id)}>
+                                  {e.name} <span className="text-muted-foreground text-xs">({e.muscleGroup})</span>
+                                </SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                           <FormMessage />
@@ -354,6 +440,61 @@ export function ProgramBuilder() {
         </Card>
       </div>
 
+      {/* Edit Phase Dialog */}
+      <Dialog open={editPhaseId !== null} onOpenChange={open => { if (!open) setEditPhaseId(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Phase</DialogTitle>
+          </DialogHeader>
+          <Form {...editPhaseForm}>
+            <form onSubmit={editPhaseForm.handleSubmit(handleEditPhase)} className="space-y-4">
+              <FormField control={editPhaseForm.control} name="name" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Phase Name</FormLabel>
+                  <FormControl><Input {...field} placeholder="e.g. Foundation, Strength, Peak" /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <div className="grid grid-cols-2 gap-3">
+                <FormField control={editPhaseForm.control} name="durationWeeks" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Duration</FormLabel>
+                    <Select onValueChange={v => field.onChange(Number(v))} value={String(field.value)}>
+                      <FormControl><SelectTrigger><SelectValue placeholder="Weeks" /></SelectTrigger></FormControl>
+                      <SelectContent>
+                        {WEEK_OPTIONS.map(w => (
+                          <SelectItem key={w} value={String(w)}>{w} {w === 1 ? "week" : "weeks"}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={editPhaseForm.control} name="daysPerWeek" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Days / week</FormLabel>
+                    <Select
+                      onValueChange={v => field.onChange(v === "any" ? undefined : Number(v))}
+                      value={field.value ? String(field.value) : "any"}
+                    >
+                      <FormControl><SelectTrigger><SelectValue placeholder="Any" /></SelectTrigger></FormControl>
+                      <SelectContent>
+                        <SelectItem value="any">Any</SelectItem>
+                        {DAYS_PER_WEEK_OPTIONS.map(d => (
+                          <SelectItem key={d} value={String(d)}>{d}×/wk</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              </div>
+              <Button type="submit" className="w-full" disabled={updatePhase.isPending}>Save Changes</Button>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
       {/* Add Day Dialog */}
       <Dialog open={dayDialogOpen} onOpenChange={setDayDialogOpen}>
         <DialogContent>
@@ -384,7 +525,9 @@ export function ProgramBuilder() {
                       <SelectContent>
                         <SelectItem value="none">No phase</SelectItem>
                         {program.phases.map(ph => (
-                          <SelectItem key={ph.id} value={String(ph.id)}>{ph.name} ({ph.durationWeeks}w)</SelectItem>
+                          <SelectItem key={ph.id} value={String(ph.id)}>
+                            {ph.name} ({ph.durationWeeks}w{ph.daysPerWeek ? ` · ${ph.daysPerWeek}×/wk` : ""})
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>

@@ -112,6 +112,7 @@ export interface ProgramPhaseDetail {
   name: string;
   order: number;
   durationWeeks: number;
+  daysPerWeek?: number | null;
   days: ProgramDayDetail[];
 }
 
@@ -261,6 +262,7 @@ export interface ProgramPhase {
   name: string;
   order: number;
   durationWeeks: number;
+  daysPerWeek?: number | null;
 }
 
 export interface ProgramPhaseInput {
@@ -268,12 +270,22 @@ export interface ProgramPhaseInput {
   name: string;
   /** @minimum 1 */
   durationWeeks: number;
+  /**
+     * @minimum 1
+     * @maximum 7
+     */
+  daysPerWeek?: number | null;
   order?: number;
 }
 
 export interface ProgramPhaseUpdate {
   name?: string;
   durationWeeks?: number;
+  /**
+     * @minimum 1
+     * @maximum 7
+     */
+  daysPerWeek?: number | null;
   order?: number;
 }
 

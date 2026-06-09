@@ -179,6 +179,7 @@ export const GetClientDashboardResponse = zod.object({
   "name": zod.string(),
   "order": zod.number(),
   "durationWeeks": zod.number(),
+  "daysPerWeek": zod.number().nullish(),
   "days": zod.array(zod.object({
   "id": zod.number(),
   "dayNumber": zod.number(),
@@ -332,6 +333,7 @@ export const GetProgramResponse = zod.object({
   "name": zod.string(),
   "order": zod.number(),
   "durationWeeks": zod.number(),
+  "daysPerWeek": zod.number().nullish(),
   "days": zod.array(zod.object({
   "id": zod.number(),
   "dayNumber": zod.number(),
@@ -414,11 +416,14 @@ export const CreateProgramPhaseParams = zod.object({
 
 
 
+export const createProgramPhaseBodyDaysPerWeekMax = 7;
+
 
 
 export const CreateProgramPhaseBody = zod.object({
   "name": zod.string().min(1),
   "durationWeeks": zod.number().min(1),
+  "daysPerWeek": zod.number().min(1).max(createProgramPhaseBodyDaysPerWeekMax).nullish(),
   "order": zod.number().optional()
 })
 
@@ -431,9 +436,14 @@ export const UpdateProgramPhaseParams = zod.object({
   "phaseId": zod.coerce.number()
 })
 
+export const updateProgramPhaseBodyDaysPerWeekMax = 7;
+
+
+
 export const UpdateProgramPhaseBody = zod.object({
   "name": zod.string().optional(),
   "durationWeeks": zod.number().optional(),
+  "daysPerWeek": zod.number().min(1).max(updateProgramPhaseBodyDaysPerWeekMax).nullish(),
   "order": zod.number().optional()
 })
 
@@ -442,7 +452,8 @@ export const UpdateProgramPhaseResponse = zod.object({
   "programId": zod.number(),
   "name": zod.string(),
   "order": zod.number(),
-  "durationWeeks": zod.number()
+  "durationWeeks": zod.number(),
+  "daysPerWeek": zod.number().nullish()
 })
 
 

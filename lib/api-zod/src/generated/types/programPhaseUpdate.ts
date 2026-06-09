@@ -9,5 +9,10 @@
 export interface ProgramPhaseUpdate {
   name?: string;
   durationWeeks?: number;
+  /**
+     * @minimum 1
+     * @maximum 7
+     */
+  daysPerWeek?: number | null;
   order?: number;
 }

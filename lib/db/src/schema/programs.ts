@@ -17,6 +17,7 @@ export const programPhasesTable = pgTable("program_phases", {
   name: text("name").notNull(),
   order: integer("order").notNull().default(0),
   durationWeeks: integer("duration_weeks").notNull().default(4),
+  daysPerWeek: integer("days_per_week"),
 });
 
 export const programDaysTable = pgTable("program_days", {
