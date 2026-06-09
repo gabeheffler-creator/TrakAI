@@ -361,7 +361,7 @@ export function WorkoutPage() {
   const [editReps, setEditReps] = useState("");
   const [editRpe, setEditRpe] = useState<number | null>(null);
   const [isExiting, setIsExiting] = useState(false);
-  const [exitTransform, setExitTransform] = useState("translate(0,0)");
+  const [exitAnimation, setExitAnimation] = useState("ex-fly-right");
   const [exerciseExitDirs, setExerciseExitDirs] = useState<string[]>([]);
   const [swappedExercises, setSwappedExercises] = useState<Record<number, { exerciseName: string; muscleGroup: string; exerciseId: number }>>({});
 
@@ -427,16 +427,20 @@ export function WorkoutPage() {
   const handleBeginWorkout = () => {
     if (!clientId || !selectedDay) return;
 
-    // Pre-compute a unique fly-off direction per exercise — cycle through all 4 before repeating
-    const DIRS = [
-      "translateX(-115%)",
-      "translateX(115%)",
-      "translateY(-115%)",
-      "translateY(115%)",
+    // Pre-compute a unique exit animation per exercise — cycle through all before repeating
+    const ANIMS = [
+      "ex-fly-right",
+      "ex-bounce-up",
+      "ex-fly-left",
+      "ex-bounce-down",
+      "ex-spin-throw",
+      "ex-card-flip",
+      "ex-fling-diag",
+      "ex-slam-up",
     ];
-    const pool = [...DIRS];
+    const pool = [...ANIMS];
     const dirs = exercises.map(() => {
-      if (pool.length === 0) pool.push(...DIRS);
+      if (pool.length === 0) pool.push(...ANIMS);
       const idx = Math.floor(Math.random() * pool.length);
       return pool.splice(idx, 1)[0];
     });
@@ -562,13 +566,12 @@ export function WorkoutPage() {
   const allCurrentSetsLogged = currentSets.length > 0 && currentSets.every(s => s.logged);
 
   const handleNextExercise = () => {
-    const dir = exerciseExitDirs[currentExIdx] ?? "translateX(-115%)";
-    setExitTransform(dir);
+    const dir = exerciseExitDirs[currentExIdx] ?? "ex-fly-right";
+    setExitAnimation(dir);
     setIsExiting(true);
     setEditingSetIdx(null);
     setTimeout(() => {
       setIsExiting(false);
-      setExitTransform("translate(0,0)");
       if (currentExIdx < exercises.length - 1) {
         setCurrentExIdx(i => i + 1);
       } else {
@@ -775,8 +778,9 @@ export function WorkoutPage() {
           <div
             className="absolute inset-0 bg-background flex flex-col"
             style={{
-              transform: isExiting ? exitTransform : "translate(0,0)",
-              transition: isExiting ? "transform 0.42s cubic-bezier(0.4, 0, 0.2, 1)" : "none",
+              animation: isExiting
+                ? `${exitAnimation} 0.46s ease-in forwards`
+                : "none",
             }}
           >
           {/* Header */}
