@@ -57,58 +57,60 @@ function SectionHeader({ title }: { title: string }) {
   );
 }
 
+async function submitFeedback(type: "bug" | "feedback", content: string, from: "coach" | "client") {
+  const res = await fetch("/api/feedback", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ type, content, from }),
+  });
+  if (!res.ok) throw new Error("Failed to send");
+}
+
 export function SettingsPage() {
   const { dark, toggle } = useDarkMode();
   const { toast } = useToast();
 
   const [bugDialogOpen, setBugDialogOpen] = useState(false);
   const [bugText, setBugText] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  const [bugPending, setBugPending] = useState(false);
+  const [bugSubmitted, setBugSubmitted] = useState(false);
 
   const [feedbackDialogOpen, setFeedbackDialogOpen] = useState(false);
   const [feedbackText, setFeedbackText] = useState("");
-  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
+  const [feedbackPending, setFeedbackPending] = useState(false);
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
 
-  const handleOpenFeedback = () => {
-    setFeedbackText("");
-    setFeedbackSubmitted(false);
-    setFeedbackDialogOpen(true);
+  const handleOpenBug = () => { setBugText(""); setBugSubmitted(false); setBugDialogOpen(true); };
+  const handleOpenFeedback = () => { setFeedbackText(""); setFeedbackSubmitted(false); setFeedbackDialogOpen(true); };
+
+  const handleSubmitBug = async () => {
+    if (!bugText.trim()) return;
+    setBugPending(true);
+    try {
+      await submitFeedback("bug", bugText.trim(), "coach");
+      setBugSubmitted(true);
+      setBugText("");
+      setTimeout(() => { setBugDialogOpen(false); setBugSubmitted(false); }, 1800);
+    } catch {
+      toast({ title: "Failed to send report", variant: "destructive" });
+    } finally {
+      setBugPending(false);
+    }
   };
 
-  const handleSubmitFeedback = () => {
+  const handleSubmitFeedback = async () => {
     if (!feedbackText.trim()) return;
-    setFeedbackSubmitting(true);
-    setTimeout(() => {
-      setFeedbackSubmitting(false);
+    setFeedbackPending(true);
+    try {
+      await submitFeedback("feedback", feedbackText.trim(), "coach");
       setFeedbackSubmitted(true);
       setFeedbackText("");
-      setTimeout(() => {
-        setFeedbackDialogOpen(false);
-        setFeedbackSubmitted(false);
-      }, 1800);
-    }, 600);
-  };
-
-  const handleOpenBug = () => {
-    setBugText("");
-    setSubmitted(false);
-    setBugDialogOpen(true);
-  };
-
-  const handleSubmitBug = () => {
-    if (!bugText.trim()) return;
-    setSubmitting(true);
-    setTimeout(() => {
-      setSubmitting(false);
-      setSubmitted(true);
-      setBugText("");
-      setTimeout(() => {
-        setBugDialogOpen(false);
-        setSubmitted(false);
-      }, 1800);
-    }, 600);
+      setTimeout(() => { setFeedbackDialogOpen(false); setFeedbackSubmitted(false); }, 1800);
+    } catch {
+      toast({ title: "Failed to send feedback", variant: "destructive" });
+    } finally {
+      setFeedbackPending(false);
+    }
   };
 
   return (
@@ -182,12 +184,8 @@ export function SettingsPage() {
                 <Button variant="ghost" size="sm" onClick={() => setFeedbackDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button
-                  size="sm"
-                  disabled={!feedbackText.trim() || feedbackSubmitting}
-                  onClick={handleSubmitFeedback}
-                >
-                  {feedbackSubmitting ? "Sending…" : "Send"}
+                <Button size="sm" disabled={!feedbackText.trim() || feedbackPending} onClick={handleSubmitFeedback}>
+                  {feedbackPending ? "Sending…" : "Send"}
                 </Button>
               </div>
             </div>
@@ -202,7 +200,7 @@ export function SettingsPage() {
             <DialogTitle>Report a bug</DialogTitle>
           </DialogHeader>
 
-          {submitted ? (
+          {bugSubmitted ? (
             <div className="flex flex-col items-center justify-center py-8 gap-3 text-center animate-in fade-in zoom-in duration-300">
               <CheckCircle className="w-12 h-12 text-primary" />
               <p className="font-semibold text-sm">Thanks for the report!</p>
@@ -224,12 +222,8 @@ export function SettingsPage() {
                 <Button variant="ghost" size="sm" onClick={() => setBugDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button
-                  size="sm"
-                  disabled={!bugText.trim() || submitting}
-                  onClick={handleSubmitBug}
-                >
-                  {submitting ? "Sending…" : "Send report"}
+                <Button size="sm" disabled={!bugText.trim() || bugPending} onClick={handleSubmitBug}>
+                  {bugPending ? "Sending…" : "Send report"}
                 </Button>
               </div>
             </div>

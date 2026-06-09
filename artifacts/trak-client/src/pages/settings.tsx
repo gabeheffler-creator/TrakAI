@@ -2,8 +2,6 @@ import { useState } from "react";
 import { useDarkMode } from "@/hooks/use-dark-mode";
 import { useUnitSystem } from "@/hooks/use-unit-system";
 import { useWorkoutPrefs } from "@/hooks/use-workout-prefs";
-import { useClientId } from "@/hooks/use-client-id";
-import { useSendMessage } from "@workspace/api-client-react";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -62,78 +60,62 @@ function SectionHeader({ title }: { title: string }) {
   );
 }
 
+async function submitFeedback(type: "bug" | "feedback", content: string, from: "coach" | "client") {
+  const res = await fetch("/api/feedback", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ type, content, from }),
+  });
+  if (!res.ok) throw new Error("Failed to send");
+}
+
 export function SettingsPage() {
   const { dark, toggle } = useDarkMode();
   const { units, setUnits } = useUnitSystem();
   const { workoutView, setWorkoutView, showProgressBar, setShowProgressBar } = useWorkoutPrefs();
-  const { clientId } = useClientId();
   const { toast } = useToast();
-  const sendMessage = useSendMessage();
 
   const [bugDialogOpen, setBugDialogOpen] = useState(false);
   const [bugText, setBugText] = useState("");
-  const [submitted, setSubmitted] = useState(false);
+  const [bugPending, setBugPending] = useState(false);
+  const [bugSubmitted, setBugSubmitted] = useState(false);
 
   const [feedbackDialogOpen, setFeedbackDialogOpen] = useState(false);
   const [feedbackText, setFeedbackText] = useState("");
+  const [feedbackPending, setFeedbackPending] = useState(false);
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
 
-  const handleSubmitFeedback = () => {
-    if (!feedbackText.trim() || !clientId) return;
-    sendMessage.mutate(
-      {
-        clientId,
-        data: { content: `💬 Feedback:\n\n${feedbackText.trim()}`, sender: "client" },
-      },
-      {
-        onSuccess: () => {
-          setFeedbackSubmitted(true);
-          setFeedbackText("");
-          setTimeout(() => {
-            setFeedbackDialogOpen(false);
-            setFeedbackSubmitted(false);
-          }, 1800);
-        },
-        onError: () => {
-          toast({ title: "Failed to send feedback", variant: "destructive" });
-        },
-      }
-    );
+  const handleOpenBug = () => { setBugText(""); setBugSubmitted(false); setBugDialogOpen(true); };
+  const handleOpenFeedback = () => { setFeedbackText(""); setFeedbackSubmitted(false); setFeedbackDialogOpen(true); };
+
+  const handleSubmitBug = async () => {
+    if (!bugText.trim()) return;
+    setBugPending(true);
+    try {
+      await submitFeedback("bug", bugText.trim(), "client");
+      setBugSubmitted(true);
+      setBugText("");
+      setTimeout(() => { setBugDialogOpen(false); setBugSubmitted(false); }, 1800);
+    } catch {
+      toast({ title: "Failed to send report", variant: "destructive" });
+    } finally {
+      setBugPending(false);
+    }
   };
 
-  const handleOpenFeedback = () => {
-    setFeedbackText("");
-    setFeedbackSubmitted(false);
-    setFeedbackDialogOpen(true);
-  };
-
-  const handleSubmitBug = () => {
-    if (!bugText.trim() || !clientId) return;
-    sendMessage.mutate(
-      {
-        clientId,
-        data: { content: `🐛 Bug report:\n\n${bugText.trim()}`, sender: "client" },
-      },
-      {
-        onSuccess: () => {
-          setSubmitted(true);
-          setBugText("");
-          setTimeout(() => {
-            setBugDialogOpen(false);
-            setSubmitted(false);
-          }, 1800);
-        },
-        onError: () => {
-          toast({ title: "Failed to send report", variant: "destructive" });
-        },
-      }
-    );
-  };
-
-  const handleOpenBug = () => {
-    setBugText("");
-    setSubmitted(false);
-    setBugDialogOpen(true);
+  const handleSubmitFeedback = async () => {
+    if (!feedbackText.trim()) return;
+    setFeedbackPending(true);
+    try {
+      await submitFeedback("feedback", feedbackText.trim(), "client");
+      setFeedbackSubmitted(true);
+      setFeedbackText("");
+      setTimeout(() => { setFeedbackDialogOpen(false); setFeedbackSubmitted(false); }, 1800);
+    } catch {
+      toast({ title: "Failed to send feedback", variant: "destructive" });
+    } finally {
+      setFeedbackPending(false);
+    }
   };
 
   return (
@@ -220,7 +202,7 @@ export function SettingsPage() {
           <SettingRow
             icon={<MessageSquare className="w-4 h-4" />}
             label="Send feedback"
-            description="Share ideas or suggestions with your coach"
+            description="Share ideas or suggestions"
             onClick={handleOpenFeedback}
           />
         </div>
@@ -228,7 +210,7 @@ export function SettingsPage() {
           <SettingRow
             icon={<Bug className="w-4 h-4" />}
             label="Report a bug"
-            description="Let your coach know something isn't working"
+            description="Something not working? Let us know"
             onClick={handleOpenBug}
           />
         </div>
@@ -245,7 +227,7 @@ export function SettingsPage() {
             <div className="flex flex-col items-center justify-center py-8 gap-3 text-center animate-in fade-in zoom-in duration-300">
               <CheckCircle className="w-12 h-12 text-primary" />
               <p className="font-semibold text-sm">Thanks for the feedback!</p>
-              <p className="text-xs text-muted-foreground">Your coach has been notified.</p>
+              <p className="text-xs text-muted-foreground">We'll take a look.</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -263,12 +245,8 @@ export function SettingsPage() {
                 <Button variant="ghost" size="sm" onClick={() => setFeedbackDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button
-                  size="sm"
-                  disabled={!feedbackText.trim() || sendMessage.isPending}
-                  onClick={handleSubmitFeedback}
-                >
-                  {sendMessage.isPending ? "Sending…" : "Send"}
+                <Button size="sm" disabled={!feedbackText.trim() || feedbackPending} onClick={handleSubmitFeedback}>
+                  {feedbackPending ? "Sending…" : "Send"}
                 </Button>
               </div>
             </div>
@@ -283,16 +261,16 @@ export function SettingsPage() {
             <DialogTitle>Report a bug</DialogTitle>
           </DialogHeader>
 
-          {submitted ? (
+          {bugSubmitted ? (
             <div className="flex flex-col items-center justify-center py-8 gap-3 text-center animate-in fade-in zoom-in duration-300">
               <CheckCircle className="w-12 h-12 text-primary" />
               <p className="font-semibold text-sm">Thanks for the report!</p>
-              <p className="text-xs text-muted-foreground">Your coach has been notified.</p>
+              <p className="text-xs text-muted-foreground">We'll look into it.</p>
             </div>
           ) : (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Describe what happened and what you expected. Your message will be sent directly to your coach.
+                Describe what happened and what you expected to happen.
               </p>
               <Textarea
                 placeholder="e.g. When I tap 'Log set', nothing happens..."
@@ -305,12 +283,8 @@ export function SettingsPage() {
                 <Button variant="ghost" size="sm" onClick={() => setBugDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button
-                  size="sm"
-                  disabled={!bugText.trim() || sendMessage.isPending}
-                  onClick={handleSubmitBug}
-                >
-                  {sendMessage.isPending ? "Sending…" : "Send report"}
+                <Button size="sm" disabled={!bugText.trim() || bugPending} onClick={handleSubmitBug}>
+                  {bugPending ? "Sending…" : "Send report"}
                 </Button>
               </div>
             </div>
