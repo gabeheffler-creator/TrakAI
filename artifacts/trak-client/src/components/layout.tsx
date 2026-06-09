@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Home, Dumbbell, Ruler, Moon, UtensilsCrossed, Camera, ClipboardList, MessageCircle, TrendingUp, Sun, Menu, X } from "lucide-react";
+import { Home, Dumbbell, Ruler, Moon, UtensilsCrossed, Camera, ClipboardList, MessageCircle, TrendingUp, Sun, Menu, X, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClientId } from "@/hooks/use-client-id";
 import { useDarkMode } from "@/hooks/use-dark-mode";
@@ -9,6 +9,7 @@ import { TrakLogo } from "@/components/trak-logo";
 const navigation = [
   { name: "Home", href: "/", icon: Home },
   { name: "Workout", href: "/workout", icon: Dumbbell },
+  { name: "Exercises", href: "/exercises", icon: BookOpen },
   { name: "Progress", href: "/progress", icon: TrendingUp },
   { name: "Nutrition", href: "/nutrition", icon: UtensilsCrossed },
   { name: "Stats", href: "/stats", icon: Ruler },

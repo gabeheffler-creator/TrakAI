@@ -16,6 +16,7 @@ import { MessagesPage } from "@/pages/messages";
 import { ProgressPage } from "@/pages/progress";
 import { StatsPage } from "@/pages/stats";
 import { SoundsPage } from "@/pages/sounds";
+import { ExercisesPage } from "@/pages/exercises";
 
 const queryClient = new QueryClient();
 
@@ -38,6 +39,7 @@ function Router() {
             <Route path="/assignments" component={AssignmentsPage} />
             <Route path="/messages" component={MessagesPage} />
             <Route path="/sounds" component={SoundsPage} />
+            <Route path="/exercises" component={ExercisesPage} />
           </Switch>
         </Layout>
       </Route>

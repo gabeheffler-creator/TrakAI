@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ProgramDayDetail } from './programDayDetail';
+import type { ProgramPhaseDetail } from './programPhaseDetail';
 
 export interface ProgramDetail {
   id: number;
@@ -14,6 +15,7 @@ export interface ProgramDetail {
   description?: string | null;
   /** @nullable */
   durationWeeks?: number | null;
+  phases: ProgramPhaseDetail[];
   days: ProgramDayDetail[];
   createdAt?: Date;
 }

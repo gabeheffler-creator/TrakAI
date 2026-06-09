@@ -6,10 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface ProgramDayInput {
-  dayNumber: number;
+export interface ProgramPhaseInput {
   /** @minLength 1 */
   name: string;
-  notes?: string;
-  phaseId?: number;
+  /** @minimum 1 */
+  durationWeeks: number;
+  order?: number;
 }

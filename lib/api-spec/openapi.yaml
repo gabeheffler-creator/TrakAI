@@ -332,6 +332,79 @@ paths:
         "204":
           description: Deleted
 
+  /programs/{programId}/phases:
+    post:
+      operationId: createProgramPhase
+      tags: [workouts]
+      summary: Add a phase to a program
+      parameters:
+        - name: programId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProgramPhaseInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgramPhase"
+
+  /programs/{programId}/phases/{phaseId}:
+    patch:
+      operationId: updateProgramPhase
+      tags: [workouts]
+      summary: Update a program phase
+      parameters:
+        - name: programId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: phaseId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProgramPhaseUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgramPhase"
+    delete:
+      operationId: deleteProgramPhase
+      tags: [workouts]
+      summary: Delete a program phase
+      parameters:
+        - name: programId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: phaseId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
   /programs/{programId}/days:
     post:
       operationId: createProgramDay
@@ -1528,9 +1601,64 @@ components:
         durationWeeks:
           type: ["integer", "null"]
 
+    ProgramPhase:
+      type: object
+      required: [id, programId, name, order, durationWeeks]
+      properties:
+        id:
+          type: integer
+        programId:
+          type: integer
+        name:
+          type: string
+        order:
+          type: integer
+        durationWeeks:
+          type: integer
+
+    ProgramPhaseInput:
+      type: object
+      required: [name, durationWeeks]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        durationWeeks:
+          type: integer
+          minimum: 1
+        order:
+          type: integer
+
+    ProgramPhaseUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        durationWeeks:
+          type: integer
+        order:
+          type: integer
+
+    ProgramPhaseDetail:
+      type: object
+      required: [id, name, order, durationWeeks, days]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        order:
+          type: integer
+        durationWeeks:
+          type: integer
+        days:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProgramDayDetail"
+
     ProgramDetail:
       type: object
-      required: [id, name, days]
+      required: [id, name, days, phases]
       properties:
         id:
           type: integer
@@ -1540,6 +1668,10 @@ components:
           type: ["string", "null"]
         durationWeeks:
           type: ["integer", "null"]
+        phases:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProgramPhaseDetail"
         days:
           type: array
           items:
@@ -1562,6 +1694,8 @@ components:
           type: string
         notes:
           type: ["string", "null"]
+        phaseId:
+          type: ["integer", "null"]
 
     ProgramDayInput:
       type: object
@@ -1574,6 +1708,8 @@ components:
           minLength: 1
         notes:
           type: string
+        phaseId:
+          type: integer
 
     ProgramDayUpdate:
       type: object
@@ -1584,6 +1720,8 @@ components:
           type: string
         notes:
           type: ["string", "null"]
+        phaseId:
+          type: ["integer", "null"]
 
     ProgramDayDetail:
       type: object
@@ -1597,6 +1735,8 @@ components:
           type: string
         notes:
           type: ["string", "null"]
+        phaseId:
+          type: ["integer", "null"]
         exercises:
           type: array
           items:

@@ -102,7 +102,17 @@ export interface ProgramDayDetail {
   name: string;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  phaseId?: number | null;
   exercises: ProgramExerciseDetail[];
+}
+
+export interface ProgramPhaseDetail {
+  id: number;
+  name: string;
+  order: number;
+  durationWeeks: number;
+  days: ProgramDayDetail[];
 }
 
 export interface ProgramDetail {
@@ -112,6 +122,7 @@ export interface ProgramDetail {
   description?: string | null;
   /** @nullable */
   durationWeeks?: number | null;
+  phases: ProgramPhaseDetail[];
   days: ProgramDayDetail[];
   createdAt?: string;
 }
@@ -244,6 +255,28 @@ export interface ProgramUpdate {
   durationWeeks?: number | null;
 }
 
+export interface ProgramPhase {
+  id: number;
+  programId: number;
+  name: string;
+  order: number;
+  durationWeeks: number;
+}
+
+export interface ProgramPhaseInput {
+  /** @minLength 1 */
+  name: string;
+  /** @minimum 1 */
+  durationWeeks: number;
+  order?: number;
+}
+
+export interface ProgramPhaseUpdate {
+  name?: string;
+  durationWeeks?: number;
+  order?: number;
+}
+
 export interface ProgramDay {
   id: number;
   programId: number;
@@ -251,6 +284,8 @@ export interface ProgramDay {
   name: string;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  phaseId?: number | null;
 }
 
 export interface ProgramDayInput {
@@ -258,6 +293,7 @@ export interface ProgramDayInput {
   /** @minLength 1 */
   name: string;
   notes?: string;
+  phaseId?: number;
 }
 
 export interface ProgramDayUpdate {
@@ -265,6 +301,8 @@ export interface ProgramDayUpdate {
   name?: string;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  phaseId?: number | null;
 }
 
 export interface ProgramExercise {

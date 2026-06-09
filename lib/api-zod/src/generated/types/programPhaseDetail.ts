@@ -5,14 +5,12 @@
  * Trak fitness coaching platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { ProgramDayDetail } from './programDayDetail';
 
-export interface ProgramDay {
+export interface ProgramPhaseDetail {
   id: number;
-  programId: number;
-  dayNumber: number;
   name: string;
-  /** @nullable */
-  notes?: string | null;
-  /** @nullable */
-  phaseId?: number | null;
+  order: number;
+  durationWeeks: number;
+  days: ProgramDayDetail[];
 }

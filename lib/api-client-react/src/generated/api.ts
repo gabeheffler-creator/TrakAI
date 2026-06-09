@@ -54,6 +54,9 @@ import type {
   ProgramExerciseInput,
   ProgramExerciseUpdate,
   ProgramInput,
+  ProgramPhase,
+  ProgramPhaseInput,
+  ProgramPhaseUpdate,
   ProgramUpdate,
   ProgressPhoto,
   ProgressPhotoInput,
@@ -1339,6 +1342,224 @@ export const useDeleteProgram = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getDeleteProgramMutationOptions(options));
+    }
+
+export const getCreateProgramPhaseUrl = (programId: number,) => {
+
+
+
+
+  return `/api/programs/${programId}/phases`
+}
+
+/**
+ * @summary Add a phase to a program
+ */
+export const createProgramPhase = async (programId: number,
+    programPhaseInput: ProgramPhaseInput, options?: RequestInit): Promise<ProgramPhase> => {
+
+  return customFetch<ProgramPhase>(getCreateProgramPhaseUrl(programId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      programPhaseInput,)
+  }
+);}
+
+
+
+
+export const getCreateProgramPhaseMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createProgramPhase>>, TError,{programId: number;data: BodyType<ProgramPhaseInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createProgramPhase>>, TError,{programId: number;data: BodyType<ProgramPhaseInput>}, TContext> => {
+
+const mutationKey = ['createProgramPhase'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createProgramPhase>>, {programId: number;data: BodyType<ProgramPhaseInput>}> = (props) => {
+          const {programId,data} = props ?? {};
+
+          return  createProgramPhase(programId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateProgramPhaseMutationResult = NonNullable<Awaited<ReturnType<typeof createProgramPhase>>>
+    export type CreateProgramPhaseMutationBody = BodyType<ProgramPhaseInput>
+    export type CreateProgramPhaseMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Add a phase to a program
+ */
+export const useCreateProgramPhase = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createProgramPhase>>, TError,{programId: number;data: BodyType<ProgramPhaseInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createProgramPhase>>,
+        TError,
+        {programId: number;data: BodyType<ProgramPhaseInput>},
+        TContext
+      > => {
+      return useMutation(getCreateProgramPhaseMutationOptions(options));
+    }
+
+export const getUpdateProgramPhaseUrl = (programId: number,
+    phaseId: number,) => {
+
+
+
+
+  return `/api/programs/${programId}/phases/${phaseId}`
+}
+
+/**
+ * @summary Update a program phase
+ */
+export const updateProgramPhase = async (programId: number,
+    phaseId: number,
+    programPhaseUpdate: ProgramPhaseUpdate, options?: RequestInit): Promise<ProgramPhase> => {
+
+  return customFetch<ProgramPhase>(getUpdateProgramPhaseUrl(programId,phaseId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      programPhaseUpdate,)
+  }
+);}
+
+
+
+
+export const getUpdateProgramPhaseMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateProgramPhase>>, TError,{programId: number;phaseId: number;data: BodyType<ProgramPhaseUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateProgramPhase>>, TError,{programId: number;phaseId: number;data: BodyType<ProgramPhaseUpdate>}, TContext> => {
+
+const mutationKey = ['updateProgramPhase'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateProgramPhase>>, {programId: number;phaseId: number;data: BodyType<ProgramPhaseUpdate>}> = (props) => {
+          const {programId,phaseId,data} = props ?? {};
+
+          return  updateProgramPhase(programId,phaseId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateProgramPhaseMutationResult = NonNullable<Awaited<ReturnType<typeof updateProgramPhase>>>
+    export type UpdateProgramPhaseMutationBody = BodyType<ProgramPhaseUpdate>
+    export type UpdateProgramPhaseMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update a program phase
+ */
+export const useUpdateProgramPhase = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateProgramPhase>>, TError,{programId: number;phaseId: number;data: BodyType<ProgramPhaseUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateProgramPhase>>,
+        TError,
+        {programId: number;phaseId: number;data: BodyType<ProgramPhaseUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateProgramPhaseMutationOptions(options));
+    }
+
+export const getDeleteProgramPhaseUrl = (programId: number,
+    phaseId: number,) => {
+
+
+
+
+  return `/api/programs/${programId}/phases/${phaseId}`
+}
+
+/**
+ * @summary Delete a program phase
+ */
+export const deleteProgramPhase = async (programId: number,
+    phaseId: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteProgramPhaseUrl(programId,phaseId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteProgramPhaseMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteProgramPhase>>, TError,{programId: number;phaseId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteProgramPhase>>, TError,{programId: number;phaseId: number}, TContext> => {
+
+const mutationKey = ['deleteProgramPhase'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteProgramPhase>>, {programId: number;phaseId: number}> = (props) => {
+          const {programId,phaseId} = props ?? {};
+
+          return  deleteProgramPhase(programId,phaseId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteProgramPhaseMutationResult = NonNullable<Awaited<ReturnType<typeof deleteProgramPhase>>>
+
+    export type DeleteProgramPhaseMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete a program phase
+ */
+export const useDeleteProgramPhase = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteProgramPhase>>, TError,{programId: number;phaseId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteProgramPhase>>,
+        TError,
+        {programId: number;phaseId: number},
+        TContext
+      > => {
+      return useMutation(getDeleteProgramPhaseMutationOptions(options));
     }
 
 export const getCreateProgramDayUrl = (programId: number,) => {

@@ -11,4 +11,6 @@ export interface ProgramDayUpdate {
   name?: string;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  phaseId?: number | null;
 }

@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import {
   programsTable,
+  programPhasesTable,
   programDaysTable,
   programExercisesTable,
   exercisesTable,
@@ -15,6 +16,11 @@ import {
   GetProgramParams,
   UpdateProgramParams,
   DeleteProgramParams,
+  CreateProgramPhaseBody,
+  CreateProgramPhaseParams,
+  UpdateProgramPhaseBody,
+  UpdateProgramPhaseParams,
+  DeleteProgramPhaseParams,
   CreateProgramDayBody,
   CreateProgramDayParams,
   UpdateProgramDayParams,
@@ -65,6 +71,10 @@ router.get("/programs/:programId", async (req, res) => {
     const [program] = await db.select().from(programsTable).where(eq(programsTable.id, programId));
     if (!program) { res.status(404).json({ error: "Program not found" }); return; }
 
+    const phases = await db.select().from(programPhasesTable)
+      .where(eq(programPhasesTable.programId, programId))
+      .orderBy(asc(programPhasesTable.order));
+
     const days = await db.select().from(programDaysTable)
       .where(eq(programDaysTable.programId, programId))
       .orderBy(asc(programDaysTable.dayNumber));
@@ -91,13 +101,19 @@ router.get("/programs/:programId", async (req, res) => {
         .orderBy(asc(programExercisesTable.order));
     }
 
+    const daysWithExercises = days.map(d => ({
+      ...d,
+      exercises: allExercises.filter(e => e.dayId === d.id),
+    }));
+
     const detail = {
       ...program,
       createdAt: program.createdAt.toISOString(),
-      days: days.map(d => ({
-        ...d,
-        exercises: allExercises.filter(e => e.dayId === d.id),
+      phases: phases.map(ph => ({
+        ...ph,
+        days: daysWithExercises.filter(d => d.phaseId === ph.id),
       })),
+      days: daysWithExercises,
     };
     res.json(detail);
   } catch (err) {
@@ -134,6 +150,63 @@ router.delete("/programs/:programId", async (req, res) => {
   }
 });
 
+// ── Program Phases ────────────────────────────────────────────────────────
+
+router.post("/programs/:programId/phases", async (req, res) => {
+  try {
+    const { programId } = CreateProgramPhaseParams.parse({ programId: Number(req.params.programId) });
+    const body = CreateProgramPhaseBody.parse(req.body);
+    const existing = await db.select().from(programPhasesTable)
+      .where(eq(programPhasesTable.programId, programId))
+      .orderBy(asc(programPhasesTable.order));
+    const nextOrder = body.order ?? existing.length;
+    const [phase] = await db.insert(programPhasesTable).values({
+      programId,
+      name: body.name,
+      order: nextOrder,
+      durationWeeks: body.durationWeeks,
+    }).returning();
+    res.status(201).json(phase);
+  } catch (err) {
+    req.log.error(err);
+    res.status(400).json({ error: "Failed to create phase" });
+  }
+});
+
+router.patch("/programs/:programId/phases/:phaseId", async (req, res) => {
+  try {
+    const { phaseId } = UpdateProgramPhaseParams.parse({
+      programId: Number(req.params.programId),
+      phaseId: Number(req.params.phaseId),
+    });
+    const body = UpdateProgramPhaseBody.parse(req.body);
+    const [phase] = await db.update(programPhasesTable).set({
+      name: body.name,
+      durationWeeks: body.durationWeeks ?? undefined,
+      order: body.order ?? undefined,
+    }).where(eq(programPhasesTable.id, phaseId)).returning();
+    if (!phase) { res.status(404).json({ error: "Phase not found" }); return; }
+    res.json(phase);
+  } catch (err) {
+    req.log.error(err);
+    res.status(400).json({ error: "Failed to update phase" });
+  }
+});
+
+router.delete("/programs/:programId/phases/:phaseId", async (req, res) => {
+  try {
+    const { phaseId } = DeleteProgramPhaseParams.parse({
+      programId: Number(req.params.programId),
+      phaseId: Number(req.params.phaseId),
+    });
+    await db.delete(programPhasesTable).where(eq(programPhasesTable.id, phaseId));
+    res.status(204).send();
+  } catch (err) {
+    req.log.error(err);
+    res.status(500).json({ error: "Failed to delete phase" });
+  }
+});
+
 // ── Program Days ──────────────────────────────────────────────────────────
 
 router.post("/programs/:programId/days", async (req, res) => {
@@ -142,6 +215,7 @@ router.post("/programs/:programId/days", async (req, res) => {
     const body = CreateProgramDayBody.parse(req.body);
     const [day] = await db.insert(programDaysTable).values({
       programId,
+      phaseId: body.phaseId ?? null,
       dayNumber: body.dayNumber,
       name: body.name,
       notes: body.notes ?? null,
@@ -164,6 +238,7 @@ router.patch("/programs/:programId/days/:dayId", async (req, res) => {
       dayNumber: body.dayNumber,
       name: body.name,
       notes: body.notes ?? undefined,
+      phaseId: body.phaseId ?? undefined,
     }).where(eq(programDaysTable.id, dayId)).returning();
     if (!day) { res.status(404).json({ error: "Day not found" }); return; }
     res.json(day);

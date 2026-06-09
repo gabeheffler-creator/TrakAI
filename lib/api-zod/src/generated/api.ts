@@ -174,11 +174,37 @@ export const GetClientDashboardResponse = zod.object({
   "name": zod.string(),
   "description": zod.string().nullish(),
   "durationWeeks": zod.number().nullish(),
+  "phases": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "order": zod.number(),
+  "durationWeeks": zod.number(),
   "days": zod.array(zod.object({
   "id": zod.number(),
   "dayNumber": zod.number(),
   "name": zod.string(),
   "notes": zod.string().nullish(),
+  "phaseId": zod.number().nullish(),
+  "exercises": zod.array(zod.object({
+  "id": zod.number(),
+  "exerciseId": zod.number(),
+  "exerciseName": zod.string(),
+  "muscleGroup": zod.string(),
+  "sets": zod.number(),
+  "reps": zod.string(),
+  "order": zod.number(),
+  "weight": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "restSeconds": zod.number().nullish()
+}))
+}))
+})),
+  "days": zod.array(zod.object({
+  "id": zod.number(),
+  "dayNumber": zod.number(),
+  "name": zod.string(),
+  "notes": zod.string().nullish(),
+  "phaseId": zod.number().nullish(),
   "exercises": zod.array(zod.object({
   "id": zod.number(),
   "exerciseId": zod.number(),
@@ -301,11 +327,37 @@ export const GetProgramResponse = zod.object({
   "name": zod.string(),
   "description": zod.string().nullish(),
   "durationWeeks": zod.number().nullish(),
+  "phases": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "order": zod.number(),
+  "durationWeeks": zod.number(),
   "days": zod.array(zod.object({
   "id": zod.number(),
   "dayNumber": zod.number(),
   "name": zod.string(),
   "notes": zod.string().nullish(),
+  "phaseId": zod.number().nullish(),
+  "exercises": zod.array(zod.object({
+  "id": zod.number(),
+  "exerciseId": zod.number(),
+  "exerciseName": zod.string(),
+  "muscleGroup": zod.string(),
+  "sets": zod.number(),
+  "reps": zod.string(),
+  "order": zod.number(),
+  "weight": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "restSeconds": zod.number().nullish()
+}))
+}))
+})),
+  "days": zod.array(zod.object({
+  "id": zod.number(),
+  "dayNumber": zod.number(),
+  "name": zod.string(),
+  "notes": zod.string().nullish(),
+  "phaseId": zod.number().nullish(),
   "exercises": zod.array(zod.object({
   "id": zod.number(),
   "exerciseId": zod.number(),
@@ -354,6 +406,56 @@ export const DeleteProgramParams = zod.object({
 
 
 /**
+ * @summary Add a phase to a program
+ */
+export const CreateProgramPhaseParams = zod.object({
+  "programId": zod.coerce.number()
+})
+
+
+
+
+
+export const CreateProgramPhaseBody = zod.object({
+  "name": zod.string().min(1),
+  "durationWeeks": zod.number().min(1),
+  "order": zod.number().optional()
+})
+
+
+/**
+ * @summary Update a program phase
+ */
+export const UpdateProgramPhaseParams = zod.object({
+  "programId": zod.coerce.number(),
+  "phaseId": zod.coerce.number()
+})
+
+export const UpdateProgramPhaseBody = zod.object({
+  "name": zod.string().optional(),
+  "durationWeeks": zod.number().optional(),
+  "order": zod.number().optional()
+})
+
+export const UpdateProgramPhaseResponse = zod.object({
+  "id": zod.number(),
+  "programId": zod.number(),
+  "name": zod.string(),
+  "order": zod.number(),
+  "durationWeeks": zod.number()
+})
+
+
+/**
+ * @summary Delete a program phase
+ */
+export const DeleteProgramPhaseParams = zod.object({
+  "programId": zod.coerce.number(),
+  "phaseId": zod.coerce.number()
+})
+
+
+/**
  * @summary Add a day to a program
  */
 export const CreateProgramDayParams = zod.object({
@@ -366,7 +468,8 @@ export const CreateProgramDayParams = zod.object({
 export const CreateProgramDayBody = zod.object({
   "dayNumber": zod.number(),
   "name": zod.string().min(1),
-  "notes": zod.string().optional()
+  "notes": zod.string().optional(),
+  "phaseId": zod.number().optional()
 })
 
 
@@ -381,7 +484,8 @@ export const UpdateProgramDayParams = zod.object({
 export const UpdateProgramDayBody = zod.object({
   "dayNumber": zod.number().optional(),
   "name": zod.string().optional(),
-  "notes": zod.string().nullish()
+  "notes": zod.string().nullish(),
+  "phaseId": zod.number().nullish()
 })
 
 export const UpdateProgramDayResponse = zod.object({
@@ -389,7 +493,8 @@ export const UpdateProgramDayResponse = zod.object({
   "programId": zod.number(),
   "dayNumber": zod.number(),
   "name": zod.string(),
-  "notes": zod.string().nullish()
+  "notes": zod.string().nullish(),
+  "phaseId": zod.number().nullish()
 })
 
 

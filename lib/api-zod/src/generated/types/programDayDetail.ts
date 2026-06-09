@@ -13,5 +13,7 @@ export interface ProgramDayDetail {
   name: string;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  phaseId?: number | null;
   exercises: ProgramExerciseDetail[];
 }
