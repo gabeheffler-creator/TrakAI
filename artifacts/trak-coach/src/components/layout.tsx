@@ -1,6 +1,5 @@
-import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Users, Dumbbell, Activity, MessageCircle, Sun, Moon, Menu, X } from "lucide-react";
+import { LayoutDashboard, Users, Dumbbell, Activity, MessageCircle, Sun, Moon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDarkMode } from "@/hooks/use-dark-mode";
 import { TrakLogo } from "./trak-logo";
@@ -17,7 +16,6 @@ const navItems = [
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const { dark, toggle } = useDarkMode();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const { data: unread } = useGetCoachUnreadCount({
     query: { queryKey: getGetCoachUnreadCountQueryKey(), refetchInterval: 8000 },
@@ -26,18 +24,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen w-full bg-background">
-      {sidebarOpen && (
-        <div className="fixed inset-0 z-40 bg-black/50 sm:hidden" onClick={() => setSidebarOpen(false)} />
-      )}
-
-      <div className={cn("flex w-48 flex-col fixed inset-y-0 z-50 transition-transform duration-200 ease-in-out", sidebarOpen ? "translate-x-0" : "-translate-x-full sm:translate-x-0")}>
+      {/* Sidebar — always visible */}
+      <div className="flex w-48 flex-col fixed inset-y-0 z-50">
         <div className="flex-1 flex flex-col min-h-0 bg-sidebar border-r border-sidebar-border">
           <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
-            <div className="flex items-center justify-between flex-shrink-0 px-4 mb-6">
+            <div className="flex items-center flex-shrink-0 px-4 mb-6">
               <TrakLogo />
-              <button className="sm:hidden p-1 rounded-md text-muted-foreground hover:text-foreground" onClick={() => setSidebarOpen(false)}>
-                <X className="w-4 h-4" />
-              </button>
             </div>
             <nav className="flex-1 px-2 space-y-1">
               {navItems.map((item) => {
@@ -47,10 +39,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   <Link
                     key={item.name}
                     href={item.href}
-                    onClick={() => setSidebarOpen(false)}
                     className={cn(
                       "group flex items-center px-3 py-2 text-sm font-medium rounded-md",
-                      isActive ? "bg-sidebar-primary text-sidebar-primary-foreground" : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      isActive
+                        ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                        : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                     )}
                   >
                     <span className="relative mr-3 flex-shrink-0">
@@ -67,7 +60,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
               })}
             </nav>
             <div className="px-2 pb-4 border-t border-sidebar-border pt-3">
-              <button onClick={toggle} className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground w-full transition-colors">
+              <button
+                onClick={toggle}
+                className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground w-full transition-colors"
+              >
                 {dark ? <Sun className="h-5 w-5 text-muted-foreground" /> : <Moon className="h-5 w-5 text-muted-foreground" />}
                 {dark ? "Light mode" : "Dark mode"}
               </button>
@@ -76,20 +72,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </div>
 
-      <div className="sm:pl-48 flex flex-col flex-1">
-        <div className="sm:hidden sticky top-0 z-30 flex items-center gap-3 px-3 py-2 bg-background border-b border-border">
-          <button onClick={() => setSidebarOpen(true)} className="p-2 rounded-lg bg-primary text-primary-foreground" aria-label="Open menu">
-            <Menu className="w-5 h-5" />
-          </button>
-          <TrakLogo />
-          {totalUnread > 0 && (
-            <Link href="/messages" className="ml-auto">
-              <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center">
-                {totalUnread > 99 ? "99+" : totalUnread}
-              </span>
-            </Link>
-          )}
-        </div>
+      {/* Main content */}
+      <div className="pl-48 flex flex-col flex-1">
         <main className="flex-1 focus:outline-none p-4 md:p-8">
           {children}
         </main>
