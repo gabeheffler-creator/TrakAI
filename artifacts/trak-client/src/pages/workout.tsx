@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useWorkoutPrefs } from "@/hooks/use-workout-prefs";
 import { useClientId } from "@/hooks/use-client-id";
 import {
@@ -143,75 +144,77 @@ const RPE_META: Record<number, { label: string; detail: string; color: string; b
 };
 
 function RpeBottomSheet({ open, onSelect, onCancel }: { open: boolean; onSelect: (rpe: number) => void; onCancel: () => void }) {
-  const [hovered, setHovered] = useState<number | null>(null);
-  const display = hovered ?? 7;
+  const [selected, setSelected] = useState<number | null>(null);
+
+  // Reset selection whenever the sheet closes
+  useEffect(() => {
+    if (!open) setSelected(null);
+  }, [open]);
+
+  const display = selected ?? 7;
   const meta = RPE_META[display];
 
-  return (
+  return createPortal(
     <>
       <div
         className={cn(
-          "fixed inset-0 z-50 bg-black/50 transition-opacity duration-300",
+          "fixed inset-0 z-[70] bg-black/50 transition-opacity duration-300",
           open ? "opacity-100" : "opacity-0 pointer-events-none"
         )}
         onClick={onCancel}
       />
       <div
         className={cn(
-          "fixed bottom-0 left-0 right-0 z-50 bg-background rounded-t-3xl px-6 pt-4 pb-10 transition-transform duration-300 ease-out shadow-2xl",
-          open ? "translate-y-0" : "translate-y-full"
+          "fixed bottom-0 left-0 right-0 z-[71] bg-background rounded-t-3xl px-6 pt-4 pb-8 transition-transform duration-300 ease-out shadow-2xl max-h-[90vh] overflow-y-auto",
+          open ? "translate-y-0" : "translate-y-full pointer-events-none"
         )}
       >
-        <div className="w-10 h-1 bg-muted-foreground/30 rounded-full mx-auto mb-5" />
+        <div className="w-10 h-1 bg-muted-foreground/30 rounded-full mx-auto mb-4" />
 
         <h2 className="text-xl font-bold text-center">How hard was that?</h2>
-        <p className="text-xs text-muted-foreground text-center mt-1 mb-6">Rate of Perceived Exertion</p>
+        <p className="text-xs text-muted-foreground text-center mt-1 mb-4">Rate of Perceived Exertion</p>
 
-        {/* Big number + label */}
-        <div className="flex flex-col items-center mb-5">
-          <span className={cn("text-7xl font-black tabular-nums leading-none transition-colors", meta.color)}>
-            {display}
-          </span>
-          <span className={cn("text-base font-semibold mt-1 transition-colors", meta.color)}>{meta.label}</span>
-          <span className="text-xs text-muted-foreground mt-0.5 text-center px-4">{meta.detail}</span>
-        </div>
+        {/* Selected value display */}
+        {selected !== null && (
+          <div className="flex flex-col items-center mb-4">
+            <span className={cn("text-5xl font-black tabular-nums leading-none transition-colors", meta.color)}>
+              {display}
+            </span>
+            <span className={cn("text-sm font-semibold mt-1 transition-colors", meta.color)}>{meta.label}</span>
+            <span className="text-xs text-muted-foreground mt-0.5 text-center px-4">{meta.detail}</span>
+          </div>
+        )}
 
-        {/* Track */}
-        <div className="flex gap-1.5 items-end mb-6 px-1">
+        {/* RPE button grid */}
+        <div className="grid grid-cols-5 gap-2 mb-4">
           {Array.from({ length: 10 }, (_, i) => i + 1).map(n => {
             const m = RPE_META[n];
-            const isActive = n === display;
-            const height = 24 + n * 4;
+            const isActive = n === selected;
             return (
               <button
                 key={n}
-                onMouseEnter={() => setHovered(n)}
-                onMouseLeave={() => setHovered(null)}
-                onTouchStart={() => setHovered(n)}
-                onClick={() => { setHovered(null); onSelect(n); }}
-                style={{ height }}
+                aria-label={`RPE ${n}`}
+                onClick={() => setSelected(n)}
                 className={cn(
-                  "flex-1 rounded-md transition-all duration-150 flex items-end justify-center pb-1",
-                  isActive ? m.bg + " scale-110 shadow-lg" : n < display ? m.track + " opacity-70" : "bg-muted opacity-40 hover:opacity-70"
+                  "h-12 rounded-xl font-bold text-sm transition-all active:scale-95",
+                  isActive ? m.bg + " text-white shadow-md scale-105" : "bg-muted text-muted-foreground hover:bg-muted/80"
                 )}
               >
-                <span className={cn("text-[10px] font-bold leading-none", isActive ? "text-white" : n < display ? "text-white/80" : "text-muted-foreground")}>
-                  {n}
-                </span>
+                {n}
               </button>
             );
           })}
         </div>
 
         {/* Labels */}
-        <div className="flex justify-between text-[10px] text-muted-foreground px-1 mb-6">
-          <span>Easy</span>
-          <span>Max effort</span>
+        <div className="flex justify-between text-[10px] text-muted-foreground mb-4">
+          <span>← Easy</span>
+          <span>Max effort →</span>
         </div>
 
         {/* Actions */}
         <button
-          onClick={() => { setHovered(null); onSelect(display); }}
+          onClick={() => { setSelected(null); onSelect(display); }}
           className={cn("w-full h-12 rounded-2xl font-semibold text-white text-sm transition-all active:scale-[.98]", meta.bg)}
         >
           Log RPE {display}
@@ -220,7 +223,8 @@ function RpeBottomSheet({ open, onSelect, onCancel }: { open: boolean; onSelect:
           Skip
         </button>
       </div>
-    </>
+    </>,
+    document.getElementById("root")!
   );
 }
 
@@ -260,7 +264,7 @@ function SwapModal({
   });
 
   return (
-    <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex flex-col">
+    <div className="fixed inset-0 z-[70] bg-background/95 backdrop-blur-sm flex flex-col">
       <div className="flex items-center justify-between px-4 py-4 border-b border-border">
         <div>
           <h2 className="text-lg font-bold">Swap Exercise</h2>
@@ -292,7 +296,7 @@ function VideoUploadSheet({ onSkip }: { onSkip: () => void }) {
   const [showOptions, setShowOptions] = useState(false);
 
   return (
-    <div className="fixed inset-0 bg-background flex flex-col items-center justify-center p-8 text-center z-40">
+    <div className="fixed inset-0 bg-background flex flex-col items-center justify-center p-8 text-center z-[60]">
       <Upload className="w-16 h-16 text-primary mb-6 opacity-80" strokeWidth={1.5} />
       <h1 className="text-2xl font-bold mb-2">Upload Form Videos</h1>
       <p className="text-muted-foreground text-sm mb-10 max-w-xs">
@@ -728,7 +732,7 @@ export function WorkoutPage() {
   // ── EARLY EXIT DONE ──────────────────────────────────────────────────────
   if (mode === "early-exit-done") {
     return (
-      <div className="fixed inset-0 bg-background flex flex-col items-center justify-center p-8 text-center z-40 animate-in fade-in slide-in-from-bottom-8 duration-500">
+      <div className="fixed inset-0 bg-background flex flex-col items-center justify-center p-8 text-center z-[60] animate-in fade-in slide-in-from-bottom-8 duration-500">
         <div className="text-7xl mb-6 animate-in zoom-in duration-500 delay-150">💪</div>
         <h1 className="text-3xl font-black mb-3 animate-in fade-in duration-500 delay-200">No worries!</h1>
         <p className="text-muted-foreground text-lg animate-in fade-in duration-500 delay-300">
@@ -741,7 +745,7 @@ export function WorkoutPage() {
   // ── DONE SCREEN ──────────────────────────────────────────────────────────
   if (mode === "done") {
     return (
-      <div className="fixed inset-0 bg-background flex flex-col items-center justify-center p-8 text-center z-40">
+      <div className="fixed inset-0 bg-background flex flex-col items-center justify-center p-8 text-center z-[60]">
         <Trophy className="w-20 h-20 text-yellow-500 mb-6" />
         <h1 className="text-3xl font-black mb-2">Workout Complete!</h1>
         <p className="text-muted-foreground mb-2">{selectedDay?.name}</p>
@@ -757,7 +761,7 @@ export function WorkoutPage() {
   // ── PRE-WORKOUT CHECK-IN ─────────────────────────────────────────────────
   if (mode === "checkin") {
     return (
-      <div className="fixed inset-0 bg-background flex flex-col z-40">
+      <div className="fixed inset-0 bg-background flex flex-col z-[60]">
         <div className="flex items-center justify-between px-4 py-4 border-b border-border">
           <button onClick={() => setMode("select")} className="text-muted-foreground hover:text-foreground text-sm flex items-center gap-1">
             <X className="w-4 h-4" /> Back
@@ -837,7 +841,7 @@ export function WorkoutPage() {
   // ── WORKOUT OVERVIEW ─────────────────────────────────────────────────────
   if (mode === "overview") {
     return (
-      <div className="fixed inset-0 bg-background flex flex-col z-40">
+      <div className="fixed inset-0 bg-background flex flex-col z-[60]">
         <div className="flex items-center justify-between px-4 py-4 border-b border-border">
           <button onClick={() => setMode("checkin")} className="text-muted-foreground hover:text-foreground text-sm flex items-center gap-1">
             <X className="w-4 h-4" /> Back
@@ -897,7 +901,7 @@ export function WorkoutPage() {
           onCancel={() => { playSwipe(); closeRpeSheet(); }}
         />
 
-        <div className="fixed inset-0 z-40 overflow-hidden">
+        <div className="fixed inset-0 z-[60] overflow-hidden">
           <div className="absolute inset-0 bg-background flex flex-col">
             {/* Header */}
             <div className="px-4 pt-4 pb-3 border-b border-border bg-background">
@@ -1075,6 +1079,7 @@ export function WorkoutPage() {
                                 <button
                                   onClick={() => handleCheckSetForEx(exIdx, i)}
                                   disabled={s.logged || (!isNext && i !== 0)}
+                                  aria-label={s.logged ? `Set ${i + 1} logged` : `Log set ${i + 1}`}
                                   className={cn(
                                     "w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-95 flex-shrink-0 mt-5",
                                     s.logged
@@ -1128,7 +1133,7 @@ export function WorkoutPage() {
 
         {/* Early exit modal */}
         {showEarlyExit && (
-          <div className="fixed inset-0 bg-background z-50 flex flex-col animate-in slide-in-from-bottom duration-300">
+          <div className="fixed inset-0 bg-background z-[70] flex flex-col animate-in slide-in-from-bottom duration-300">
             <div className="flex items-center justify-between px-4 pt-6 pb-2">
               <h2 className="text-2xl font-black">Finishing early?</h2>
               <button
@@ -1173,15 +1178,15 @@ export function WorkoutPage() {
         <>
           <div
             className={cn(
-              "fixed inset-0 z-50 bg-black/50 transition-opacity duration-300",
+              "fixed inset-0 z-[70] bg-black/50 transition-opacity duration-300",
               showCancelConfirm ? "opacity-100" : "opacity-0 pointer-events-none"
             )}
             onClick={() => setShowCancelConfirm(false)}
           />
           <div
             className={cn(
-              "fixed bottom-0 left-0 right-0 z-50 bg-background rounded-t-3xl px-6 pt-4 pb-10 transition-transform duration-300 ease-out shadow-2xl",
-              showCancelConfirm ? "translate-y-0" : "translate-y-full"
+              "fixed bottom-0 left-0 right-0 z-[71] bg-background rounded-t-3xl px-6 pt-4 pb-10 transition-transform duration-300 ease-out shadow-2xl",
+              showCancelConfirm ? "translate-y-0" : "translate-y-full pointer-events-none"
             )}
           >
             <div className="w-10 h-1 bg-muted-foreground/30 rounded-full mx-auto mb-5" />
@@ -1228,7 +1233,7 @@ export function WorkoutPage() {
         )}
 
         {/* Outer: clipping layer only */}
-        <div className="fixed inset-0 z-40 overflow-hidden">
+        <div className="fixed inset-0 z-[60] overflow-hidden">
           {/* Inner: the WHOLE page moves as one unit */}
           <div
             className="absolute inset-0 bg-background flex flex-col"
@@ -1473,7 +1478,7 @@ export function WorkoutPage() {
 
         {/* ── Early exit reason modal ── */}
         {showEarlyExit && (
-          <div className="fixed inset-0 bg-background z-50 flex flex-col animate-in slide-in-from-bottom duration-300">
+          <div className="fixed inset-0 bg-background z-[70] flex flex-col animate-in slide-in-from-bottom duration-300">
             {/* Header */}
             <div className="flex items-center justify-between px-4 pt-6 pb-2">
               <h2 className="text-2xl font-black">Finishing early?</h2>
@@ -1530,15 +1535,15 @@ export function WorkoutPage() {
         <>
           <div
             className={cn(
-              "fixed inset-0 z-50 bg-black/50 transition-opacity duration-300",
+              "fixed inset-0 z-[70] bg-black/50 transition-opacity duration-300",
               showCancelConfirm ? "opacity-100" : "opacity-0 pointer-events-none"
             )}
             onClick={() => setShowCancelConfirm(false)}
           />
           <div
             className={cn(
-              "fixed bottom-0 left-0 right-0 z-50 bg-background rounded-t-3xl px-6 pt-4 pb-10 transition-transform duration-300 ease-out shadow-2xl",
-              showCancelConfirm ? "translate-y-0" : "translate-y-full"
+              "fixed bottom-0 left-0 right-0 z-[71] bg-background rounded-t-3xl px-6 pt-4 pb-10 transition-transform duration-300 ease-out shadow-2xl",
+              showCancelConfirm ? "translate-y-0" : "translate-y-full pointer-events-none"
             )}
           >
             <div className="w-10 h-1 bg-muted-foreground/30 rounded-full mx-auto mb-5" />
