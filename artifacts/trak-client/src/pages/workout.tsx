@@ -126,7 +126,24 @@ function playWorkoutComplete() {
   } catch {}
 }
 
+const RPE_META: Record<number, { label: string; detail: string; color: string; bg: string; track: string }> = {
+  1:  { label: "Very Easy",     detail: "Minimal effort — warm-up pace",           color: "text-emerald-600", bg: "bg-emerald-500",  track: "bg-emerald-400" },
+  2:  { label: "Easy",          detail: "Light effort, could go all day",           color: "text-emerald-600", bg: "bg-emerald-500",  track: "bg-emerald-400" },
+  3:  { label: "Moderate",      detail: "Comfortable, could do many more reps",     color: "text-emerald-600", bg: "bg-emerald-500",  track: "bg-emerald-400" },
+  4:  { label: "Somewhat Hard", detail: "Starting to feel it, 6+ reps in reserve",  color: "text-lime-600",    bg: "bg-lime-500",     track: "bg-lime-400" },
+  5:  { label: "Hard",          detail: "Solid effort, ~5 reps in reserve",         color: "text-yellow-600",  bg: "bg-yellow-500",   track: "bg-yellow-400" },
+  6:  { label: "Hard",          detail: "Challenging, ~4 reps in reserve",          color: "text-yellow-600",  bg: "bg-yellow-500",   track: "bg-yellow-400" },
+  7:  { label: "Very Hard",     detail: "Could only do 2–3 more reps",              color: "text-orange-600",  bg: "bg-orange-500",   track: "bg-orange-400" },
+  8:  { label: "Very Hard",     detail: "1–2 reps left in the tank",                color: "text-orange-600",  bg: "bg-orange-500",   track: "bg-orange-400" },
+  9:  { label: "Near Max",      detail: "Could barely squeeze out 1 more rep",      color: "text-red-600",     bg: "bg-red-500",      track: "bg-red-400" },
+  10: { label: "Max Effort",    detail: "Absolute limit — nothing left",            color: "text-red-700",     bg: "bg-red-600",      track: "bg-red-500" },
+};
+
 function RpeBottomSheet({ open, onSelect, onCancel }: { open: boolean; onSelect: (rpe: number) => void; onCancel: () => void }) {
+  const [hovered, setHovered] = useState<number | null>(null);
+  const display = hovered ?? 7;
+  const meta = RPE_META[display];
+
   return (
     <>
       <div
@@ -143,27 +160,61 @@ function RpeBottomSheet({ open, onSelect, onCancel }: { open: boolean; onSelect:
         )}
       >
         <div className="w-10 h-1 bg-muted-foreground/30 rounded-full mx-auto mb-5" />
-        <h2 className="text-xl font-bold mb-1 text-center">How hard was that?</h2>
-        <p className="text-muted-foreground mb-6 text-sm text-center">Rate of Perceived Exertion (1–10)</p>
-        <div className="grid grid-cols-5 gap-3 w-full max-w-xs mx-auto">
-          {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => {
-            const color =
-              n <= 3 ? "bg-emerald-500 hover:bg-emerald-600 text-white" :
-              n <= 6 ? "bg-yellow-500 hover:bg-yellow-600 text-white" :
-              n <= 8 ? "bg-orange-500 hover:bg-orange-600 text-white" :
-              "bg-red-600 hover:bg-red-700 text-white";
+
+        <h2 className="text-xl font-bold text-center">How hard was that?</h2>
+        <p className="text-xs text-muted-foreground text-center mt-1 mb-6">Rate of Perceived Exertion</p>
+
+        {/* Big number + label */}
+        <div className="flex flex-col items-center mb-5">
+          <span className={cn("text-7xl font-black tabular-nums leading-none transition-colors", meta.color)}>
+            {display}
+          </span>
+          <span className={cn("text-base font-semibold mt-1 transition-colors", meta.color)}>{meta.label}</span>
+          <span className="text-xs text-muted-foreground mt-0.5 text-center px-4">{meta.detail}</span>
+        </div>
+
+        {/* Track */}
+        <div className="flex gap-1.5 items-end mb-6 px-1">
+          {Array.from({ length: 10 }, (_, i) => i + 1).map(n => {
+            const m = RPE_META[n];
+            const isActive = n === display;
+            const height = 24 + n * 4;
             return (
-              <button key={n} onClick={() => onSelect(n)} className={cn("h-14 rounded-xl text-xl font-bold transition-transform active:scale-95", color)}>
-                {n}
+              <button
+                key={n}
+                onMouseEnter={() => setHovered(n)}
+                onMouseLeave={() => setHovered(null)}
+                onTouchStart={() => setHovered(n)}
+                onClick={() => { setHovered(null); onSelect(n); }}
+                style={{ height }}
+                className={cn(
+                  "flex-1 rounded-md transition-all duration-150 flex items-end justify-center pb-1",
+                  isActive ? m.bg + " scale-110 shadow-lg" : n < display ? m.track + " opacity-70" : "bg-muted opacity-40 hover:opacity-70"
+                )}
+              >
+                <span className={cn("text-[10px] font-bold leading-none", isActive ? "text-white" : n < display ? "text-white/80" : "text-muted-foreground")}>
+                  {n}
+                </span>
               </button>
             );
           })}
         </div>
-        <div className="flex justify-between w-full max-w-xs mx-auto mt-4 text-xs text-muted-foreground">
-          <span>Easy</span><span>Max effort</span>
+
+        {/* Labels */}
+        <div className="flex justify-between text-[10px] text-muted-foreground px-1 mb-6">
+          <span>Easy</span>
+          <span>Max effort</span>
         </div>
-        <button onClick={onCancel} className="mt-6 w-full text-center text-sm text-muted-foreground hover:text-foreground transition-colors">
-          Cancel
+
+        {/* Actions */}
+        <button
+          onClick={() => { setHovered(null); onSelect(display); }}
+          className={cn("w-full h-12 rounded-2xl font-semibold text-white text-sm transition-all active:scale-[.98]", meta.bg)}
+        >
+          Log RPE {display}
+        </button>
+        <button onClick={onCancel} className="mt-3 w-full text-center text-sm text-muted-foreground hover:text-foreground transition-colors">
+          Skip
         </button>
       </div>
     </>
