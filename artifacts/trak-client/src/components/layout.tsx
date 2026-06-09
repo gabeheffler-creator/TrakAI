@@ -1,6 +1,5 @@
-import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Home, Dumbbell, Ruler, Moon, UtensilsCrossed, Camera, ClipboardList, MessageCircle, TrendingUp, Sun, AlignJustify } from "lucide-react";
+import { Home, Dumbbell, Ruler, Moon, UtensilsCrossed, Camera, ClipboardList, MessageCircle, TrendingUp, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClientId } from "@/hooks/use-client-id";
 import { useDarkMode } from "@/hooks/use-dark-mode";
@@ -22,7 +21,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const { clientId } = useClientId();
   const { dark, toggle } = useDarkMode();
-  const [drawerOpen, setDrawerOpen] = useState(false);
 
   if (!clientId) {
     return (
@@ -32,82 +30,51 @@ export function Layout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  const NavContent = ({ onNav }: { onNav?: () => void }) => (
-    <>
-      <nav className="flex-1 px-3 space-y-1">
-        {navigation.map((item) => {
-          const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
-          return (
-            <Link
-              key={item.name}
-              href={item.href}
-              onClick={onNav}
-              className={cn(
-                "flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors",
-                isActive
-                  ? "bg-primary text-primary-foreground"
-                  : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-              )}
-            >
-              <item.icon className={cn("mr-3 h-4 w-4 flex-shrink-0", isActive ? "text-primary-foreground" : "text-muted-foreground")} />
-              {item.name}
-            </Link>
-          );
-        })}
-      </nav>
-      <div className="px-4 pb-5">
-        <button
-          onClick={toggle}
-          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
-        >
-          {dark ? <Sun className="w-4 h-4 text-muted-foreground" /> : <Moon className="w-4 h-4 text-muted-foreground" />}
-          {dark ? "Light mode" : "Dark mode"}
-        </button>
-      </div>
-    </>
-  );
-
   return (
     <div className="flex min-h-screen w-full bg-background">
-      {/* Mobile hamburger — purple square */}
-      <button
-        onClick={() => setDrawerOpen((o) => !o)}
-        className="md:hidden fixed top-4 left-4 z-[60] flex items-center justify-center w-10 h-10 rounded-lg bg-primary text-primary-foreground shadow-md"
-        aria-label="Toggle menu"
-      >
-        <AlignJustify className="h-5 w-5" />
-      </button>
-
-      {/* Mobile drawer */}
-      {drawerOpen && (
-        <div className="md:hidden fixed inset-0 z-40 flex">
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setDrawerOpen(false)} />
-          <div className="relative flex flex-col w-64 bg-sidebar border-r border-sidebar-border shadow-xl z-50 animate-in slide-in-from-left duration-200">
-            <div className="flex items-center px-4 pt-6 pb-4">
-              <TrakLogo />
-            </div>
-            <div className="flex-1 flex flex-col overflow-y-auto pb-4">
-              <NavContent onNav={() => setDrawerOpen(false)} />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Desktop sidebar */}
-      <div className="hidden md:flex w-56 flex-col fixed inset-y-0">
+      {/* Sidebar — always visible */}
+      <div className="flex w-48 flex-col fixed inset-y-0 shrink-0">
         <div className="flex-1 flex flex-col min-h-0 bg-sidebar border-r border-sidebar-border">
           <div className="flex-1 flex flex-col pt-6 pb-4 overflow-y-auto">
             <div className="flex items-center flex-shrink-0 px-4 mb-6">
               <TrakLogo />
             </div>
-            <NavContent />
+            <nav className="flex-1 px-3 space-y-1">
+              {navigation.map((item) => {
+                const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    className={cn(
+                      "flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors",
+                      isActive
+                        ? "bg-primary text-primary-foreground"
+                        : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                    )}
+                  >
+                    <item.icon className={cn("mr-3 h-4 w-4 flex-shrink-0", isActive ? "text-primary-foreground" : "text-muted-foreground")} />
+                    {item.name}
+                  </Link>
+                );
+              })}
+            </nav>
+            <div className="px-4 pb-2 pt-4">
+              <button
+                onClick={toggle}
+                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+              >
+                {dark ? <Sun className="w-4 h-4 text-muted-foreground" /> : <Moon className="w-4 h-4 text-muted-foreground" />}
+                {dark ? "Light mode" : "Dark mode"}
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Main content */}
-      <div className="md:pl-56 flex flex-col flex-1 w-full min-w-0">
-        <main className="flex-1 p-4 pt-16 md:pt-4 md:p-6">
+      <div className="pl-48 flex flex-col flex-1 w-full min-w-0">
+        <main className="flex-1 p-4 md:p-6">
           {children}
         </main>
       </div>
