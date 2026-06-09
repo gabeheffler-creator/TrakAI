@@ -364,11 +364,55 @@ export function NutritionPage() {
 
   if (!clientId) return <div className="p-4 text-muted-foreground">Please join via an invite link first.</div>;
 
+  const today = new Date().toISOString().split("T")[0];
+  const todayLogs = logs?.filter(n => n.date === today && n.imageUrl !== "water_only") ?? [];
+  const todayWater = logs?.find(n => n.date === today && n.imageUrl === "water_only");
+
+  const totalCal  = todayLogs.reduce((s, n) => s + (n.calories ?? 0), 0);
+  const totalPro  = todayLogs.reduce((s, n) => s + Number(n.protein ?? 0), 0);
+  const totalCarb = todayLogs.reduce((s, n) => s + Number(n.carbs   ?? 0), 0);
+  const totalFat  = todayLogs.reduce((s, n) => s + Number(n.fat     ?? 0), 0);
+  const hasTodayData = todayLogs.length > 0;
+
   return (
     <div className="max-w-lg mx-auto space-y-6 pb-8">
       <div>
         <h1 className="text-2xl font-bold">Nutrition</h1>
         <p className="text-sm text-muted-foreground mt-0.5">Upload your MFP screenshots for today</p>
+      </div>
+
+      {/* ── Today's Summary ───────────────────── */}
+      <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Today's Totals</p>
+        {hasTodayData ? (
+          <>
+            {/* Calories big display */}
+            <div className="flex items-end gap-1.5">
+              <span className="text-4xl font-bold tabular-nums leading-none">{totalCal.toLocaleString()}</span>
+              <span className="text-sm text-muted-foreground pb-0.5">kcal</span>
+            </div>
+            {/* Macro pills */}
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { label: "Protein", val: Math.round(totalPro),  unit: "g", color: "bg-blue-500/10 text-blue-600 dark:text-blue-400" },
+                { label: "Carbs",   val: Math.round(totalCarb), unit: "g", color: "bg-orange-500/10 text-orange-600 dark:text-orange-400" },
+                { label: "Fat",     val: Math.round(totalFat),  unit: "g", color: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400" },
+              ].map(m => (
+                <div key={m.label} className={`rounded-xl px-3 py-2 text-center ${m.color}`}>
+                  <p className="text-lg font-bold tabular-nums leading-none">{m.val}<span className="text-xs font-normal ml-0.5">{m.unit}</span></p>
+                  <p className="text-[11px] mt-0.5 opacity-70">{m.label}</p>
+                </div>
+              ))}
+            </div>
+            {todayWater && (
+              <p className="text-xs text-muted-foreground">
+                💧 {Math.round((todayWater.waterMl ?? 0) / ML_PER_OZ)} oz water
+              </p>
+            )}
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground py-2">No entries logged yet today.</p>
+        )}
       </div>
 
       {/* Diary Overview slot */}
