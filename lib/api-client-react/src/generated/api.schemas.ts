@@ -208,8 +208,6 @@ export interface Exercise {
   muscleGroup: string;
   /** @nullable */
   description?: string | null;
-  /** @nullable */
-  videoPath?: string | null;
   createdAt?: string;
 }
 

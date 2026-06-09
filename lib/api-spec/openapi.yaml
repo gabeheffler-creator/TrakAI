@@ -1472,8 +1472,6 @@ components:
           type: string
         description:
           type: ["string", "null"]
-        videoPath:
-          type: ["string", "null"]
         createdAt:
           type: string
           format: date-time

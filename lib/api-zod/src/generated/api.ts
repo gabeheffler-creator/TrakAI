@@ -244,7 +244,6 @@ export const ListExercisesResponseItem = zod.object({
   "name": zod.string(),
   "muscleGroup": zod.string(),
   "description": zod.string().nullish(),
-  "videoPath": zod.string().nullish(),
   "createdAt": zod.coerce.date().optional()
 })
 export const ListExercisesResponse = zod.array(ListExercisesResponseItem)
