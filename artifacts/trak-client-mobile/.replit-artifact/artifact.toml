@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/trak-client-mobile/"
+title = "Trak Client Mobile"
+version = "1.0.0"
+id = "artifacts/trak-client-mobile"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/trak-client-mobile/" ]
+localPort = 25097
+
+[services.development]
+run = "pnpm --filter @workspace/trak-client-mobile run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/trak-client-mobile", "run", "build" ]
+publicDir = "artifacts/trak-client-mobile/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "25097"
+BASE_PATH = "/trak-client-mobile/"

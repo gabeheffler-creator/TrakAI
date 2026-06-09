@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/trak-coach-mobile/"
+title = "Trak Coach Mobile"
+version = "1.0.0"
+id = "artifacts/trak-coach-mobile"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/trak-coach-mobile/" ]
+localPort = 24804
+
+[services.development]
+run = "pnpm --filter @workspace/trak-coach-mobile run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/trak-coach-mobile", "run", "build" ]
+publicDir = "artifacts/trak-coach-mobile/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24804"
+BASE_PATH = "/trak-coach-mobile/"
