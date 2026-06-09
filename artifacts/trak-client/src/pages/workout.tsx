@@ -769,7 +769,16 @@ export function WorkoutPage() {
           />
         )}
 
-        <div className="fixed inset-0 bg-background flex flex-col z-40 overflow-hidden">
+        {/* Outer: clipping layer only */}
+        <div className="fixed inset-0 z-40 overflow-hidden">
+          {/* Inner: the WHOLE page moves as one unit */}
+          <div
+            className="absolute inset-0 bg-background flex flex-col"
+            style={{
+              transform: isExiting ? exitTransform : "translate(0,0)",
+              transition: isExiting ? "transform 0.42s cubic-bezier(0.4, 0, 0.2, 1)" : "none",
+            }}
+          >
           {/* Header */}
           <div className="px-4 pt-4 pb-3 border-b border-border bg-background">
             <div className="flex items-center justify-between mb-3">
@@ -785,16 +794,8 @@ export function WorkoutPage() {
             <ProgressBar value={currentExIdx} total={exercises.length} />
           </div>
 
-          {/* Exercise content — animated */}
-          <div className="flex-1 overflow-hidden relative">
-          <div
-            className="absolute inset-0 overflow-y-auto px-4 py-6"
-            style={{
-              transform: isExiting ? exitTransform : "translate(0,0)",
-              transition: isExiting ? "transform 0.4s cubic-bezier(0.4, 0, 0.2, 1)" : "none",
-              opacity: isExiting ? 0.6 : 1,
-            }}
-          >
+          {/* Exercise content */}
+          <div className="flex-1 overflow-y-auto px-4 py-6">
             {/* Exercise name — big */}
             <div className="mb-6">
               <Badge variant="secondary" className="text-xs mb-2">{currentEx.muscleGroup}</Badge>
@@ -976,7 +977,6 @@ export function WorkoutPage() {
               <RefreshCw className="w-4 h-4" /> Swap Exercise
             </button>
           </div>
-          </div>
 
           {/* Bottom action */}
           <div className="px-4 pb-20 md:pb-6 pt-3 border-t border-border bg-background">
@@ -994,7 +994,8 @@ export function WorkoutPage() {
               </div>
             )}
           </div>
-        </div>
+          </div>{/* /inner animated page */}
+        </div>{/* /outer clip */}
       </>
     );
   }
