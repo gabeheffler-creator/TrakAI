@@ -4,6 +4,7 @@ import {
   useGetClientProgramAssignment,
   useGetProgram,
   useCreateWorkoutLog,
+  useUpdateWorkoutLog,
   useLogSet,
   useListExercises,
   getListExercisesQueryKey,
@@ -14,6 +15,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { CheckCircle, ChevronRight, Dumbbell, X, Trophy, ArrowRight, RefreshCw, Upload, FolderOpen, ImageIcon, Pencil, RotateCcw, Check } from "lucide-react";
@@ -21,7 +23,7 @@ import { useLocation, Link } from "wouter";
 import { cn } from "@/lib/utils";
 import type { Exercise } from "@workspace/api-client-react";
 
-type Mode = "select" | "checkin" | "overview" | "active" | "upload" | "done";
+type Mode = "select" | "checkin" | "overview" | "active" | "upload" | "done" | "early-exit-done";
 
 interface SetState {
   targetReps: string;
@@ -380,6 +382,8 @@ export function WorkoutPage() {
   const [isExiting, setIsExiting] = useState(false);
   const [exitAnimation, setExitAnimation] = useState("ex-fly-right");
   const [exitOrigin, setExitOrigin] = useState("center center");
+  const [showEarlyExit, setShowEarlyExit] = useState(false);
+  const [earlyExitReason, setEarlyExitReason] = useState("");
   const [swappedExercises, setSwappedExercises] = useState<Record<number, { exerciseName: string; muscleGroup: string; exerciseId: number }>>({});
 
   // Pre-workout checkin
@@ -395,6 +399,7 @@ export function WorkoutPage() {
   const { data: allExercises } = useListExercises({ query: { enabled: mode === "active" && swapModal, queryKey: getListExercisesQueryKey() } });
 
   const createWorkoutLog = useCreateWorkoutLog();
+  const updateWorkoutLog = useUpdateWorkoutLog();
   const logSet = useLogSet();
 
   const today = new Date().toISOString().split("T")[0];
@@ -588,7 +593,34 @@ export function WorkoutPage() {
     setSwapModal(false);
   };
 
-  const reset = () => { setMode("select"); setCurrentExIdx(0); setSets([]); setSwappedExercises({}); setSleep(""); setEnergy(null); };
+  const reset = () => {
+    setMode("select");
+    setCurrentExIdx(0);
+    setSets([]);
+    setSwappedExercises({});
+    setSleep("");
+    setEnergy(null);
+    setShowEarlyExit(false);
+    setEarlyExitReason("");
+  };
+
+  const handleEarlyExitSubmit = () => {
+    if (clientId && workoutLogId) {
+      updateWorkoutLog.mutate({
+        clientId,
+        logId: workoutLogId,
+        data: { notes: earlyExitReason, status: "early_exit" },
+      });
+    }
+    setShowEarlyExit(false);
+    setMode("early-exit-done");
+  };
+
+  useEffect(() => {
+    if (mode !== "early-exit-done") return;
+    const t = setTimeout(() => reset(), 3200);
+    return () => clearTimeout(t);
+  }, [mode]);
 
   if (!clientId) return <div className="p-4 text-muted-foreground">Please join via an invite link first.</div>;
 
@@ -609,6 +641,19 @@ export function WorkoutPage() {
   if (mode === "upload") {
     return (
       <VideoUploadSheet onSkip={() => { playWorkoutComplete(); setMode("done"); }} />
+    );
+  }
+
+  // ── EARLY EXIT DONE ──────────────────────────────────────────────────────
+  if (mode === "early-exit-done") {
+    return (
+      <div className="fixed inset-0 bg-background flex flex-col items-center justify-center p-8 text-center z-40 animate-in fade-in slide-in-from-bottom-8 duration-500">
+        <div className="text-7xl mb-6 animate-in zoom-in duration-500 delay-150">💪</div>
+        <h1 className="text-3xl font-black mb-3 animate-in fade-in duration-500 delay-200">No worries!</h1>
+        <p className="text-muted-foreground text-lg animate-in fade-in duration-500 delay-300">
+          See you on the next one!
+        </p>
+      </div>
     );
   }
 
@@ -997,9 +1042,70 @@ export function WorkoutPage() {
                 Complete all sets to continue
               </div>
             )}
+            <button
+              onClick={() => { setShowEarlyExit(true); setEarlyExitReason(""); }}
+              className="w-full mt-1 py-2 text-xs text-muted-foreground/60 hover:text-destructive transition-colors"
+            >
+              Finish early
+            </button>
           </div>
           </div>{/* /inner animated page */}
         </div>{/* /outer clip */}
+
+        {/* ── Early exit reason modal ── */}
+        {showEarlyExit && (
+          <div className="fixed inset-0 bg-background z-50 flex flex-col animate-in slide-in-from-bottom duration-300">
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 pt-6 pb-2">
+              <h2 className="text-2xl font-black">Finishing early?</h2>
+              <button
+                onClick={() => setShowEarlyExit(false)}
+                className="w-9 h-9 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="px-4 text-sm text-muted-foreground mb-5">
+              Let your coach know why you're ending the workout early.
+            </p>
+
+            {/* Reason textarea */}
+            <div className="px-4 flex-1">
+              <Textarea
+                placeholder="e.g. Ran out of time, feeling sore today..."
+                value={earlyExitReason}
+                onChange={e => setEarlyExitReason(e.target.value)}
+                className="min-h-40 text-base resize-none leading-relaxed"
+                autoFocus
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="px-4 pb-16 pt-5 space-y-3">
+              <Button
+                size="lg"
+                className={cn(
+                  "w-full h-14 text-base font-bold transition-all duration-200",
+                  earlyExitReason.trim()
+                    ? "bg-foreground text-background hover:bg-foreground/90"
+                    : "opacity-35 cursor-not-allowed"
+                )}
+                disabled={!earlyExitReason.trim()}
+                onClick={handleEarlyExitSubmit}
+              >
+                Submit &amp; finish early
+              </Button>
+              <Button
+                size="lg"
+                variant="ghost"
+                className="w-full h-12 text-muted-foreground"
+                onClick={() => setShowEarlyExit(false)}
+              >
+                Cancel — back to workout
+              </Button>
+            </div>
+          </div>
+        )}
       </>
     );
   }

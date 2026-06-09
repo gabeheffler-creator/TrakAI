@@ -1,12 +1,14 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { workoutLogsTable, setLogsTable, exercisesTable } from "@workspace/db";
-import { eq, asc, inArray } from "drizzle-orm";
+import { eq, asc, inArray, and } from "drizzle-orm";
 import {
   ListWorkoutLogsParams,
   CreateWorkoutLogParams,
   CreateWorkoutLogBody,
   GetWorkoutLogParams,
+  UpdateWorkoutLogParams,
+  UpdateWorkoutLogBody,
   LogSetParams,
   LogSetBody,
 } from "@workspace/api-zod";
@@ -102,6 +104,28 @@ router.get("/clients/:clientId/workout-logs/:logId", async (req, res) => {
   } catch (err) {
     req.log.error(err);
     res.status(500).json({ error: "Failed to get workout log" });
+  }
+});
+
+router.patch("/clients/:clientId/workout-logs/:logId", async (req, res) => {
+  try {
+    const { clientId, logId } = UpdateWorkoutLogParams.parse({
+      clientId: Number(req.params.clientId),
+      logId: Number(req.params.logId),
+    });
+    const body = UpdateWorkoutLogBody.parse(req.body);
+    const updates: Record<string, string | null> = {};
+    if (body.notes !== undefined) updates.notes = body.notes;
+    if (body.status !== undefined) updates.status = body.status;
+    const [updated] = await db.update(workoutLogsTable)
+      .set(updates)
+      .where(and(eq(workoutLogsTable.id, logId), eq(workoutLogsTable.clientId, clientId)))
+      .returning();
+    if (!updated) { res.status(404).json({ error: "Log not found" }); return; }
+    res.json({ ...updated, createdAt: updated.createdAt.toISOString() });
+  } catch (err) {
+    req.log.error(err);
+    res.status(400).json({ error: "Failed to update workout log" });
   }
 });
 

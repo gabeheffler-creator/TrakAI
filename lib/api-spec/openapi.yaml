@@ -606,6 +606,34 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/WorkoutLogDetail"
+    patch:
+      operationId: updateWorkoutLog
+      tags: [workouts]
+      summary: Update a workout log (early exit reason, status, etc.)
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: logId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkoutLogUpdate"
+      responses:
+        "200":
+          description: Updated workout log
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkoutLog"
 
   /clients/{clientId}/workout-logs/{logId}/sets:
     post:
@@ -1713,7 +1741,7 @@ components:
           type: ["string", "null"]
         status:
           type: string
-          enum: [in_progress, completed]
+          enum: [in_progress, completed, early_exit]
         createdAt:
           type: string
           format: date-time
@@ -1731,6 +1759,15 @@ components:
           type: integer
         notes:
           type: string
+
+    WorkoutLogUpdate:
+      type: object
+      properties:
+        notes:
+          type: string
+        status:
+          type: string
+          enum: [in_progress, completed, early_exit]
 
     WorkoutLogDetail:
       type: object
@@ -1753,7 +1790,7 @@ components:
           type: ["string", "null"]
         status:
           type: string
-          enum: [in_progress, completed]
+          enum: [in_progress, completed, early_exit]
         sets:
           type: array
           items:

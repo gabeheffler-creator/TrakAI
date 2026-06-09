@@ -65,7 +65,8 @@ import type {
   UploadUrlResponse,
   WorkoutLog,
   WorkoutLogDetail,
-  WorkoutLogInput
+  WorkoutLogInput,
+  WorkoutLogUpdate
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -2161,6 +2162,80 @@ export function useGetWorkoutLog<TData = Awaited<ReturnType<typeof getWorkoutLog
 
 
 
+
+export const getUpdateWorkoutLogUrl = (clientId: number,
+    logId: number,) => {
+
+
+
+
+  return `/api/clients/${clientId}/workout-logs/${logId}`
+}
+
+/**
+ * @summary Update a workout log (early exit reason, status, etc.)
+ */
+export const updateWorkoutLog = async (clientId: number,
+    logId: number,
+    workoutLogUpdate: WorkoutLogUpdate, options?: RequestInit): Promise<WorkoutLog> => {
+
+  return customFetch<WorkoutLog>(getUpdateWorkoutLogUrl(clientId,logId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      workoutLogUpdate,)
+  }
+);}
+
+
+
+
+export const getUpdateWorkoutLogMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateWorkoutLog>>, TError,{clientId: number;logId: number;data: BodyType<WorkoutLogUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateWorkoutLog>>, TError,{clientId: number;logId: number;data: BodyType<WorkoutLogUpdate>}, TContext> => {
+
+const mutationKey = ['updateWorkoutLog'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateWorkoutLog>>, {clientId: number;logId: number;data: BodyType<WorkoutLogUpdate>}> = (props) => {
+          const {clientId,logId,data} = props ?? {};
+
+          return  updateWorkoutLog(clientId,logId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateWorkoutLogMutationResult = NonNullable<Awaited<ReturnType<typeof updateWorkoutLog>>>
+    export type UpdateWorkoutLogMutationBody = BodyType<WorkoutLogUpdate>
+    export type UpdateWorkoutLogMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update a workout log (early exit reason, status, etc.)
+ */
+export const useUpdateWorkoutLog = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateWorkoutLog>>, TError,{clientId: number;logId: number;data: BodyType<WorkoutLogUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateWorkoutLog>>,
+        TError,
+        {clientId: number;logId: number;data: BodyType<WorkoutLogUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateWorkoutLogMutationOptions(options));
+    }
 
 export const getLogSetUrl = (clientId: number,
     logId: number,) => {

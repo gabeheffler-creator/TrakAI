@@ -168,6 +168,7 @@ export type WorkoutLogStatus = typeof WorkoutLogStatus[keyof typeof WorkoutLogSt
 export const WorkoutLogStatus = {
   in_progress: 'in_progress',
   completed: 'completed',
+  early_exit: 'early_exit',
 } as const;
 
 export interface WorkoutLog {
@@ -327,12 +328,27 @@ export interface WorkoutLogInput {
   notes?: string;
 }
 
+export type WorkoutLogUpdateStatus = typeof WorkoutLogUpdateStatus[keyof typeof WorkoutLogUpdateStatus];
+
+
+export const WorkoutLogUpdateStatus = {
+  in_progress: 'in_progress',
+  completed: 'completed',
+  early_exit: 'early_exit',
+} as const;
+
+export interface WorkoutLogUpdate {
+  notes?: string;
+  status?: WorkoutLogUpdateStatus;
+}
+
 export type WorkoutLogDetailStatus = typeof WorkoutLogDetailStatus[keyof typeof WorkoutLogDetailStatus];
 
 
 export const WorkoutLogDetailStatus = {
   in_progress: 'in_progress',
   completed: 'completed',
+  early_exit: 'early_exit',
 } as const;
 
 /**

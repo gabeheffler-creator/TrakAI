@@ -226,7 +226,7 @@ export const GetClientDashboardResponse = zod.object({
   "date": zod.coerce.date(),
   "durationMinutes": zod.number().nullish(),
   "notes": zod.string().nullish(),
-  "status": zod.enum(['in_progress', 'completed']),
+  "status": zod.enum(['in_progress', 'completed', 'early_exit']),
   "createdAt": zod.coerce.date()
 })).optional(),
   "weightHistory": zod.array(zod.object({
@@ -511,7 +511,7 @@ export const ListWorkoutLogsResponseItem = zod.object({
   "date": zod.coerce.date(),
   "durationMinutes": zod.number().nullish(),
   "notes": zod.string().nullish(),
-  "status": zod.enum(['in_progress', 'completed']),
+  "status": zod.enum(['in_progress', 'completed', 'early_exit']),
   "createdAt": zod.coerce.date()
 })
 export const ListWorkoutLogsResponse = zod.array(ListWorkoutLogsResponseItem)
@@ -548,7 +548,7 @@ export const GetWorkoutLogResponse = zod.object({
   "date": zod.coerce.date(),
   "durationMinutes": zod.number().nullish(),
   "notes": zod.string().nullish(),
-  "status": zod.enum(['in_progress', 'completed']),
+  "status": zod.enum(['in_progress', 'completed', 'early_exit']),
   "sets": zod.array(zod.object({
   "id": zod.number(),
   "workoutLogId": zod.number(),
@@ -562,6 +562,32 @@ export const GetWorkoutLogResponse = zod.object({
   "notes": zod.string().nullish()
 })),
   "createdAt": zod.coerce.date().optional()
+})
+
+
+/**
+ * @summary Update a workout log (early exit reason, status, etc.)
+ */
+export const UpdateWorkoutLogParams = zod.object({
+  "clientId": zod.coerce.number(),
+  "logId": zod.coerce.number()
+})
+
+export const UpdateWorkoutLogBody = zod.object({
+  "notes": zod.string().optional(),
+  "status": zod.enum(['in_progress', 'completed', 'early_exit']).optional()
+})
+
+export const UpdateWorkoutLogResponse = zod.object({
+  "id": zod.number(),
+  "clientId": zod.number(),
+  "programDayId": zod.number().nullish(),
+  "programDayName": zod.string().nullish(),
+  "date": zod.coerce.date(),
+  "durationMinutes": zod.number().nullish(),
+  "notes": zod.string().nullish(),
+  "status": zod.enum(['in_progress', 'completed', 'early_exit']),
+  "createdAt": zod.coerce.date()
 })
 
 

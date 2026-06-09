@@ -72,3 +72,5 @@ export * from './workoutLogDetail';
 export * from './workoutLogDetailStatus';
 export * from './workoutLogInput';
 export * from './workoutLogStatus';
+export * from './workoutLogUpdate';
+export * from './workoutLogUpdateStatus';

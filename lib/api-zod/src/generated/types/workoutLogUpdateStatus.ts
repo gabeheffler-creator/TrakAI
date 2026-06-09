@@ -6,10 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type WorkoutLogStatus = typeof WorkoutLogStatus[keyof typeof WorkoutLogStatus];
+export type WorkoutLogUpdateStatus = typeof WorkoutLogUpdateStatus[keyof typeof WorkoutLogUpdateStatus];
 
 
-export const WorkoutLogStatus = {
+export const WorkoutLogUpdateStatus = {
   in_progress: 'in_progress',
   completed: 'completed',
   early_exit: 'early_exit',
