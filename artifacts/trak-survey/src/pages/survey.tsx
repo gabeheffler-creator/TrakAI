@@ -149,9 +149,22 @@ export default function SurveyPage() {
     <div className="min-h-screen bg-background text-foreground flex flex-col selection:bg-primary selection:text-primary-foreground">
       {/* Header & Progress */}
       <header className="p-6 md:p-8 flex items-center justify-between border-b-4 border-foreground/10 sticky top-0 bg-background/90 backdrop-blur z-10">
-        <div className="text-2xl font-black tracking-tighter uppercase italic flex items-center gap-2">
-          <div className="w-6 h-6 bg-primary text-primary-foreground flex items-center justify-center -skew-x-12 shadow-sm" />
-          TrakAI
+        <div className="flex items-center gap-2.5">
+          <svg width="32" height="32" viewBox="0 0 44 44" fill="none" className="flex-shrink-0">
+            <rect width="44" height="44" rx="12" fill="#7c3aed" />
+            <polyline
+              points="6,22 13,22 17,12 21,32 25,18 29,22 38,22"
+              stroke="white"
+              strokeWidth="2.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              fill="none"
+            />
+          </svg>
+          <div className="flex items-baseline gap-0">
+            <span className="text-lg font-extrabold tracking-tight text-foreground leading-none">Trak</span>
+            <span className="text-lg font-light tracking-tight text-violet-500 leading-none">AI</span>
+          </div>
         </div>
         <div className="font-mono text-sm font-bold flex gap-1 items-center">
           <span className="text-muted-foreground">STEP</span>
