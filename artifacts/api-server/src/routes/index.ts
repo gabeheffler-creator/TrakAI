@@ -17,6 +17,7 @@ import coachNotesRouter from "./coach_notes";
 import callLogsRouter from "./call_logs";
 import videoCallRouter from "./video_call";
 import feedbackRouter from "./feedback";
+import surveyRouter from "./survey";
 
 const router: IRouter = Router();
 
@@ -38,5 +39,6 @@ router.use(coachNotesRouter);
 router.use(callLogsRouter);
 router.use(videoCallRouter);
 router.use(feedbackRouter);
+router.use(surveyRouter);
 
 export default router;
