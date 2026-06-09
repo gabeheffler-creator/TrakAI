@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Home, Dumbbell, Ruler, Moon, UtensilsCrossed, Camera, ClipboardList, MessageCircle, TrendingUp, Sun, Menu, X, BookOpen } from "lucide-react";
+import { Home, Dumbbell, Ruler, Moon, UtensilsCrossed, Camera, ClipboardList, MessageCircle, TrendingUp, Menu, X, BookOpen, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClientId } from "@/hooks/use-client-id";
-import { useDarkMode } from "@/hooks/use-dark-mode";
 import { TrakLogo } from "@/components/trak-logo";
 import { useListMessages, getListMessagesQueryKey } from "@workspace/api-client-react";
 
@@ -26,12 +25,12 @@ const navigation = [
   { name: "Photos", href: "/photos", icon: Camera },
   { name: "Tasks", href: "/assignments", icon: ClipboardList },
   { name: "Messages", href: "/messages", icon: MessageCircle },
+  { name: "Settings", href: "/settings", icon: Settings },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const { clientId } = useClientId();
-  const { dark, toggle } = useDarkMode();
   const [open, setOpen] = useState(false);
 
   const { data: messages } = useListMessages(clientId!, {
@@ -107,15 +106,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 );
               })}
             </nav>
-            <div className="px-4 pb-2 pt-4">
-              <button
-                onClick={toggle}
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
-              >
-                {dark ? <Sun className="w-4 h-4 text-muted-foreground" /> : <Moon className="w-4 h-4 text-muted-foreground" />}
-                {dark ? "Light mode" : "Dark mode"}
-              </button>
-            </div>
           </div>
         </div>
       </div>

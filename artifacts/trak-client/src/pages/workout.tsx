@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useWorkoutPrefs } from "@/hooks/use-workout-prefs";
 import { useClientId } from "@/hooks/use-client-id";
 import {
   useGetClientProgramAssignment,
@@ -38,12 +39,12 @@ interface RpeModal {
   setIdx: number;
 }
 
-function ProgressBar({ value, total }: { value: number; total: number }) {
+function ProgressBar({ value, total, label }: { value: number; total: number; label?: string }) {
   const pct = total === 0 ? 0 : Math.round((value / total) * 100);
   return (
     <div className="w-full">
       <div className="flex justify-between text-xs text-muted-foreground mb-1.5">
-        <span>Exercise {value} of {total}</span>
+        <span>{label ?? `Exercise ${value} of ${total}`}</span>
         <span>{pct}%</span>
       </div>
       <div className="h-2 bg-muted rounded-full overflow-hidden">
@@ -385,6 +386,11 @@ export function WorkoutPage() {
   const [showEarlyExit, setShowEarlyExit] = useState(false);
   const [earlyExitReason, setEarlyExitReason] = useState("");
   const [swappedExercises, setSwappedExercises] = useState<Record<number, { exerciseName: string; muscleGroup: string; exerciseId: number }>>({});
+  const [listEditingSet, setListEditingSet] = useState<{ exIdx: number; setIdx: number } | null>(null);
+  const [listEditWeight, setListEditWeight] = useState("");
+  const [listEditReps, setListEditReps] = useState("");
+  const [listEditRpe, setListEditRpe] = useState<number | null>(null);
+  const { workoutView, showProgressBar } = useWorkoutPrefs();
 
   // Pre-workout checkin
   const [sleep, setSleep] = useState("");
@@ -567,6 +573,68 @@ export function WorkoutPage() {
   };
 
   const allCurrentSetsLogged = currentSets.length > 0 && currentSets.every(s => s.logged);
+
+  // ── List-mode handlers ──────────────────────────────────────────────────
+  const handleCheckSetForEx = (exIdx: number, setIdx: number) => {
+    const s = (sets[exIdx] ?? [])[setIdx];
+    if (!s || s.logged) return;
+    playRing();
+    setRpeModal({ exIdx, setIdx });
+  };
+
+  const updateWeightForEx = (exIdx: number, setIdx: number, value: string) => {
+    setSets(prev => {
+      const next = prev.map(arr => [...arr]);
+      next[exIdx] = next[exIdx].map((s, i) => i === setIdx ? { ...s, weight: value } : s);
+      return next;
+    });
+  };
+
+  const updateRepsForEx = (exIdx: number, setIdx: number, value: string) => {
+    setSets(prev => {
+      const next = prev.map(arr => [...arr]);
+      next[exIdx] = next[exIdx].map((s, i) => i === setIdx ? { ...s, reps: value } : s);
+      return next;
+    });
+  };
+
+  const openEditSetForEx = (exIdx: number, setIdx: number) => {
+    const s = (sets[exIdx] ?? [])[setIdx];
+    if (!s) return;
+    setListEditingSet({ exIdx, setIdx });
+    setListEditWeight(s.weight);
+    setListEditReps(s.reps);
+    setListEditRpe(s.rpe);
+  };
+
+  const saveEditSetForEx = () => {
+    if (!listEditingSet) return;
+    const { exIdx, setIdx } = listEditingSet;
+    setSets(prev => {
+      const next = prev.map(arr => [...arr]);
+      next[exIdx] = next[exIdx].map((s, i) =>
+        i === setIdx ? { ...s, weight: listEditWeight, reps: listEditReps, rpe: listEditRpe } : s
+      );
+      return next;
+    });
+    setListEditingSet(null);
+  };
+
+  const undoSetForEx = (exIdx: number, setIdx: number) => {
+    setSets(prev => {
+      const next = prev.map(arr => [...arr]);
+      next[exIdx] = next[exIdx].map((s, i) =>
+        i === setIdx ? { ...s, logged: false, rpe: null } : s
+      );
+      return next;
+    });
+    setListEditingSet(null);
+  };
+
+  const handleFinishWorkout = () => {
+    qc.invalidateQueries({ queryKey: getListWorkoutLogsQueryKey(clientId!) });
+    setMode("upload");
+  };
 
   const handleNextExercise = () => {
     const picked = EXIT_ANIMS[Math.floor(Math.random() * EXIT_ANIMS.length)];
@@ -802,6 +870,287 @@ export function WorkoutPage() {
     );
   }
 
+  // ── ACTIVE WORKOUT — LIST MODE ───────────────────────────────────────────
+  if (mode === "active" && workoutView === "list" && sets.length > 0) {
+    const totalSets = sets.reduce((a, ex) => a + ex.length, 0);
+    const loggedSets = sets.reduce((a, ex) => a + ex.filter(s => s.logged).length, 0);
+    const allDone = totalSets > 0 && loggedSets === totalSets;
+
+    return (
+      <>
+        <RpeBottomSheet
+          open={rpeSheetOpen}
+          onSelect={handleRpeConfirm}
+          onCancel={() => { playSwipe(); closeRpeSheet(); }}
+        />
+
+        <div className="fixed inset-0 z-40 overflow-hidden">
+          <div className="absolute inset-0 bg-background flex flex-col">
+            {/* Header */}
+            <div className="px-4 pt-4 pb-3 border-b border-border bg-background">
+              <div className="flex items-center justify-between mb-3">
+                <button
+                  onClick={reset}
+                  className="text-muted-foreground hover:text-foreground text-sm flex items-center gap-1"
+                >
+                  <X className="w-4 h-4" /> Exit
+                </button>
+                <span className="text-xs text-muted-foreground font-medium">{selectedDay?.name}</span>
+                <div className="w-16" />
+              </div>
+              {showProgressBar && (
+                <ProgressBar
+                  value={loggedSets}
+                  total={totalSets}
+                  label={`${loggedSets} of ${totalSets} sets`}
+                />
+              )}
+            </div>
+
+            {/* Scrollable exercise list */}
+            <div className="flex-1 overflow-y-auto divide-y divide-border">
+              {exercises.map((ex, exIdx) => {
+                const exSets = sets[exIdx] ?? [];
+                const allExSetsLogged = exSets.length > 0 && exSets.every(s => s.logged);
+                return (
+                  <div key={exIdx} className="px-4 py-4">
+                    {/* Exercise header */}
+                    <div className="mb-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        {allExSetsLogged
+                          ? <CheckCircle className="w-4 h-4 text-primary flex-shrink-0" />
+                          : <span className="w-4 h-4 rounded-full border-2 border-muted-foreground/40 flex-shrink-0" />
+                        }
+                        <h2 className={cn("text-base font-bold leading-tight", allExSetsLogged && "text-primary")}>
+                          {ex.exerciseName}
+                        </h2>
+                      </div>
+                      <div className="flex items-center gap-2 pl-6">
+                        <Badge variant="secondary" className="text-[10px]">{ex.muscleGroup}</Badge>
+                        <span className="text-xs text-muted-foreground">
+                          {ex.sets} × {ex.reps}{ex.restSeconds ? ` · ${ex.restSeconds}s rest` : ""}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Set rows */}
+                    <div className="space-y-2 pl-6">
+                      {exSets.map((s, i) => {
+                        const isNext = !s.logged && exSets.slice(0, i).every(p => p.logged);
+                        const isListEditing = listEditingSet?.exIdx === exIdx && listEditingSet?.setIdx === i;
+                        return (
+                          <div
+                            key={i}
+                            className={cn(
+                              "rounded-2xl border transition-all duration-200",
+                              s.logged
+                                ? isListEditing ? "bg-amber-50 dark:bg-amber-950/30 border-amber-400/60" : "bg-primary/8 border-primary/20"
+                                : isNext
+                                ? "bg-card border-2 border-primary shadow-sm"
+                                : "bg-muted/40 border-transparent opacity-60"
+                            )}
+                          >
+                            <div className="px-3 pt-2.5 pb-0.5 flex items-center justify-between">
+                              <span className={cn("text-xs font-semibold uppercase tracking-wide", s.logged ? "text-primary" : "text-muted-foreground")}>
+                                Set {i + 1}{s.logged && !isListEditing && s.rpe != null && ` · RPE ${s.rpe}`}
+                              </span>
+                              {s.logged && !isListEditing && (
+                                <button
+                                  onClick={() => openEditSetForEx(exIdx, i)}
+                                  className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors py-0.5 px-1.5 rounded-md hover:bg-muted"
+                                >
+                                  <Pencil className="w-3 h-3" /> Edit
+                                </button>
+                              )}
+                            </div>
+
+                            {isListEditing ? (
+                              <div className="px-3 pb-3 space-y-2">
+                                <div className="flex gap-2">
+                                  <div className="flex-1">
+                                    <label className="text-[10px] text-muted-foreground uppercase tracking-wide block mb-1">Weight</label>
+                                    <Input
+                                      type="number"
+                                      value={listEditWeight}
+                                      onChange={e => setListEditWeight(e.target.value)}
+                                      placeholder="lbs"
+                                      className="h-10 text-center text-sm font-semibold rounded-xl"
+                                      autoFocus
+                                    />
+                                  </div>
+                                  <div className="flex-1">
+                                    <label className="text-[10px] text-muted-foreground uppercase tracking-wide block mb-1">Reps</label>
+                                    <Input
+                                      type="number"
+                                      value={listEditReps}
+                                      onChange={e => setListEditReps(e.target.value)}
+                                      placeholder={s.targetReps}
+                                      className="h-10 text-center text-sm font-semibold rounded-xl"
+                                    />
+                                  </div>
+                                </div>
+                                <div>
+                                  <label className="text-[10px] text-muted-foreground uppercase tracking-wide block mb-1.5">RPE</label>
+                                  <div className="flex gap-1">
+                                    {Array.from({ length: 10 }, (_, j) => j + 1).map(n => {
+                                      const m = RPE_META[n];
+                                      const sel = listEditRpe === n;
+                                      return (
+                                        <button
+                                          key={n}
+                                          onClick={() => setListEditRpe(n)}
+                                          className={cn(
+                                            "flex-1 h-8 rounded-lg text-xs font-bold transition-all",
+                                            sel ? `${m.bg} text-white shadow` : "bg-muted text-muted-foreground"
+                                          )}
+                                        >
+                                          {n}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                                <div className="flex gap-2 pt-0.5">
+                                  <button
+                                    onClick={() => undoSetForEx(exIdx, i)}
+                                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive border border-border rounded-xl px-3 h-9 transition-colors"
+                                  >
+                                    <RotateCcw className="w-3.5 h-3.5" /> Undo
+                                  </button>
+                                  <button
+                                    onClick={saveEditSetForEx}
+                                    className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold bg-primary text-primary-foreground rounded-xl h-9"
+                                  >
+                                    <Check className="w-3.5 h-3.5" /> Save
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="px-3 pb-3 flex items-center gap-2">
+                                <div className="flex-1">
+                                  <label className="text-[10px] text-muted-foreground uppercase tracking-wide block mb-1">Weight</label>
+                                  {s.logged ? (
+                                    <div className="h-10 rounded-xl bg-muted/40 flex items-center justify-center text-sm font-semibold text-muted-foreground">
+                                      {s.weight ? `${s.weight} lbs` : "—"}
+                                    </div>
+                                  ) : (
+                                    <Input
+                                      type="number"
+                                      value={s.weight}
+                                      onChange={e => updateWeightForEx(exIdx, i, e.target.value)}
+                                      placeholder="lbs"
+                                      className="h-10 text-center text-sm font-semibold rounded-xl"
+                                    />
+                                  )}
+                                </div>
+                                <div className="flex-1">
+                                  <label className="text-[10px] text-muted-foreground uppercase tracking-wide block mb-1">Reps</label>
+                                  {s.logged ? (
+                                    <div className="h-10 rounded-xl bg-muted/40 flex items-center justify-center text-sm font-semibold text-muted-foreground">
+                                      {s.reps}
+                                    </div>
+                                  ) : (
+                                    <Input
+                                      type="number"
+                                      value={s.reps}
+                                      onChange={e => updateRepsForEx(exIdx, i, e.target.value)}
+                                      placeholder={s.targetReps}
+                                      className="h-10 text-center text-sm font-semibold rounded-xl"
+                                    />
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleCheckSetForEx(exIdx, i)}
+                                  disabled={s.logged || (!isNext && i !== 0)}
+                                  className={cn(
+                                    "w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-95 flex-shrink-0 mt-5",
+                                    s.logged
+                                      ? "bg-primary/20 text-primary cursor-default"
+                                      : isNext || i === 0
+                                      ? "bg-primary text-primary-foreground shadow-md hover:bg-primary/90"
+                                      : "bg-muted text-muted-foreground cursor-not-allowed"
+                                  )}
+                                >
+                                  {s.logged ? <CheckCircle className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Bottom action */}
+            <div className="px-4 pb-20 md:pb-6 pt-3 border-t border-border bg-background">
+              {allDone ? (
+                <Button size="lg" className="w-full text-base font-bold h-14" onClick={handleFinishWorkout}>
+                  Finish Workout <Trophy className="ml-2 w-5 h-5" />
+                </Button>
+              ) : (
+                <div className="h-14 flex items-center justify-center text-muted-foreground text-sm">
+                  Complete all sets to finish
+                </div>
+              )}
+              <button
+                onClick={() => { setShowEarlyExit(true); setEarlyExitReason(""); }}
+                className="w-full mt-1 py-2 text-xs text-muted-foreground/60 hover:text-destructive transition-colors"
+              >
+                Finish early
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Early exit modal */}
+        {showEarlyExit && (
+          <div className="fixed inset-0 bg-background z-50 flex flex-col animate-in slide-in-from-bottom duration-300">
+            <div className="flex items-center justify-between px-4 pt-6 pb-2">
+              <h2 className="text-2xl font-black">Finishing early?</h2>
+              <button
+                onClick={() => setShowEarlyExit(false)}
+                className="w-9 h-9 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="px-4 text-sm text-muted-foreground mb-5">
+              Let your coach know why you're ending the workout early.
+            </p>
+            <div className="px-4 flex-1">
+              <Textarea
+                placeholder="e.g. Ran out of time, feeling sore today..."
+                value={earlyExitReason}
+                onChange={e => setEarlyExitReason(e.target.value)}
+                className="min-h-40 text-base resize-none leading-relaxed"
+                autoFocus
+              />
+            </div>
+            <div className="px-4 pb-16 pt-5 space-y-3">
+              <Button
+                size="lg"
+                className={cn(
+                  "w-full h-14 text-base font-bold transition-all duration-200",
+                  earlyExitReason.trim() ? "bg-foreground text-background hover:bg-foreground/90" : "opacity-35 cursor-not-allowed"
+                )}
+                disabled={!earlyExitReason.trim()}
+                onClick={handleEarlyExitSubmit}
+              >
+                Submit &amp; finish early
+              </Button>
+              <Button size="lg" variant="ghost" className="w-full h-12 text-muted-foreground" onClick={() => setShowEarlyExit(false)}>
+                Cancel — back to workout
+              </Button>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
+
   // ── ACTIVE WORKOUT ───────────────────────────────────────────────────────
   if (mode === "active" && currentEx) {
     return (
@@ -840,7 +1189,7 @@ export function WorkoutPage() {
               <span className="text-xs text-muted-foreground font-medium">{selectedDay?.name}</span>
               <div className="w-16" />
             </div>
-            <ProgressBar value={currentExIdx} total={exercises.length} />
+            {showProgressBar && <ProgressBar value={currentExIdx} total={exercises.length} />}
           </div>
 
           {/* Exercise content */}

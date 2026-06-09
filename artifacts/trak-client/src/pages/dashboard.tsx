@@ -5,7 +5,6 @@ import { useVideoCallStatus } from "@/hooks/use-video-call-status";
 import { VideoCall } from "@/components/video-call";
 import { useGetClientDashboard, getGetClientDashboardQueryKey } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { Link } from "wouter";
 import { Dumbbell, ClipboardList, TrendingUp, ChevronRight, Video } from "lucide-react";
@@ -13,7 +12,7 @@ import { format, parseISO } from "date-fns";
 
 export function Dashboard() {
   const { clientId } = useClientId();
-  const { units, setUnits, weightLabel } = useUnitSystem();
+  const { units, weightLabel } = useUnitSystem();
   const [videoCallOpen, setVideoCallOpen] = useState(false);
   const callActive = useVideoCallStatus(clientId);
   const { data: dashboard, isLoading } = useGetClientDashboard(clientId!, {
@@ -67,15 +66,6 @@ export function Dashboard() {
           </div>
           {client?.goal && <p className="text-sm text-muted-foreground mt-1">{client.goal}</p>}
         </div>
-        <Select value={units} onValueChange={v => setUnits(v as "imperial" | "metric")}>
-          <SelectTrigger className="w-[110px] text-xs h-8 shrink-0">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="imperial">Imperial</SelectItem>
-            <SelectItem value="metric">Metric</SelectItem>
-          </SelectContent>
-        </Select>
       </div>
 
       <div className="grid grid-cols-3 gap-3">
