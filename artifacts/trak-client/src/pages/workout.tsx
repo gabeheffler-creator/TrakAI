@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle, ChevronRight, Dumbbell, X, Trophy, ArrowRight, RefreshCw, Upload, FolderOpen, ImageIcon, Pencil, RotateCcw, Check } from "lucide-react";
+import { CheckCircle, ChevronRight, Dumbbell, X, Trophy, ArrowRight, RefreshCw, Upload, FolderOpen, ImageIcon, Pencil, RotateCcw, Check, PlayCircle } from "lucide-react";
 import { useLocation, Link } from "wouter";
 import { cn } from "@/lib/utils";
 import type { Exercise } from "@workspace/api-client-react";
@@ -396,7 +396,8 @@ export function WorkoutPage() {
   const { data: program } = useGetProgram(assignment?.programId ?? 0, {
     query: { enabled: !!assignment?.programId, queryKey: getGetProgramQueryKey(assignment?.programId ?? 0) }
   });
-  const { data: allExercises } = useListExercises({ query: { enabled: mode === "active" && swapModal, queryKey: getListExercisesQueryKey() } });
+  const { data: allExercises } = useListExercises({ query: { enabled: mode === "active", queryKey: getListExercisesQueryKey() } });
+  const [tutorialOpen, setTutorialOpen] = useState(false);
 
   const createWorkoutLog = useCreateWorkoutLog();
   const updateWorkoutLog = useUpdateWorkoutLog();
@@ -804,6 +805,7 @@ export function WorkoutPage() {
 
   // ── ACTIVE WORKOUT ───────────────────────────────────────────────────────
   if (mode === "active" && currentEx) {
+    const currentVideoPath = allExercises?.find(e => e.id === (currentEx as { exerciseId?: number }).exerciseId)?.videoPath ?? null;
     return (
       <>
         <RpeBottomSheet open={rpeSheetOpen} onSelect={handleRpeConfirm} onCancel={() => { playSwipe(); closeRpeSheet(); }} />
@@ -848,11 +850,34 @@ export function WorkoutPage() {
             {/* Exercise name — big */}
             <div className="mb-6">
               <Badge variant="secondary" className="text-xs mb-2">{currentEx.muscleGroup}</Badge>
-              <h1 className="text-3xl font-black leading-tight">{currentEx.exerciseName}</h1>
+              <div className="flex items-start justify-between gap-3">
+                <h1 className="text-3xl font-black leading-tight">{currentEx.exerciseName}</h1>
+                {currentVideoPath && (
+                  <button
+                    onClick={() => setTutorialOpen(o => !o)}
+                    className="flex-shrink-0 flex items-center gap-1 mt-1.5 text-xs font-medium text-primary"
+                  >
+                    <PlayCircle className="w-4 h-4" />
+                    {tutorialOpen ? "Hide" : "Tutorial"}
+                  </button>
+                )}
+              </div>
               <p className="text-muted-foreground mt-1 text-sm">
                 {currentEx.sets} sets × {currentEx.reps} reps
                 {currentEx.restSeconds ? ` · ${currentEx.restSeconds}s rest` : ""}
               </p>
+              {tutorialOpen && currentVideoPath && (
+                <video
+                  key={currentVideoPath}
+                  src={`/api/assets/${currentVideoPath}`}
+                  controls
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  className="mt-3 w-full rounded-xl shadow-sm"
+                />
+              )}
             </div>
 
             {/* Set rows */}

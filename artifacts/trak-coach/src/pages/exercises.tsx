@@ -12,7 +12,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, PlayCircle, X as XIcon } from "lucide-react";
 
 const exerciseSchema = z.object({
   name: z.string().min(1),
@@ -29,6 +29,7 @@ export function Exercises() {
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
 
   const form = useForm<z.infer<typeof exerciseSchema>>({
     resolver: zodResolver(exerciseSchema),
@@ -123,15 +124,34 @@ export function Exercises() {
           <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">{group}</h2>
           <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
             {exs.map(e => (
-              <Card key={e.id} data-testid={`card-exercise-${e.id}`}>
+              <Card key={e.id} data-testid={`card-exercise-${e.id}`} className={e.videoPath ? "cursor-pointer" : ""} onClick={() => e.videoPath && setExpandedId(expandedId === e.id ? null : e.id)}>
                 <CardContent className="pt-3 pb-3 px-4">
                   <div className="flex items-start justify-between">
-                    <div>
+                    <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm">{e.name}</p>
                       {e.description && <p className="text-xs text-muted-foreground mt-0.5">{e.description}</p>}
+                      {e.videoPath && (
+                        <p className="text-xs text-primary mt-1 flex items-center gap-1">
+                          {expandedId === e.id ? <XIcon className="w-3 h-3" /> : <PlayCircle className="w-3 h-3" />}
+                          {expandedId === e.id ? "Hide tutorial" : "Watch tutorial"}
+                        </p>
+                      )}
                     </div>
                     <Badge variant="secondary" className="text-xs ml-2 flex-shrink-0">{e.muscleGroup}</Badge>
                   </div>
+                  {expandedId === e.id && e.videoPath && (
+                    <video
+                      key={e.videoPath}
+                      src={`/api/assets/${e.videoPath}`}
+                      controls
+                      autoPlay
+                      muted
+                      loop
+                      playsInline
+                      onClick={ev => ev.stopPropagation()}
+                      className="mt-3 w-full rounded-lg"
+                    />
+                  )}
                 </CardContent>
               </Card>
             ))}
