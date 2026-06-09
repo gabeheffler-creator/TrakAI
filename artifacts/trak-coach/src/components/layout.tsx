@@ -1,6 +1,7 @@
-import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Users, Dumbbell, Activity, Sun, Moon, X, AlignJustify } from "lucide-react";
+import { LayoutDashboard, Users, Dumbbell, Activity, Menu, Sun, Moon } from "lucide-react";
+import { Button } from "./ui/button";
+import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet";
 import { cn } from "@/lib/utils";
 import { useDarkMode } from "@/hooks/use-dark-mode";
 import { TrakLogo } from "./trak-logo";
@@ -15,86 +16,73 @@ const navigation = [
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const { dark, toggle } = useDarkMode();
-  const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const NavContent = ({ onNav }: { onNav?: () => void }) => (
+  const DarkModeToggle = () => (
+    <button
+      onClick={toggle}
+      className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground w-full transition-colors"
+    >
+      {dark ? <Sun className="h-5 w-5 text-muted-foreground" /> : <Moon className="h-5 w-5 text-muted-foreground" />}
+      {dark ? "Light mode" : "Dark mode"}
+    </button>
+  );
+
+  const NavLinks = () => (
     <>
-      <nav className="flex-1 px-2 space-y-1">
-        {navigation.map((item) => {
-          const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
-          return (
-            <Link
-              key={item.name}
-              href={item.href}
-              onClick={onNav}
+      {navigation.map((item) => {
+        const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
+        return (
+          <Link
+            key={item.name}
+            href={item.href}
+            className={cn(
+              "group flex items-center px-3 py-2 text-sm font-medium rounded-md",
+              isActive
+                ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            )}
+          >
+            <item.icon
               className={cn(
-                "group flex items-center px-3 py-2 text-sm font-medium rounded-md",
-                isActive
-                  ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                  : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                "mr-3 flex-shrink-0 h-5 w-5",
+                isActive ? "text-sidebar-primary-foreground" : "text-muted-foreground group-hover:text-sidebar-accent-foreground"
               )}
-            >
-              <item.icon
-                className={cn(
-                  "mr-3 flex-shrink-0 h-5 w-5",
-                  isActive ? "text-sidebar-primary-foreground" : "text-muted-foreground group-hover:text-sidebar-accent-foreground"
-                )}
-              />
-              {item.name}
-            </Link>
-          );
-        })}
-      </nav>
-      <div className="px-2 pb-4 border-t border-sidebar-border pt-3">
-        <button
-          onClick={toggle}
-          className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground w-full transition-colors"
-        >
-          {dark ? <Sun className="h-5 w-5 text-muted-foreground" /> : <Moon className="h-5 w-5 text-muted-foreground" />}
-          {dark ? "Light mode" : "Dark mode"}
-        </button>
-      </div>
+              aria-hidden="true"
+            />
+            {item.name}
+          </Link>
+        );
+      })}
     </>
   );
 
   return (
     <div className="flex min-h-screen w-full bg-background">
-      {/* Mobile hamburger — purple square button */}
-      <button
-        onClick={() => setDrawerOpen(true)}
-        className="md:hidden fixed top-4 left-4 z-50 flex items-center justify-center w-10 h-10 rounded-lg bg-primary text-primary-foreground shadow-md"
-        aria-label="Open menu"
-      >
-        <AlignJustify className="h-5 w-5" />
-      </button>
-
-      {/* Mobile drawer overlay */}
-      {drawerOpen && (
-        <div className="md:hidden fixed inset-0 z-40 flex">
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 bg-black/40 backdrop-blur-sm"
-            onClick={() => setDrawerOpen(false)}
-          />
-          {/* Drawer panel */}
-          <div className="relative flex flex-col w-64 bg-sidebar border-r border-sidebar-border shadow-xl z-50 animate-in slide-in-from-left duration-200">
-            <div className="flex items-center justify-between px-4 pt-5 pb-4">
-              <TrakLogo />
-              <button
-                onClick={() => setDrawerOpen(false)}
-                className="p-1.5 rounded-md text-muted-foreground hover:bg-sidebar-accent"
-              >
-                <X className="h-4 w-4" />
-              </button>
+      {/* Mobile sidebar */}
+      <Sheet>
+        <SheetTrigger asChild>
+          <Button variant="ghost" size="icon" className="md:hidden fixed top-4 left-4 z-40">
+            <Menu className="h-6 w-6" />
+          </Button>
+        </SheetTrigger>
+        <SheetContent side="left" className="w-64 p-0">
+          <div className="h-full flex flex-col bg-sidebar border-r border-sidebar-border">
+            <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
+              <div className="flex items-center flex-shrink-0 px-4">
+                <TrakLogo />
+              </div>
+              <nav className="mt-8 flex-1 px-2 space-y-1">
+                <NavLinks />
+              </nav>
             </div>
-            <div className="flex-1 flex flex-col overflow-y-auto mt-4">
-              <NavContent onNav={() => setDrawerOpen(false)} />
+            <div className="px-2 pb-4 border-t border-sidebar-border pt-3">
+              <DarkModeToggle />
             </div>
           </div>
-        </div>
-      )}
+        </SheetContent>
+      </Sheet>
 
-      {/* Desktop sidebar — always visible on md+ */}
+      {/* Desktop sidebar */}
       <div className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0">
         <div className="flex-1 flex flex-col min-h-0 bg-sidebar border-r border-sidebar-border">
           <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
@@ -102,15 +90,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <TrakLogo />
             </div>
             <nav className="mt-8 flex-1 px-2 space-y-2">
-              <NavContent />
+              <NavLinks />
             </nav>
+          </div>
+          <div className="px-2 pb-4 border-t border-sidebar-border pt-3">
+            <DarkModeToggle />
           </div>
         </div>
       </div>
 
       {/* Main content */}
       <div className="md:pl-64 flex flex-col flex-1">
-        <main className="flex-1 focus:outline-none p-4 pt-16 md:pt-8 md:p-8">
+        <main className="flex-1 focus:outline-none p-4 md:p-8">
           {children}
         </main>
       </div>
