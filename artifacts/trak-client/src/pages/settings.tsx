@@ -1,22 +1,31 @@
+import { useState } from "react";
 import { useDarkMode } from "@/hooks/use-dark-mode";
 import { useUnitSystem } from "@/hooks/use-unit-system";
 import { useWorkoutPrefs } from "@/hooks/use-workout-prefs";
+import { useClientId } from "@/hooks/use-client-id";
+import { useSendMessage } from "@workspace/api-client-react";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Moon, Sun, Ruler, Dumbbell, BarChart2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
+import { Moon, Sun, Ruler, Dumbbell, BarChart2, Bug, ChevronRight, CheckCircle } from "lucide-react";
 
 function SettingRow({
   icon,
   label,
   description,
   children,
+  onClick,
 }: {
   icon: React.ReactNode;
   label: string;
   description?: string;
-  children: React.ReactNode;
+  children?: React.ReactNode;
+  onClick?: () => void;
 }) {
-  return (
+  const inner = (
     <div className="flex items-center justify-between gap-4 py-4">
       <div className="flex items-center gap-3 min-w-0">
         <div className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center flex-shrink-0 text-muted-foreground">
@@ -27,9 +36,22 @@ function SettingRow({
           {description && <p className="text-xs text-muted-foreground mt-0.5">{description}</p>}
         </div>
       </div>
-      <div className="flex-shrink-0">{children}</div>
+      <div className="flex-shrink-0 flex items-center gap-1">
+        {children}
+        {onClick && <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+      </div>
     </div>
   );
+
+  if (onClick) {
+    return (
+      <button onClick={onClick} className="w-full text-left hover:bg-muted/30 transition-colors rounded-xl">
+        {inner}
+      </button>
+    );
+  }
+
+  return inner;
 }
 
 function SectionHeader({ title }: { title: string }) {
@@ -44,6 +66,42 @@ export function SettingsPage() {
   const { dark, toggle } = useDarkMode();
   const { units, setUnits } = useUnitSystem();
   const { workoutView, setWorkoutView, showProgressBar, setShowProgressBar } = useWorkoutPrefs();
+  const { clientId } = useClientId();
+  const { toast } = useToast();
+  const sendMessage = useSendMessage();
+
+  const [bugDialogOpen, setBugDialogOpen] = useState(false);
+  const [bugText, setBugText] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+
+  const handleSubmitBug = () => {
+    if (!bugText.trim() || !clientId) return;
+    sendMessage.mutate(
+      {
+        clientId,
+        data: { content: `🐛 Bug report:\n\n${bugText.trim()}`, sender: "client" },
+      },
+      {
+        onSuccess: () => {
+          setSubmitted(true);
+          setBugText("");
+          setTimeout(() => {
+            setBugDialogOpen(false);
+            setSubmitted(false);
+          }, 1800);
+        },
+        onError: () => {
+          toast({ title: "Failed to send report", variant: "destructive" });
+        },
+      }
+    );
+  };
+
+  const handleOpenBug = () => {
+    setBugText("");
+    setSubmitted(false);
+    setBugDialogOpen(true);
+  };
 
   return (
     <div className="max-w-lg mx-auto space-y-1">
@@ -121,6 +179,61 @@ export function SettingsPage() {
           </SettingRow>
         </div>
       </div>
+
+      {/* ── Support ────────────────────────────────── */}
+      <SectionHeader title="Support" />
+      <div className="rounded-2xl border border-border bg-card divide-y divide-border">
+        <div className="px-4">
+          <SettingRow
+            icon={<Bug className="w-4 h-4" />}
+            label="Report a bug"
+            description="Let your coach know something isn't working"
+            onClick={handleOpenBug}
+          />
+        </div>
+      </div>
+
+      {/* ── Bug report dialog ─────────────────────── */}
+      <Dialog open={bugDialogOpen} onOpenChange={open => { if (!open) setBugDialogOpen(false); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Report a bug</DialogTitle>
+          </DialogHeader>
+
+          {submitted ? (
+            <div className="flex flex-col items-center justify-center py-8 gap-3 text-center animate-in fade-in zoom-in duration-300">
+              <CheckCircle className="w-12 h-12 text-primary" />
+              <p className="font-semibold text-sm">Thanks for the report!</p>
+              <p className="text-xs text-muted-foreground">Your coach has been notified.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Describe what happened and what you expected. Your message will be sent directly to your coach.
+              </p>
+              <Textarea
+                placeholder="e.g. When I tap 'Log set', nothing happens..."
+                value={bugText}
+                onChange={e => setBugText(e.target.value)}
+                className="min-h-[120px] resize-none text-sm"
+                autoFocus
+              />
+              <div className="flex gap-2 justify-end">
+                <Button variant="ghost" size="sm" onClick={() => setBugDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={!bugText.trim() || sendMessage.isPending}
+                  onClick={handleSubmitBug}
+                >
+                  {sendMessage.isPending ? "Sending…" : "Send report"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
