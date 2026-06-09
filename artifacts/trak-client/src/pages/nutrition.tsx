@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { useClientId } from "@/hooks/use-client-id";
 import {
   useListNutritionLogs,
@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Camera, Plus, Minus, Loader2, Pencil, Check, X, UtensilsCrossed, Trash2 } from "lucide-react";
+import { Camera, Plus, Minus, Loader2, Pencil, Check, ChevronDown, ChevronUp, UtensilsCrossed, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface MealSlot {
@@ -208,6 +208,8 @@ export function NutritionPage() {
   const [aiResults, setAiResults] = useState<Record<string, AiResult>>({});
   const [waterGlasses, setWaterGlasses] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [showPastLogs, setShowPastLogs] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   const { data: logs, isLoading } = useListNutritionLogs(clientId!, {
     query: { enabled: !!clientId, queryKey: getListNutritionLogsQueryKey(clientId!) }
@@ -362,6 +364,17 @@ export function NutritionPage() {
     setWaterGlasses(0);
   };
 
+  const pastLogsByDate = useMemo(() => {
+    const today = new Date().toISOString().split("T")[0];
+    const past = (logs ?? []).filter(n => n.date !== today);
+    const grouped: Record<string, typeof past> = {};
+    for (const n of past) {
+      if (!grouped[n.date]) grouped[n.date] = [];
+      grouped[n.date].push(n);
+    }
+    return Object.entries(grouped).sort(([a], [b]) => b.localeCompare(a));
+  }, [logs]);
+
   if (!clientId) return <div className="p-4 text-muted-foreground">Please join via an invite link first.</div>;
 
   const today = new Date().toISOString().split("T")[0];
@@ -508,49 +521,84 @@ export function NutritionPage() {
         {submitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving…</> : "Submit Today's Nutrition"}
       </Button>
 
-      {/* Past logs */}
-      {(logs?.length ?? 0) > 0 && (
+      {/* Past logs — collapsible */}
+      {pastLogsByDate.length > 0 && (
         <div>
-          <h2 className="text-base font-semibold mb-3">Past Logs</h2>
-          <div className="space-y-2">
-            {logs?.slice().reverse().map(n => {
-              const isWaterOnly = n.imageUrl === "water_only";
-              return (
-              <div key={n.id} className="flex items-center gap-3 p-3 rounded-xl border border-border bg-card">
-                {isWaterOnly ? (
-                  <div className="w-12 h-12 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0 text-2xl">
-                    💧
-                  </div>
-                ) : n.imageUrl && n.imageUrl !== "cant_track" ? (
-                  <img src={n.imageUrl} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
-                ) : (
-                  <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-                    <UtensilsCrossed className="w-5 h-5 text-muted-foreground/40" />
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium">{n.notes ?? n.date}</p>
-                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
-                    {n.calories && <span className="text-xs text-muted-foreground">{n.calories} kcal</span>}
-                    {n.protein && <span className="text-xs text-muted-foreground">P: {n.protein}g</span>}
-                    {n.carbs && <span className="text-xs text-muted-foreground">C: {n.carbs}g</span>}
-                    {n.fat && <span className="text-xs text-muted-foreground">F: {n.fat}g</span>}
-                    {n.sodium && <span className="text-xs text-muted-foreground">Na: {n.sodium}mg</span>}
-                    {n.waterMl && <span className="text-xs text-muted-foreground">{Math.round(n.waterMl / ML_PER_OZ)} oz water</span>}
-                  </div>
-                </div>
-                <button
-                  onClick={() => deleteNutritionLog.mutate({ clientId: clientId!, nutritionId: n.id }, {
-                    onSuccess: () => qc.invalidateQueries({ queryKey: getListNutritionLogsQueryKey(clientId!) })
-                  })}
-                  className="text-muted-foreground hover:text-destructive p-1"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+          <button
+            onClick={() => { setShowPastLogs(v => !v); setSelectedDate(null); }}
+            className="w-full flex items-center justify-between px-4 py-3 rounded-2xl border border-border bg-card hover:bg-muted/50 transition-colors"
+          >
+            <span className="text-sm font-semibold">Past Logs</span>
+            <span className="flex items-center gap-2 text-xs text-muted-foreground">
+              {pastLogsByDate.length} day{pastLogsByDate.length !== 1 ? "s" : ""}
+              {showPastLogs ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </span>
+          </button>
+
+          {showPastLogs && (
+            <div className="mt-3 space-y-2">
+              {/* Date selector */}
+              <div className="flex gap-2 flex-wrap">
+                {pastLogsByDate.map(([date]) => (
+                  <button
+                    key={date}
+                    onClick={() => setSelectedDate(d => d === date ? null : date)}
+                    className={cn(
+                      "text-xs px-3 py-1.5 rounded-full border transition-colors",
+                      selectedDate === date
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "border-border text-muted-foreground hover:border-primary/50"
+                    )}
+                  >
+                    {new Date(date + "T12:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                  </button>
+                ))}
               </div>
-              );
-            })}
-          </div>
+
+              {/* Entries for selected date */}
+              {selectedDate && (() => {
+                const entries = pastLogsByDate.find(([d]) => d === selectedDate)?.[1] ?? [];
+                return (
+                  <div className="space-y-2 pt-1">
+                    {entries.map(n => {
+                      const isWaterOnly = n.imageUrl === "water_only";
+                      return (
+                        <div key={n.id} className="flex items-center gap-3 p-3 rounded-xl border border-border bg-card">
+                          {isWaterOnly ? (
+                            <div className="w-12 h-12 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0 text-2xl">💧</div>
+                          ) : n.imageUrl && n.imageUrl !== "cant_track" ? (
+                            <img src={n.imageUrl} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
+                          ) : (
+                            <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                              <UtensilsCrossed className="w-5 h-5 text-muted-foreground/40" />
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium">{n.notes ?? n.date}</p>
+                            <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
+                              {n.calories && <span className="text-xs text-muted-foreground">{n.calories} kcal</span>}
+                              {n.protein && <span className="text-xs text-muted-foreground">P: {n.protein}g</span>}
+                              {n.carbs && <span className="text-xs text-muted-foreground">C: {n.carbs}g</span>}
+                              {n.fat && <span className="text-xs text-muted-foreground">F: {n.fat}g</span>}
+                              {n.waterMl && <span className="text-xs text-muted-foreground">{Math.round(n.waterMl / ML_PER_OZ)} oz water</span>}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => deleteNutritionLog.mutate({ clientId: clientId!, nutritionId: n.id }, {
+                              onSuccess: () => qc.invalidateQueries({ queryKey: getListNutritionLogsQueryKey(clientId!) })
+                            })}
+                            className="text-muted-foreground hover:text-destructive p-1"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
+          )}
         </div>
       )}
     </div>
