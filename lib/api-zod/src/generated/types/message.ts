@@ -12,5 +12,7 @@ export interface Message {
   clientId: number;
   sender: MessageSender;
   content: string;
+  /** @nullable */
+  readAt?: Date | null;
   createdAt: Date;
 }

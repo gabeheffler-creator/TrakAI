@@ -45,3 +45,11 @@ externalPort = 3000
 
 [nix]
 channel = "stable-25_05"
+
+[userenv]
+
+[userenv.shared]
+VAPID_PUBLIC_KEY = "BA2KZqT2nBVq-1rh-ZGK319BYAo-SKBOCjKzIEDcGMXQzi-ZCTo_FPCrm8QeRLdQSkgcdS9y0Mor6hSpw5rb5DA"
+VAPID_EMAIL = "mailto:admin@trakcoach.app"
+VAPID_PRIVATE_KEY = "fcCn54MQP65uvYfN6flYD8a3uuqAFAiaYn4MAq9quWg"
+VITE_VAPID_PUBLIC_KEY = "BA2KZqT2nBVq-1rh-ZGK319BYAo-SKBOCjKzIEDcGMXQzi-ZCTo_FPCrm8QeRLdQSkgcdS9y0Mor6hSpw5rb5DA"

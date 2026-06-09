@@ -8,6 +8,7 @@ export const messagesTable = pgTable("messages", {
     .references(() => clientsTable.id, { onDelete: "cascade" }),
   sender: text("sender").notNull(),
   content: text("content").notNull(),
+  readAt: timestamp("read_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 

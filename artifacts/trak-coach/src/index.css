@@ -184,3 +184,9 @@
     @apply font-sans antialiased bg-background text-foreground;
   }
 }
+
+@keyframes emoji-pop {
+  0%   { transform: scale(0.4); opacity: 0; }
+  70%  { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}

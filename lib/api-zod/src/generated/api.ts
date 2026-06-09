@@ -1038,6 +1038,7 @@ export const ListMessagesResponseItem = zod.object({
   "clientId": zod.number(),
   "sender": zod.enum(['coach', 'client']),
   "content": zod.string(),
+  "readAt": zod.coerce.date().nullish(),
   "createdAt": zod.coerce.date()
 })
 export const ListMessagesResponse = zod.array(ListMessagesResponseItem)
@@ -1056,6 +1057,43 @@ export const SendMessageParams = zod.object({
 export const SendMessageBody = zod.object({
   "sender": zod.enum(['coach', 'client']),
   "content": zod.string().min(1)
+})
+
+
+/**
+ * @summary Mark messages as read
+ */
+export const MarkMessagesReadParams = zod.object({
+  "clientId": zod.coerce.number()
+})
+
+export const MarkMessagesReadBody = zod.object({
+  "reader": zod.enum(['coach', 'client'])
+})
+
+export const MarkMessagesReadResponse = zod.object({
+  "marked": zod.number()
+})
+
+
+/**
+ * @summary Get total unread message count for coach
+ */
+export const GetCoachUnreadCountResponse = zod.object({
+  "total": zod.number(),
+  "byClient": zod.record(zod.string(), zod.number())
+})
+
+
+/**
+ * @summary Save a push subscription
+ */
+export const SavePushSubscriptionBody = zod.object({
+  "endpoint": zod.string(),
+  "p256dh": zod.string(),
+  "auth": zod.string(),
+  "role": zod.enum(['coach', 'client']),
+  "clientId": zod.number().optional()
 })
 
 

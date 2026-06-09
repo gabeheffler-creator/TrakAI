@@ -1160,6 +1160,59 @@ paths:
               schema:
                 $ref: "#/components/schemas/Message"
 
+  /clients/{clientId}/messages/read:
+    patch:
+      operationId: markMessagesRead
+      tags: [messages]
+      summary: Mark messages as read
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MarkReadInput"
+      responses:
+        "200":
+          description: Marked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarkReadResult"
+
+  /coach/unread-count:
+    get:
+      operationId: getCoachUnreadCount
+      tags: [messages]
+      summary: Get total unread message count for coach
+      responses:
+        "200":
+          description: Unread counts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnreadCount"
+
+  /push-subscriptions:
+    post:
+      operationId: savePushSubscription
+      tags: [messages]
+      summary: Save a push subscription
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PushSubscriptionInput"
+      responses:
+        "201":
+          description: Saved
+
   # ── Coach Notes ───────────────────────────────────────────────────────────
   /clients/{clientId}/coach-notes:
     get:
@@ -2346,9 +2399,54 @@ components:
           enum: [coach, client]
         content:
           type: string
+        readAt:
+          type: ["string", "null"]
+          format: date-time
         createdAt:
           type: string
           format: date-time
+
+    UnreadCount:
+      type: object
+      required: [total, byClient]
+      properties:
+        total:
+          type: integer
+        byClient:
+          type: object
+          additionalProperties:
+            type: integer
+
+    MarkReadInput:
+      type: object
+      required: [reader]
+      properties:
+        reader:
+          type: string
+          enum: [coach, client]
+
+    MarkReadResult:
+      type: object
+      required: [marked]
+      properties:
+        marked:
+          type: integer
+
+    PushSubscriptionInput:
+      type: object
+      required: [endpoint, p256dh, auth, role]
+      properties:
+        endpoint:
+          type: string
+        p256dh:
+          type: string
+        auth:
+          type: string
+        role:
+          type: string
+          enum: [coach, client]
+        clientId:
+          type: integer
 
     MessageInput:
       type: object

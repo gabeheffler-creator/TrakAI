@@ -712,7 +712,48 @@ export interface Message {
   clientId: number;
   sender: MessageSender;
   content: string;
+  /** @nullable */
+  readAt?: string | null;
   createdAt: string;
+}
+
+export type UnreadCountByClient = {[key: string]: number};
+
+export interface UnreadCount {
+  total: number;
+  byClient: UnreadCountByClient;
+}
+
+export type MarkReadInputReader = typeof MarkReadInputReader[keyof typeof MarkReadInputReader];
+
+
+export const MarkReadInputReader = {
+  coach: 'coach',
+  client: 'client',
+} as const;
+
+export interface MarkReadInput {
+  reader: MarkReadInputReader;
+}
+
+export interface MarkReadResult {
+  marked: number;
+}
+
+export type PushSubscriptionInputRole = typeof PushSubscriptionInputRole[keyof typeof PushSubscriptionInputRole];
+
+
+export const PushSubscriptionInputRole = {
+  coach: 'coach',
+  client: 'client',
+} as const;
+
+export interface PushSubscriptionInput {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  role: PushSubscriptionInputRole;
+  clientId?: number;
 }
 
 export type MessageInputSender = typeof MessageInputSender[keyof typeof MessageInputSender];

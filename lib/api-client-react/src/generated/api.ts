@@ -37,6 +37,8 @@ import type {
   HealthStatus,
   InviteInfo,
   InviteLink,
+  MarkReadInput,
+  MarkReadResult,
   Measurement,
   MeasurementInput,
   Message,
@@ -60,10 +62,12 @@ import type {
   ProgramUpdate,
   ProgressPhoto,
   ProgressPhotoInput,
+  PushSubscriptionInput,
   SetLog,
   SetLogInput,
   SleepLog,
   SleepLogInput,
+  UnreadCount,
   UploadUrlRequest,
   UploadUrlResponse,
   WorkoutLog,
@@ -3930,6 +3934,226 @@ export const useSendMessage = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getSendMessageMutationOptions(options));
+    }
+
+export const getMarkMessagesReadUrl = (clientId: number,) => {
+
+
+
+
+  return `/api/clients/${clientId}/messages/read`
+}
+
+/**
+ * @summary Mark messages as read
+ */
+export const markMessagesRead = async (clientId: number,
+    markReadInput: MarkReadInput, options?: RequestInit): Promise<MarkReadResult> => {
+
+  return customFetch<MarkReadResult>(getMarkMessagesReadUrl(clientId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      markReadInput,)
+  }
+);}
+
+
+
+
+export const getMarkMessagesReadMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markMessagesRead>>, TError,{clientId: number;data: BodyType<MarkReadInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof markMessagesRead>>, TError,{clientId: number;data: BodyType<MarkReadInput>}, TContext> => {
+
+const mutationKey = ['markMessagesRead'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof markMessagesRead>>, {clientId: number;data: BodyType<MarkReadInput>}> = (props) => {
+          const {clientId,data} = props ?? {};
+
+          return  markMessagesRead(clientId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MarkMessagesReadMutationResult = NonNullable<Awaited<ReturnType<typeof markMessagesRead>>>
+    export type MarkMessagesReadMutationBody = BodyType<MarkReadInput>
+    export type MarkMessagesReadMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Mark messages as read
+ */
+export const useMarkMessagesRead = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markMessagesRead>>, TError,{clientId: number;data: BodyType<MarkReadInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof markMessagesRead>>,
+        TError,
+        {clientId: number;data: BodyType<MarkReadInput>},
+        TContext
+      > => {
+      return useMutation(getMarkMessagesReadMutationOptions(options));
+    }
+
+export const getGetCoachUnreadCountUrl = () => {
+
+
+
+
+  return `/api/coach/unread-count`
+}
+
+/**
+ * @summary Get total unread message count for coach
+ */
+export const getCoachUnreadCount = async ( options?: RequestInit): Promise<UnreadCount> => {
+
+  return customFetch<UnreadCount>(getGetCoachUnreadCountUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCoachUnreadCountQueryKey = () => {
+    return [
+    `/api/coach/unread-count`
+    ] as const;
+    }
+
+
+export const getGetCoachUnreadCountQueryOptions = <TData = Awaited<ReturnType<typeof getCoachUnreadCount>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCoachUnreadCount>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCoachUnreadCountQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCoachUnreadCount>>> = ({ signal }) => getCoachUnreadCount({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCoachUnreadCount>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCoachUnreadCountQueryResult = NonNullable<Awaited<ReturnType<typeof getCoachUnreadCount>>>
+export type GetCoachUnreadCountQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get total unread message count for coach
+ */
+
+export function useGetCoachUnreadCount<TData = Awaited<ReturnType<typeof getCoachUnreadCount>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCoachUnreadCount>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCoachUnreadCountQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getSavePushSubscriptionUrl = () => {
+
+
+
+
+  return `/api/push-subscriptions`
+}
+
+/**
+ * @summary Save a push subscription
+ */
+export const savePushSubscription = async (pushSubscriptionInput: PushSubscriptionInput, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getSavePushSubscriptionUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      pushSubscriptionInput,)
+  }
+);}
+
+
+
+
+export const getSavePushSubscriptionMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof savePushSubscription>>, TError,{data: BodyType<PushSubscriptionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof savePushSubscription>>, TError,{data: BodyType<PushSubscriptionInput>}, TContext> => {
+
+const mutationKey = ['savePushSubscription'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof savePushSubscription>>, {data: BodyType<PushSubscriptionInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  savePushSubscription(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SavePushSubscriptionMutationResult = NonNullable<Awaited<ReturnType<typeof savePushSubscription>>>
+    export type SavePushSubscriptionMutationBody = BodyType<PushSubscriptionInput>
+    export type SavePushSubscriptionMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Save a push subscription
+ */
+export const useSavePushSubscription = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof savePushSubscription>>, TError,{data: BodyType<PushSubscriptionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof savePushSubscription>>,
+        TError,
+        {data: BodyType<PushSubscriptionInput>},
+        TContext
+      > => {
+      return useMutation(getSavePushSubscriptionMutationOptions(options));
     }
 
 export const getListCoachNotesUrl = (clientId: number,) => {

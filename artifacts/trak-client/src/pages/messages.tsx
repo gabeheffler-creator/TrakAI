@@ -1,92 +1,207 @@
+import { useEffect, useRef, useState } from "react";
 import { useClientId } from "@/hooks/use-client-id";
 import {
   useListMessages,
   useSendMessage,
+  useMarkMessagesRead,
   getListMessagesQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Send, MessageCircle } from "lucide-react";
-import { format, parseISO } from "date-fns";
+import { Send, MessageCircle, Smile } from "lucide-react";
+import { format, parseISO, isToday, isYesterday } from "date-fns";
+import Picker from "@emoji-mart/react";
+import data from "@emoji-mart/data";
+import { usePushNotifications } from "@/hooks/use-push-notifications";
+import { cn } from "@/lib/utils";
+
+const EMOJI_RE = /^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F|\u200d|\s)+$/u;
+function isEmojiOnly(text: string) { return EMOJI_RE.test(text.trim()) && text.trim().length > 0; }
+
+function formatTime(iso: string) {
+  const d = parseISO(iso);
+  if (isToday(d)) return format(d, "h:mm a");
+  if (isYesterday(d)) return "Yesterday";
+  return format(d, "MMM d");
+}
 
 const msgSchema = z.object({ content: z.string().min(1) });
 
 export function MessagesPage() {
   const { clientId } = useClientId();
   const qc = useQueryClient();
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const [showPicker, setShowPicker] = useState(false);
+  const pickerRef = useRef<HTMLDivElement>(null);
 
   const { data: messages, isLoading } = useListMessages(clientId!, {
-    query: { enabled: !!clientId, queryKey: getListMessagesQueryKey(clientId!) }
+    query: { enabled: !!clientId, queryKey: getListMessagesQueryKey(clientId!), refetchInterval: 4000 },
   });
+
   const sendMessage = useSendMessage();
+  const markRead = useMarkMessagesRead();
+  const { requestPermissionAndSubscribe } = usePushNotifications();
 
   const form = useForm<z.infer<typeof msgSchema>>({
     resolver: zodResolver(msgSchema),
     defaultValues: { content: "" },
   });
 
+  // Mark coach messages as read when page opens or new messages arrive
+  useEffect(() => {
+    if (!clientId) return;
+    markRead.mutate(
+      { clientId, data: { reader: "client" } },
+      { onSuccess: () => qc.invalidateQueries({ queryKey: getListMessagesQueryKey(clientId) }) }
+    );
+    requestPermissionAndSubscribe(clientId);
+  }, [clientId]);
+
+  useEffect(() => {
+    if (!messages || !clientId) return;
+    const hasUnread = messages.some(m => m.sender === "coach" && !m.readAt);
+    if (hasUnread) {
+      markRead.mutate(
+        { clientId, data: { reader: "client" } },
+        { onSuccess: () => qc.invalidateQueries({ queryKey: getListMessagesQueryKey(clientId) }) }
+      );
+    }
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  // Close picker on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) setShowPicker(false);
+    };
+    if (showPicker) document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showPicker]);
+
   const onSubmit = (values: z.infer<typeof msgSchema>) => {
-    sendMessage.mutate({ clientId: clientId!, data: { sender: "client", content: values.content } }, {
-      onSuccess: () => {
-        qc.invalidateQueries({ queryKey: getListMessagesQueryKey(clientId!) });
-        form.reset();
-      }
-    });
+    setShowPicker(false);
+    sendMessage.mutate(
+      { clientId: clientId!, data: { sender: "client", content: values.content } },
+      { onSuccess: () => { qc.invalidateQueries({ queryKey: getListMessagesQueryKey(clientId!) }); form.reset(); } }
+    );
   };
 
   if (!clientId) return <div className="p-4 text-muted-foreground">Not logged in.</div>;
 
   return (
-    <div className="max-w-lg mx-auto h-[calc(100vh-5rem)] flex flex-col">
-      <div className="flex items-center gap-2 mb-4">
+    <div className="h-[calc(100vh-5rem)] flex flex-col relative">
+      <div className="flex items-center gap-2 mb-3 flex-shrink-0">
         <MessageCircle className="w-5 h-5 text-primary" />
-        <h1 className="text-2xl font-bold">Messages</h1>
+        <h1 className="text-xl font-bold">Messages</h1>
       </div>
 
-      <Card className="flex-1 flex flex-col overflow-hidden">
-        <CardContent className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div className="flex-1 flex flex-col overflow-hidden rounded-xl border border-border bg-card">
+        {/* Message list */}
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-1.5">
           {isLoading && <p className="text-muted-foreground text-sm text-center">Loading...</p>}
           {(messages?.length ?? 0) === 0 && !isLoading && (
-            <div className="flex items-center justify-center h-full">
-              <p className="text-muted-foreground text-sm text-center">No messages yet. Say hi to your coach!</p>
+            <div className="flex flex-col items-center justify-center h-full gap-2">
+              <MessageCircle className="w-10 h-10 text-muted-foreground/30" />
+              <p className="text-muted-foreground text-sm text-center">No messages yet. Say hi to your coach! 👋</p>
             </div>
           )}
-          {messages?.map(m => (
-            <div key={m.id} data-testid={`msg-${m.id}`} className={`flex ${m.sender === "client" ? "justify-end" : "justify-start"}`}>
-              <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 ${m.sender === "client" ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
-                {m.sender === "coach" && <p className="text-xs font-medium mb-0.5 text-muted-foreground">Coach</p>}
-                <p className="text-sm">{m.content}</p>
-                <p className={`text-xs mt-1 ${m.sender === "client" ? "text-primary-foreground/60" : "text-muted-foreground"}`}>
-                  {format(parseISO(m.createdAt), "h:mm a")}
-                </p>
+          {messages?.map((m, i) => {
+            const isClient = m.sender === "client";
+            const prev = messages[i - 1];
+            const showTime = !prev || Math.abs(parseISO(m.createdAt).getTime() - parseISO(prev.createdAt).getTime()) > 5 * 60 * 1000;
+            const emojiOnly = isEmojiOnly(m.content);
+            return (
+              <div key={m.id} data-testid={`msg-${m.id}`}>
+                {showTime && (
+                  <p className="text-center text-xs text-muted-foreground my-3">{formatTime(m.createdAt)}</p>
+                )}
+                <div className={cn("flex items-end gap-2", isClient ? "justify-end" : "justify-start")}>
+                  {!isClient && (
+                    <div className="w-7 h-7 rounded-full bg-violet-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 mb-0.5">
+                      C
+                    </div>
+                  )}
+                  {emojiOnly ? (
+                    <span
+                      className="text-4xl select-none inline-block animate-[emoji-pop_0.3s_ease-out]"
+                      title={format(parseISO(m.createdAt), "h:mm a")}
+                    >
+                      {m.content}
+                    </span>
+                  ) : (
+                    <div className={cn(
+                      "max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm",
+                      isClient ? "bg-primary text-primary-foreground rounded-br-sm" : "bg-muted rounded-bl-sm"
+                    )}>
+                      {!isClient && <p className="text-xs font-semibold mb-1 text-violet-600 dark:text-violet-400">Coach</p>}
+                      <p className="whitespace-pre-wrap break-words">{m.content}</p>
+                      <p className={cn("text-[10px] mt-1", isClient ? "text-primary-foreground/60 text-right" : "text-muted-foreground")}>
+                        {format(parseISO(m.createdAt), "h:mm a")}
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
-        </CardContent>
+            );
+          })}
+          <div ref={bottomRef} />
+        </div>
 
-        <div className="border-t border-border p-3">
+        {/* Input */}
+        <div className="border-t border-border px-4 py-3 flex-shrink-0 relative">
+          {showPicker && (
+            <div ref={pickerRef} className="absolute bottom-16 left-2 z-50 shadow-xl rounded-xl overflow-hidden">
+              <Picker
+                data={data}
+                onEmojiSelect={(emoji: { native: string }) => {
+                  form.setValue("content", form.getValues("content") + emoji.native);
+                  form.setFocus("content");
+                }}
+                theme="auto"
+                set="native"
+                previewPosition="none"
+                skinTonePosition="none"
+              />
+            </div>
+          )}
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="flex gap-2">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="flex gap-2 items-center">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="flex-shrink-0 h-9 w-9 text-muted-foreground hover:text-foreground"
+                onClick={() => setShowPicker(p => !p)}
+              >
+                <Smile className="w-5 h-5" />
+              </Button>
               <FormField control={form.control} name="content" render={({ field }) => (
                 <FormItem className="flex-1 mb-0">
                   <FormControl>
-                    <Input placeholder="Message your coach..." {...field} data-testid="input-message" />
+                    <Input
+                      placeholder="Message your coach..."
+                      {...field}
+                      data-testid="input-message"
+                      autoComplete="off"
+                      onKeyDown={e => {
+                        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); form.handleSubmit(onSubmit)(); }
+                      }}
+                    />
                   </FormControl>
                 </FormItem>
               )} />
-              <Button type="submit" size="icon" disabled={sendMessage.isPending} data-testid="button-send">
+              <Button type="submit" size="icon" disabled={sendMessage.isPending} data-testid="button-send" className="flex-shrink-0">
                 <Send className="w-4 h-4" />
               </Button>
             </form>
           </Form>
         </div>
-      </Card>
+      </div>
     </div>
   );
 }
