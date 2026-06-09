@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Users, Dumbbell, Activity, Sun, Moon, Menu, X } from "lucide-react";
+import { LayoutDashboard, Users, Dumbbell, Activity, MessageCircle, Sun, Moon, Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDarkMode } from "@/hooks/use-dark-mode";
 import { TrakLogo } from "./trak-logo";
@@ -10,6 +10,7 @@ const navigation = [
   { name: "Clients", href: "/clients", icon: Users },
   { name: "Programs", href: "/programs", icon: Dumbbell },
   { name: "Exercises", href: "/exercises", icon: Activity },
+  { name: "Messages", href: "/messages", icon: MessageCircle },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
