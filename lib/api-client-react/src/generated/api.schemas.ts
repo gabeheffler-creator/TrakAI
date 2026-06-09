@@ -181,6 +181,7 @@ export const WorkoutLogStatus = {
   in_progress: 'in_progress',
   completed: 'completed',
   early_exit: 'early_exit',
+  cancelled: 'cancelled',
 } as const;
 
 export interface WorkoutLog {
@@ -385,6 +386,7 @@ export const WorkoutLogUpdateStatus = {
   in_progress: 'in_progress',
   completed: 'completed',
   early_exit: 'early_exit',
+  cancelled: 'cancelled',
 } as const;
 
 export interface WorkoutLogUpdate {
@@ -399,6 +401,7 @@ export const WorkoutLogDetailStatus = {
   in_progress: 'in_progress',
   completed: 'completed',
   early_exit: 'early_exit',
+  cancelled: 'cancelled',
 } as const;
 
 /**

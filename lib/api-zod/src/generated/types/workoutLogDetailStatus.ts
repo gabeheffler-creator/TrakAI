@@ -13,4 +13,5 @@ export const WorkoutLogDetailStatus = {
   in_progress: 'in_progress',
   completed: 'completed',
   early_exit: 'early_exit',
+  cancelled: 'cancelled',
 } as const;

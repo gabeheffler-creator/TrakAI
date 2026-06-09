@@ -385,6 +385,7 @@ export function WorkoutPage() {
   const [exitOrigin, setExitOrigin] = useState("center center");
   const [showEarlyExit, setShowEarlyExit] = useState(false);
   const [earlyExitReason, setEarlyExitReason] = useState("");
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [swappedExercises, setSwappedExercises] = useState<Record<number, { exerciseName: string; muscleGroup: string; exerciseId: number }>>({});
   const [listEditingSet, setListEditingSet] = useState<{ exIdx: number; setIdx: number } | null>(null);
   const [listEditWeight, setListEditWeight] = useState("");
@@ -670,6 +671,18 @@ export function WorkoutPage() {
     setEnergy(null);
     setShowEarlyExit(false);
     setEarlyExitReason("");
+    setShowCancelConfirm(false);
+  };
+
+  const handleCancelWorkout = () => {
+    if (clientId && workoutLogId) {
+      updateWorkoutLog.mutate({
+        clientId,
+        logId: workoutLogId,
+        data: { status: "cancelled" },
+      });
+    }
+    reset();
   };
 
   const handleEarlyExitSubmit = () => {
@@ -1095,12 +1108,20 @@ export function WorkoutPage() {
                   Complete all sets to finish
                 </div>
               )}
-              <button
-                onClick={() => { setShowEarlyExit(true); setEarlyExitReason(""); }}
-                className="w-full mt-1 py-2 text-xs text-muted-foreground/60 hover:text-destructive transition-colors"
-              >
-                Finish early
-              </button>
+              <div className="flex gap-3 mt-1">
+                <button
+                  onClick={() => { setShowEarlyExit(true); setEarlyExitReason(""); }}
+                  className="flex-1 py-2 text-xs text-muted-foreground/60 hover:text-foreground transition-colors"
+                >
+                  Finish early
+                </button>
+                <button
+                  onClick={() => setShowCancelConfirm(true)}
+                  className="flex-1 py-2 text-xs text-muted-foreground/60 hover:text-destructive transition-colors"
+                >
+                  Cancel workout
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1142,11 +1163,52 @@ export function WorkoutPage() {
                 Submit &amp; finish early
               </Button>
               <Button size="lg" variant="ghost" className="w-full h-12 text-muted-foreground" onClick={() => setShowEarlyExit(false)}>
-                Cancel — back to workout
+                Back to workout
               </Button>
             </div>
           </div>
         )}
+
+        {/* Cancel workout confirmation sheet */}
+        <>
+          <div
+            className={cn(
+              "fixed inset-0 z-50 bg-black/50 transition-opacity duration-300",
+              showCancelConfirm ? "opacity-100" : "opacity-0 pointer-events-none"
+            )}
+            onClick={() => setShowCancelConfirm(false)}
+          />
+          <div
+            className={cn(
+              "fixed bottom-0 left-0 right-0 z-50 bg-background rounded-t-3xl px-6 pt-4 pb-10 transition-transform duration-300 ease-out shadow-2xl",
+              showCancelConfirm ? "translate-y-0" : "translate-y-full"
+            )}
+          >
+            <div className="w-10 h-1 bg-muted-foreground/30 rounded-full mx-auto mb-5" />
+            <h2 className="text-xl font-bold text-center">Cancel workout?</h2>
+            <p className="text-sm text-muted-foreground text-center mt-2 mb-8">
+              Your progress won't be saved and your coach won't see a log for today.
+            </p>
+            <div className="space-y-3">
+              <Button
+                size="lg"
+                variant="destructive"
+                className="w-full h-13 text-base font-semibold"
+                onClick={handleCancelWorkout}
+              >
+                Yes, cancel workout
+              </Button>
+              <Button
+                size="lg"
+                variant="ghost"
+                className="w-full h-12 text-muted-foreground"
+                onClick={() => setShowCancelConfirm(false)}
+              >
+                Keep going
+              </Button>
+            </div>
+          </div>
+        </>
       </>
     );
   }
@@ -1391,12 +1453,20 @@ export function WorkoutPage() {
                 Complete all sets to continue
               </div>
             )}
-            <button
-              onClick={() => { setShowEarlyExit(true); setEarlyExitReason(""); }}
-              className="w-full mt-1 py-2 text-xs text-muted-foreground/60 hover:text-destructive transition-colors"
-            >
-              Finish early
-            </button>
+            <div className="flex gap-3 mt-1">
+              <button
+                onClick={() => { setShowEarlyExit(true); setEarlyExitReason(""); }}
+                className="flex-1 py-2 text-xs text-muted-foreground/60 hover:text-foreground transition-colors"
+              >
+                Finish early
+              </button>
+              <button
+                onClick={() => setShowCancelConfirm(true)}
+                className="flex-1 py-2 text-xs text-muted-foreground/60 hover:text-destructive transition-colors"
+              >
+                Cancel workout
+              </button>
+            </div>
           </div>
           </div>{/* /inner animated page */}
         </div>{/* /outer clip */}
@@ -1450,11 +1520,52 @@ export function WorkoutPage() {
                 className="w-full h-12 text-muted-foreground"
                 onClick={() => setShowEarlyExit(false)}
               >
-                Cancel — back to workout
+                Back to workout
               </Button>
             </div>
           </div>
         )}
+
+        {/* Cancel workout confirmation sheet */}
+        <>
+          <div
+            className={cn(
+              "fixed inset-0 z-50 bg-black/50 transition-opacity duration-300",
+              showCancelConfirm ? "opacity-100" : "opacity-0 pointer-events-none"
+            )}
+            onClick={() => setShowCancelConfirm(false)}
+          />
+          <div
+            className={cn(
+              "fixed bottom-0 left-0 right-0 z-50 bg-background rounded-t-3xl px-6 pt-4 pb-10 transition-transform duration-300 ease-out shadow-2xl",
+              showCancelConfirm ? "translate-y-0" : "translate-y-full"
+            )}
+          >
+            <div className="w-10 h-1 bg-muted-foreground/30 rounded-full mx-auto mb-5" />
+            <h2 className="text-xl font-bold text-center">Cancel workout?</h2>
+            <p className="text-sm text-muted-foreground text-center mt-2 mb-8">
+              Your progress won't be saved and your coach won't see a log for today.
+            </p>
+            <div className="space-y-3">
+              <Button
+                size="lg"
+                variant="destructive"
+                className="w-full h-13 text-base font-semibold"
+                onClick={handleCancelWorkout}
+              >
+                Yes, cancel workout
+              </Button>
+              <Button
+                size="lg"
+                variant="ghost"
+                className="w-full h-12 text-muted-foreground"
+                onClick={() => setShowCancelConfirm(false)}
+              >
+                Keep going
+              </Button>
+            </div>
+          </div>
+        </>
       </>
     );
   }

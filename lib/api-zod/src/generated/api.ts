@@ -253,7 +253,7 @@ export const GetClientDashboardResponse = zod.object({
   "date": zod.coerce.date(),
   "durationMinutes": zod.number().nullish(),
   "notes": zod.string().nullish(),
-  "status": zod.enum(['in_progress', 'completed', 'early_exit']),
+  "status": zod.enum(['in_progress', 'completed', 'early_exit', 'cancelled']),
   "createdAt": zod.coerce.date()
 })).optional(),
   "weightHistory": zod.array(zod.object({
@@ -627,7 +627,7 @@ export const ListWorkoutLogsResponseItem = zod.object({
   "date": zod.coerce.date(),
   "durationMinutes": zod.number().nullish(),
   "notes": zod.string().nullish(),
-  "status": zod.enum(['in_progress', 'completed', 'early_exit']),
+  "status": zod.enum(['in_progress', 'completed', 'early_exit', 'cancelled']),
   "createdAt": zod.coerce.date()
 })
 export const ListWorkoutLogsResponse = zod.array(ListWorkoutLogsResponseItem)
@@ -664,7 +664,7 @@ export const GetWorkoutLogResponse = zod.object({
   "date": zod.coerce.date(),
   "durationMinutes": zod.number().nullish(),
   "notes": zod.string().nullish(),
-  "status": zod.enum(['in_progress', 'completed', 'early_exit']),
+  "status": zod.enum(['in_progress', 'completed', 'early_exit', 'cancelled']),
   "sets": zod.array(zod.object({
   "id": zod.number(),
   "workoutLogId": zod.number(),
@@ -691,7 +691,7 @@ export const UpdateWorkoutLogParams = zod.object({
 
 export const UpdateWorkoutLogBody = zod.object({
   "notes": zod.string().optional(),
-  "status": zod.enum(['in_progress', 'completed', 'early_exit']).optional()
+  "status": zod.enum(['in_progress', 'completed', 'early_exit', 'cancelled']).optional()
 })
 
 export const UpdateWorkoutLogResponse = zod.object({
@@ -702,7 +702,7 @@ export const UpdateWorkoutLogResponse = zod.object({
   "date": zod.coerce.date(),
   "durationMinutes": zod.number().nullish(),
   "notes": zod.string().nullish(),
-  "status": zod.enum(['in_progress', 'completed', 'early_exit']),
+  "status": zod.enum(['in_progress', 'completed', 'early_exit', 'cancelled']),
   "createdAt": zod.coerce.date()
 })
 

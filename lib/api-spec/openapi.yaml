@@ -1950,7 +1950,7 @@ components:
           type: ["string", "null"]
         status:
           type: string
-          enum: [in_progress, completed, early_exit]
+          enum: [in_progress, completed, early_exit, cancelled]
         createdAt:
           type: string
           format: date-time
@@ -1976,7 +1976,7 @@ components:
           type: string
         status:
           type: string
-          enum: [in_progress, completed, early_exit]
+          enum: [in_progress, completed, early_exit, cancelled]
 
     WorkoutLogDetail:
       type: object
@@ -1999,7 +1999,7 @@ components:
           type: ["string", "null"]
         status:
           type: string
-          enum: [in_progress, completed, early_exit]
+          enum: [in_progress, completed, early_exit, cancelled]
         sets:
           type: array
           items:
