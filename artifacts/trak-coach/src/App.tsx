@@ -11,6 +11,7 @@ import { Programs } from "@/pages/programs";
 import { ProgramBuilder } from "@/pages/program-builder";
 import { Exercises } from "@/pages/exercises";
 import { Messages } from "@/pages/messages";
+import { SettingsPage } from "@/pages/settings";
 
 const queryClient = new QueryClient();
 
@@ -26,6 +27,7 @@ function Router() {
         <Route path="/exercises" component={Exercises} />
         <Route path="/messages" component={Messages} />
         <Route path="/messages/:clientId" component={Messages} />
+        <Route path="/settings" component={SettingsPage} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

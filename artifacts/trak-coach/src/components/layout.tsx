@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Users, Dumbbell, Activity, MessageCircle, Sun, Moon, Menu, X } from "lucide-react";
+import { LayoutDashboard, Users, Dumbbell, Activity, MessageCircle, Menu, X, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useDarkMode } from "@/hooks/use-dark-mode";
 import { TrakLogo } from "./trak-logo";
 import { useGetCoachUnreadCount, getGetCoachUnreadCountQueryKey } from "@workspace/api-client-react";
 
@@ -20,11 +19,11 @@ const navItems = [
   { name: "Programs", href: "/programs", icon: Dumbbell },
   { name: "Exercises", href: "/exercises", icon: Activity },
   { name: "Messages", href: "/messages", icon: MessageCircle },
+  { name: "Settings", href: "/settings", icon: Settings },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
-  const { dark, toggle } = useDarkMode();
   const [open, setOpen] = useState(false);
 
   const { data: unread } = useGetCoachUnreadCount({
@@ -88,15 +87,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 );
               })}
             </nav>
-            <div className="px-2 pb-4 border-t border-sidebar-border pt-3">
-              <button
-                onClick={toggle}
-                className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground w-full transition-colors"
-              >
-                {dark ? <Sun className="h-5 w-5 text-muted-foreground" /> : <Moon className="h-5 w-5 text-muted-foreground" />}
-                {dark ? "Light mode" : "Dark mode"}
-              </button>
-            </div>
           </div>
         </div>
       </div>
