@@ -1,10 +1,11 @@
 import { Router } from "express";
-import { Resend } from "resend";
+import { ReplitConnectors } from "@replit/connectors-sdk";
 import { logger } from "../lib/logger";
 
 const router = Router();
 
 const TO_EMAIL = "gabe.heffler@gmail.com";
+const FROM_EMAIL = "me";
 
 router.post("/feedback", async (req, res) => {
   const { type, content, from } = req.body as Record<string, unknown>;
@@ -20,31 +21,46 @@ router.post("/feedback", async (req, res) => {
     return;
   }
 
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) {
-    req.log.error("RESEND_API_KEY is not set — cannot send feedback email");
-    res.status(503).json({ error: "Email service not configured" });
-    return;
-  }
-
-  const resend = new Resend(apiKey);
-
   const label = type === "bug" ? "🐛 Bug report" : "💬 Feedback";
   const sender = from === "coach" ? "a coach" : "a client";
   const subject = `[TrakAI] ${label} from ${sender}`;
-  const html = `
-    <h2>${label} from ${sender}</h2>
-    <pre style="font-family: sans-serif; white-space: pre-wrap; background: #f5f5f5; padding: 16px; border-radius: 8px;">${content.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>
-  `;
+
+  const bodyText = `${label} from ${sender}\n\n${content}`;
+  const rawMessage = [
+    `To: ${TO_EMAIL}`,
+    `Subject: ${subject}`,
+    `MIME-Version: 1.0`,
+    `Content-Type: text/plain; charset=utf-8`,
+    ``,
+    bodyText,
+  ].join("\r\n");
+
+  const encoded = Buffer.from(rawMessage)
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
 
   try {
-    await resend.emails.send({
-      from: "TrakAI <onboarding@resend.dev>",
-      to: TO_EMAIL,
-      subject,
-      html,
-    });
-    req.log.info({ type, from }, "Feedback email sent");
+    const connectors = new ReplitConnectors();
+    const response = await connectors.proxy(
+      "google-mail",
+      `/gmail/v1/users/${FROM_EMAIL}/messages/send`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ raw: encoded }),
+      }
+    );
+
+    if (!response.ok) {
+      const errBody = await response.text();
+      req.log.error({ status: response.status, body: errBody }, "Gmail API error");
+      res.status(500).json({ error: "Failed to send email" });
+      return;
+    }
+
+    req.log.info({ type, from }, "Feedback email sent via Gmail");
     res.status(200).json({ ok: true });
   } catch (err) {
     req.log.error({ err }, "Failed to send feedback email");
