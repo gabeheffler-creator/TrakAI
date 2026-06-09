@@ -5,7 +5,7 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Moon, Sun, Bug, ChevronRight, CheckCircle } from "lucide-react";
+import { Moon, Sun, Bug, MessageSquare, ChevronRight, CheckCircle } from "lucide-react";
 
 function SettingRow({
   icon,
@@ -66,6 +66,31 @@ export function SettingsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
+  const [feedbackDialogOpen, setFeedbackDialogOpen] = useState(false);
+  const [feedbackText, setFeedbackText] = useState("");
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+
+  const handleOpenFeedback = () => {
+    setFeedbackText("");
+    setFeedbackSubmitted(false);
+    setFeedbackDialogOpen(true);
+  };
+
+  const handleSubmitFeedback = () => {
+    if (!feedbackText.trim()) return;
+    setFeedbackSubmitting(true);
+    setTimeout(() => {
+      setFeedbackSubmitting(false);
+      setFeedbackSubmitted(true);
+      setFeedbackText("");
+      setTimeout(() => {
+        setFeedbackDialogOpen(false);
+        setFeedbackSubmitted(false);
+      }, 1800);
+    }, 600);
+  };
+
   const handleOpenBug = () => {
     setBugText("");
     setSubmitted(false);
@@ -112,6 +137,14 @@ export function SettingsPage() {
       <div className="rounded-2xl border border-border bg-card divide-y divide-border">
         <div className="px-4">
           <SettingRow
+            icon={<MessageSquare className="w-4 h-4" />}
+            label="Send feedback"
+            description="Share ideas or suggestions with us"
+            onClick={handleOpenFeedback}
+          />
+        </div>
+        <div className="px-4">
+          <SettingRow
             icon={<Bug className="w-4 h-4" />}
             label="Report a bug"
             description="Something not working? Let us know"
@@ -119,6 +152,48 @@ export function SettingsPage() {
           />
         </div>
       </div>
+
+      {/* ── Feedback dialog ───────────────────────── */}
+      <Dialog open={feedbackDialogOpen} onOpenChange={open => { if (!open) setFeedbackDialogOpen(false); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Send feedback</DialogTitle>
+          </DialogHeader>
+
+          {feedbackSubmitted ? (
+            <div className="flex flex-col items-center justify-center py-8 gap-3 text-center animate-in fade-in zoom-in duration-300">
+              <CheckCircle className="w-12 h-12 text-primary" />
+              <p className="font-semibold text-sm">Thanks for the feedback!</p>
+              <p className="text-xs text-muted-foreground">We'll take a look.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Got an idea or suggestion? We'd love to hear it.
+              </p>
+              <Textarea
+                placeholder="e.g. It would be helpful to bulk-assign programs to multiple clients…"
+                value={feedbackText}
+                onChange={e => setFeedbackText(e.target.value)}
+                className="min-h-[120px] resize-none text-sm"
+                autoFocus
+              />
+              <div className="flex gap-2 justify-end">
+                <Button variant="ghost" size="sm" onClick={() => setFeedbackDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={!feedbackText.trim() || feedbackSubmitting}
+                  onClick={handleSubmitFeedback}
+                >
+                  {feedbackSubmitting ? "Sending…" : "Send"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* ── Bug report dialog ─────────────────────── */}
       <Dialog open={bugDialogOpen} onOpenChange={open => { if (!open) setBugDialogOpen(false); }}>
