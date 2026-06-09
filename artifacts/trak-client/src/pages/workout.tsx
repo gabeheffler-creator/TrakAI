@@ -360,6 +360,9 @@ export function WorkoutPage() {
   const [editWeight, setEditWeight] = useState("");
   const [editReps, setEditReps] = useState("");
   const [editRpe, setEditRpe] = useState<number | null>(null);
+  const [isExiting, setIsExiting] = useState(false);
+  const [exitTransform, setExitTransform] = useState("translate(0,0)");
+  const [exerciseExitDirs, setExerciseExitDirs] = useState<string[]>([]);
   const [swappedExercises, setSwappedExercises] = useState<Record<number, { exerciseName: string; muscleGroup: string; exerciseId: number }>>({});
 
   // Pre-workout checkin
@@ -423,6 +426,22 @@ export function WorkoutPage() {
 
   const handleBeginWorkout = () => {
     if (!clientId || !selectedDay) return;
+
+    // Pre-compute a unique fly-off direction per exercise — cycle through all 4 before repeating
+    const DIRS = [
+      "translateX(-115%)",
+      "translateX(115%)",
+      "translateY(-115%)",
+      "translateY(115%)",
+    ];
+    const pool = [...DIRS];
+    const dirs = exercises.map(() => {
+      if (pool.length === 0) pool.push(...DIRS);
+      const idx = Math.floor(Math.random() * pool.length);
+      return pool.splice(idx, 1)[0];
+    });
+    setExerciseExitDirs(dirs);
+
     createWorkoutLog.mutate({
       clientId,
       data: { programDayId: selectedDay.id, date: today }
@@ -543,12 +562,20 @@ export function WorkoutPage() {
   const allCurrentSetsLogged = currentSets.length > 0 && currentSets.every(s => s.logged);
 
   const handleNextExercise = () => {
-    if (currentExIdx < exercises.length - 1) {
-      setCurrentExIdx(i => i + 1);
-    } else {
-      qc.invalidateQueries({ queryKey: getListWorkoutLogsQueryKey(clientId!) });
-      setMode("upload");
-    }
+    const dir = exerciseExitDirs[currentExIdx] ?? "translateX(-115%)";
+    setExitTransform(dir);
+    setIsExiting(true);
+    setEditingSetIdx(null);
+    setTimeout(() => {
+      setIsExiting(false);
+      setExitTransform("translate(0,0)");
+      if (currentExIdx < exercises.length - 1) {
+        setCurrentExIdx(i => i + 1);
+      } else {
+        qc.invalidateQueries({ queryKey: getListWorkoutLogsQueryKey(clientId!) });
+        setMode("upload");
+      }
+    }, 420);
   };
 
   const handleSwap = (ex: Exercise) => {
@@ -758,8 +785,16 @@ export function WorkoutPage() {
             <ProgressBar value={currentExIdx} total={exercises.length} />
           </div>
 
-          {/* Exercise content */}
-          <div className="flex-1 overflow-y-auto px-4 py-6">
+          {/* Exercise content — animated */}
+          <div className="flex-1 overflow-hidden relative">
+          <div
+            className="absolute inset-0 overflow-y-auto px-4 py-6"
+            style={{
+              transform: isExiting ? exitTransform : "translate(0,0)",
+              transition: isExiting ? "transform 0.4s cubic-bezier(0.4, 0, 0.2, 1)" : "none",
+              opacity: isExiting ? 0.6 : 1,
+            }}
+          >
             {/* Exercise name — big */}
             <div className="mb-6">
               <Badge variant="secondary" className="text-xs mb-2">{currentEx.muscleGroup}</Badge>
@@ -940,6 +975,7 @@ export function WorkoutPage() {
             >
               <RefreshCw className="w-4 h-4" /> Swap Exercise
             </button>
+          </div>
           </div>
 
           {/* Bottom action */}
