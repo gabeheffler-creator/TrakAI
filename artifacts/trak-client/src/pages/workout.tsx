@@ -31,8 +31,23 @@ interface SetState {
   targetReps: string;
   weight: string;
   reps: string;
+  leftReps: string;
+  rightReps: string;
+  isUnilateral: boolean;
   logged: boolean;
   rpe: number | null;
+}
+
+function decodeExMeta(raw: string | null | undefined): { laterality: string; equipment: string; grip: string } {
+  if (!raw) return { laterality: "bilateral", equipment: "", grip: "" };
+  const latMatch = raw.match(/@lat:(\S+)/);
+  const equipMatch = raw.match(/@equip:(\S+)/);
+  const gripMatch = raw.match(/@grip:(\S+)/);
+  return {
+    laterality: latMatch?.[1] === "uni" ? "unilateral" : "bilateral",
+    equipment: equipMatch ? equipMatch[1].replace(/_/g, " ") : "",
+    grip: gripMatch ? gripMatch[1].replace(/_/g, " ") : "",
+  };
 }
 
 interface RpeModal {
@@ -447,10 +462,15 @@ export function WorkoutPage() {
   const initSets = useCallback((dayExercises: typeof exercises) => {
     const initial: SetState[][] = dayExercises.map(ex => {
       const reps = ex.reps.includes("-") ? ex.reps.split("-")[1] : ex.reps;
+      const meta = decodeExMeta(ex.notes);
+      const isUnilateral = meta.laterality === "unilateral";
       return Array.from({ length: ex.sets }, () => ({
         targetReps: reps,
         weight: ex.weight ?? "",
         reps,
+        leftReps: "",
+        rightReps: "",
+        isUnilateral,
         logged: false,
         rpe: null,
       }));
@@ -503,16 +523,24 @@ export function WorkoutPage() {
     const s = sets[exIdx]?.[setIdx];
     if (!ex || !s) return;
 
+    const repsToLog = s.isUnilateral
+      ? (Math.max(parseInt(s.leftReps) || 0, parseInt(s.rightReps) || 0) || parseInt(s.targetReps) || 0)
+      : (parseInt(s.reps) || parseInt(s.targetReps) || 0);
+    const lateralNotes = s.isUnilateral && (s.leftReps || s.rightReps)
+      ? `L: ${s.leftReps || 0} / R: ${s.rightReps || 0}`
+      : undefined;
+
     logSet.mutate({
       clientId,
       logId: workoutLogId,
       data: {
         exerciseId: ex.exerciseId,
         setNumber: setIdx + 1,
-        reps: parseInt(s.reps) || parseInt(s.targetReps) || 0,
+        reps: repsToLog,
         weight: s.weight ? parseFloat(s.weight) : undefined,
         weightUnit: s.weight ? "lbs" : undefined,
         rpe,
+        notes: lateralNotes,
       }
     });
 
@@ -542,6 +570,22 @@ export function WorkoutPage() {
     setSets(prev => {
       const next = prev.map(arr => [...arr]);
       next[currentExIdx] = next[currentExIdx].map((s, i) => i === setIdx ? { ...s, reps: value } : s);
+      return next;
+    });
+  };
+
+  const updateLeftReps = (setIdx: number, value: string) => {
+    setSets(prev => {
+      const next = prev.map(arr => [...arr]);
+      next[currentExIdx] = next[currentExIdx].map((s, i) => i === setIdx ? { ...s, leftReps: value } : s);
+      return next;
+    });
+  };
+
+  const updateRightReps = (setIdx: number, value: string) => {
+    setSets(prev => {
+      const next = prev.map(arr => [...arr]);
+      next[currentExIdx] = next[currentExIdx].map((s, i) => i === setIdx ? { ...s, rightReps: value } : s);
       return next;
     });
   };
@@ -600,6 +644,22 @@ export function WorkoutPage() {
     setSets(prev => {
       const next = prev.map(arr => [...arr]);
       next[exIdx] = next[exIdx].map((s, i) => i === setIdx ? { ...s, reps: value } : s);
+      return next;
+    });
+  };
+
+  const updateLeftRepsForEx = (exIdx: number, setIdx: number, value: string) => {
+    setSets(prev => {
+      const next = prev.map(arr => [...arr]);
+      next[exIdx] = next[exIdx].map((s, i) => i === setIdx ? { ...s, leftReps: value } : s);
+      return next;
+    });
+  };
+
+  const updateRightRepsForEx = (exIdx: number, setIdx: number, value: string) => {
+    setSets(prev => {
+      const next = prev.map(arr => [...arr]);
+      next[exIdx] = next[exIdx].map((s, i) => i === setIdx ? { ...s, rightReps: value } : s);
       return next;
     });
   };
@@ -1115,22 +1175,47 @@ export function WorkoutPage() {
                                     />
                                   )}
                                 </div>
-                                <div className="flex-1">
-                                  <label className="text-[10px] text-muted-foreground uppercase tracking-wide block mb-1">Reps</label>
-                                  {s.logged ? (
-                                    <div className="h-10 rounded-xl bg-muted/40 flex items-center justify-center text-sm font-semibold text-muted-foreground">
-                                      {s.reps}
+                                {s.isUnilateral ? (
+                                  <>
+                                    <div className="flex-1">
+                                      <label className="text-[10px] text-muted-foreground uppercase tracking-wide block mb-1">L Reps</label>
+                                      {s.logged ? (
+                                        <div className="h-10 rounded-xl bg-muted/40 flex items-center justify-center text-sm font-semibold text-muted-foreground">
+                                          {s.leftReps || "—"}
+                                        </div>
+                                      ) : (
+                                        <Input type="number" value={s.leftReps} onChange={e => updateLeftRepsForEx(exIdx, i, e.target.value)} placeholder={s.targetReps} className="h-10 text-center text-sm font-semibold rounded-xl" />
+                                      )}
                                     </div>
-                                  ) : (
-                                    <Input
-                                      type="number"
-                                      value={s.reps}
-                                      onChange={e => updateRepsForEx(exIdx, i, e.target.value)}
-                                      placeholder={s.targetReps}
-                                      className="h-10 text-center text-sm font-semibold rounded-xl"
-                                    />
-                                  )}
-                                </div>
+                                    <div className="flex-1">
+                                      <label className="text-[10px] text-muted-foreground uppercase tracking-wide block mb-1">R Reps</label>
+                                      {s.logged ? (
+                                        <div className="h-10 rounded-xl bg-muted/40 flex items-center justify-center text-sm font-semibold text-muted-foreground">
+                                          {s.rightReps || "—"}
+                                        </div>
+                                      ) : (
+                                        <Input type="number" value={s.rightReps} onChange={e => updateRightRepsForEx(exIdx, i, e.target.value)} placeholder={s.targetReps} className="h-10 text-center text-sm font-semibold rounded-xl" />
+                                      )}
+                                    </div>
+                                  </>
+                                ) : (
+                                  <div className="flex-1">
+                                    <label className="text-[10px] text-muted-foreground uppercase tracking-wide block mb-1">Reps</label>
+                                    {s.logged ? (
+                                      <div className="h-10 rounded-xl bg-muted/40 flex items-center justify-center text-sm font-semibold text-muted-foreground">
+                                        {s.reps}
+                                      </div>
+                                    ) : (
+                                      <Input
+                                        type="number"
+                                        value={s.reps}
+                                        onChange={e => updateRepsForEx(exIdx, i, e.target.value)}
+                                        placeholder={s.targetReps}
+                                        className="h-10 text-center text-sm font-semibold rounded-xl"
+                                      />
+                                    )}
+                                  </div>
+                                )}
                                 <button
                                   onClick={() => handleCheckSetForEx(exIdx, i)}
                                   disabled={s.logged || (!isNext && i !== 0)}
@@ -1451,22 +1536,43 @@ export function WorkoutPage() {
                           )}
                         </div>
 
-                        <div className="flex-1">
-                          <label className="text-[10px] text-muted-foreground uppercase tracking-wide block mb-1">Reps</label>
-                          {s.logged ? (
-                            <div className="h-12 rounded-xl bg-muted/40 flex items-center justify-center text-sm font-semibold text-muted-foreground">
-                              {s.reps}
+                        {s.isUnilateral ? (
+                          <>
+                            <div className="flex-1">
+                              <label className="text-[10px] text-muted-foreground uppercase tracking-wide block mb-1">L Reps</label>
+                              {s.logged ? (
+                                <div className="h-12 rounded-xl bg-muted/40 flex items-center justify-center text-sm font-semibold text-muted-foreground">{s.leftReps || "—"}</div>
+                              ) : (
+                                <Input type="number" value={s.leftReps} onChange={e => updateLeftReps(i, e.target.value)} placeholder={s.targetReps} className="h-12 text-center text-base font-semibold rounded-xl" />
+                              )}
                             </div>
-                          ) : (
-                            <Input
-                              type="number"
-                              value={s.reps}
-                              onChange={e => updateReps(i, e.target.value)}
-                              placeholder={s.targetReps}
-                              className="h-12 text-center text-base font-semibold rounded-xl"
-                            />
-                          )}
-                        </div>
+                            <div className="flex-1">
+                              <label className="text-[10px] text-muted-foreground uppercase tracking-wide block mb-1">R Reps</label>
+                              {s.logged ? (
+                                <div className="h-12 rounded-xl bg-muted/40 flex items-center justify-center text-sm font-semibold text-muted-foreground">{s.rightReps || "—"}</div>
+                              ) : (
+                                <Input type="number" value={s.rightReps} onChange={e => updateRightReps(i, e.target.value)} placeholder={s.targetReps} className="h-12 text-center text-base font-semibold rounded-xl" />
+                              )}
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex-1">
+                            <label className="text-[10px] text-muted-foreground uppercase tracking-wide block mb-1">Reps</label>
+                            {s.logged ? (
+                              <div className="h-12 rounded-xl bg-muted/40 flex items-center justify-center text-sm font-semibold text-muted-foreground">
+                                {s.reps}
+                              </div>
+                            ) : (
+                              <Input
+                                type="number"
+                                value={s.reps}
+                                onChange={e => updateReps(i, e.target.value)}
+                                placeholder={s.targetReps}
+                                className="h-12 text-center text-base font-semibold rounded-xl"
+                              />
+                            )}
+                          </div>
+                        )}
 
                         <button
                           onClick={() => handleCheckSet(i)}

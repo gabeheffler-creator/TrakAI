@@ -53,7 +53,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <nav className="flex-1 px-3 space-y-1">
               {navigation.map((item) => {
                 const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
-                const showBadge = item.name === "Messages" && unreadCount > 0;
                 return (
                   <Link
                     key={item.name}
@@ -67,11 +66,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   >
                     <span className="relative mr-3 flex-shrink-0">
                       <item.icon className={cn("h-4 w-4", isActive ? "text-primary-foreground" : "text-muted-foreground")} />
-                      {showBadge && (
-                        <span className="absolute -top-1.5 -left-1.5 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center leading-none">
-                          {unreadCount > 99 ? "99+" : unreadCount}
-                        </span>
-                      )}
                     </span>
                     {item.name}
                   </Link>

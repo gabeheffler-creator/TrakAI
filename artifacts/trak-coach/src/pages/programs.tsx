@@ -3,6 +3,7 @@ import {
   useListPrograms,
   useCreateProgram,
   useDeleteProgram,
+  useUpdateProgram,
   getListProgramsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -17,28 +18,39 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, ChevronRight, Dumbbell } from "lucide-react";
+import { Plus, Trash2, ChevronRight, Dumbbell, Pencil } from "lucide-react";
 
 const programSchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().optional(),
   durationWeeks: z.coerce.number().optional(),
 });
+type ProgramFormValues = z.infer<typeof programSchema>;
+
+type EditTarget = { id: number; name: string; description?: string | null; durationWeeks?: number | null };
 
 export function Programs() {
   const { data: programs, isLoading } = useListPrograms();
   const createProgram = useCreateProgram();
   const deleteProgram = useDeleteProgram();
+  const updateProgram = useUpdateProgram();
   const qc = useQueryClient();
   const { toast } = useToast();
-  const [sheetOpen, setSheetOpen] = useState(false);
 
-  const form = useForm<z.infer<typeof programSchema>>({
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
+
+  const form = useForm<ProgramFormValues>({
     resolver: zodResolver(programSchema),
     defaultValues: { name: "", description: "", durationWeeks: undefined },
   });
 
-  const onSubmit = (values: z.infer<typeof programSchema>) => {
+  const editForm = useForm<ProgramFormValues>({
+    resolver: zodResolver(programSchema),
+    defaultValues: { name: "", description: "", durationWeeks: undefined },
+  });
+
+  const onSubmit = (values: ProgramFormValues) => {
     createProgram.mutate({ data: { name: values.name, description: values.description || undefined, durationWeeks: values.durationWeeks || undefined } }, {
       onSuccess: () => {
         qc.invalidateQueries({ queryKey: getListProgramsQueryKey() });
@@ -46,6 +58,18 @@ export function Programs() {
         form.reset();
         toast({ title: "Program created" });
       },
+    });
+  };
+
+  const onEditSubmit = (values: ProgramFormValues) => {
+    if (!editTarget) return;
+    updateProgram.mutate({ programId: editTarget.id, data: { name: values.name, description: values.description || undefined, durationWeeks: values.durationWeeks || undefined } }, {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: getListProgramsQueryKey() });
+        setEditTarget(null);
+        toast({ title: "Program updated" });
+      },
+      onError: () => toast({ title: "Failed to update program", variant: "destructive" }),
     });
   };
 
@@ -57,6 +81,17 @@ export function Programs() {
         qc.invalidateQueries({ queryKey: getListProgramsQueryKey() });
         toast({ title: "Program deleted" });
       },
+    });
+  };
+
+  const handleEdit = (p: EditTarget, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setEditTarget(p);
+    editForm.reset({
+      name: p.name,
+      description: p.description ?? "",
+      durationWeeks: p.durationWeeks ?? undefined,
     });
   };
 
@@ -72,8 +107,9 @@ export function Programs() {
         </Button>
       </div>
 
+      {/* Create Sheet */}
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent side="bottom" className="rounded-t-2xl max-h-[90vh] overflow-y-auto">
+        <SheetContent side="bottom" className="rounded-t-2xl max-h-[90vh] overflow-y-auto bg-background">
           <SheetHeader className="mb-4">
             <SheetTitle>Create Program</SheetTitle>
           </SheetHeader>
@@ -90,6 +126,31 @@ export function Programs() {
               )} />
               <Button type="submit" className="w-full" disabled={createProgram.isPending}>
                 {createProgram.isPending ? "Creating…" : "Create Program"}
+              </Button>
+            </form>
+          </Form>
+        </SheetContent>
+      </Sheet>
+
+      {/* Edit Sheet */}
+      <Sheet open={!!editTarget} onOpenChange={(open) => { if (!open) setEditTarget(null); }}>
+        <SheetContent side="bottom" className="rounded-t-2xl max-h-[90vh] overflow-y-auto bg-background">
+          <SheetHeader className="mb-4">
+            <SheetTitle>Edit Program</SheetTitle>
+          </SheetHeader>
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4 pb-8">
+              <FormField control={editForm.control} name="name" render={({ field }) => (
+                <FormItem><FormLabel>Name</FormLabel><FormControl><Input placeholder="e.g. 12-Week Strength Builder" {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <FormField control={editForm.control} name="description" render={({ field }) => (
+                <FormItem><FormLabel>Description <span className="text-muted-foreground">(Optional)</span></FormLabel><FormControl><Textarea placeholder="What is this program designed to achieve?" {...field} rows={3} /></FormControl></FormItem>
+              )} />
+              <FormField control={editForm.control} name="durationWeeks" render={({ field }) => (
+                <FormItem><FormLabel>Duration in weeks <span className="text-muted-foreground">(Optional)</span></FormLabel><FormControl><Input type="number" placeholder="e.g. 12" {...field} /></FormControl></FormItem>
+              )} />
+              <Button type="submit" className="w-full" disabled={updateProgram.isPending}>
+                {updateProgram.isPending ? "Saving…" : "Save Changes"}
               </Button>
             </form>
           </Form>
@@ -113,6 +174,13 @@ export function Programs() {
                 <div className="flex items-start justify-between">
                   <CardTitle className="text-base">{p.name}</CardTitle>
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={(e) => handleEdit(p, e)}
+                      className="text-muted-foreground hover:text-primary p-1 transition-colors"
+                      data-testid={`button-edit-program-${p.id}`}
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
                     <button
                       onClick={(e) => handleDelete(p.id, e)}
                       className="text-muted-foreground hover:text-destructive p-1 transition-colors"

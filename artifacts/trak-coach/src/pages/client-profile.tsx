@@ -14,7 +14,7 @@ import {
   useCreateAssignment,
   useDeleteAssignment,
   useUpdateAssignment,
-  useGenerateInviteLink,
+
   useGetClientProgramAssignment,
   useGetProgram,
   useListPrograms,
@@ -58,7 +58,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import { Copy, Send, Plus, CheckCircle, Circle, Trash2, Link, ArrowLeft, ChevronDown, ChevronRight, Dumbbell, Pencil, X, Check, Phone, StickyNote, Clock, Video } from "lucide-react";
+import { Copy, Send, Plus, CheckCircle, Circle, Trash2, ArrowLeft, ChevronDown, ChevronRight, Dumbbell, Pencil, X, Check, Phone, StickyNote, Clock, Video } from "lucide-react";
 import { Link as WLink } from "wouter";
 import { format, parseISO } from "date-fns";
 import { VideoCall } from "@/components/video-call";
@@ -419,7 +419,7 @@ export function ClientProfile() {
   const createAssignment = useCreateAssignment();
   const deleteAssignment = useDeleteAssignment();
   const updateAssignment = useUpdateAssignment();
-  const generateInvite = useGenerateInviteLink();
+
   const assignProgram = useAssignProgram();
   const createNote = useCreateCoachNote();
   const updateNote = useUpdateCoachNote();
@@ -533,16 +533,6 @@ export function ClientProfile() {
     });
   };
 
-  const handleCopyInvite = () => {
-    generateInvite.mutate({ clientId }, {
-      onSuccess: (data) => {
-        const url = `${window.location.origin}/client/join/${data.token}`;
-        navigator.clipboard.writeText(url);
-        toast({ title: "Invite link copied!" });
-      },
-    });
-  };
-
   const handleAssignProgram = (values: z.infer<typeof assignProgramSchema>) => {
     assignProgram.mutate({ clientId, data: { programId: values.programId, startDate: values.startDate } }, {
       onSuccess: () => {
@@ -581,9 +571,6 @@ export function ClientProfile() {
         <Button variant="outline" size="sm" onClick={handleStartVideoCall}>
           <Video className="w-4 h-4 mr-2" /> Video Call
         </Button>
-        <Button variant="outline" size="sm" onClick={handleCopyInvite} data-testid="button-copy-invite">
-          <Link className="w-4 h-4 mr-2" /> Copy Invite
-        </Button>
       </div>
 
       {client.goal && (
@@ -595,23 +582,29 @@ export function ClientProfile() {
       )}
 
       <Tabs defaultValue="overview">
-        <div className="overflow-x-auto -mx-4 px-4 pb-1 scrollbar-none">
-          <TabsList className="flex w-max gap-0.5 h-9 p-0.5 bg-muted rounded-lg">
-            <TabsTrigger value="overview" className="text-xs px-3 h-8 rounded-md">Overview</TabsTrigger>
-            <TabsTrigger value="program" className="text-xs px-3 h-8 rounded-md">Program</TabsTrigger>
-            <TabsTrigger value="workouts" className="text-xs px-3 h-8 rounded-md">Workouts</TabsTrigger>
-            <TabsTrigger value="measurements" className="text-xs px-3 h-8 rounded-md">Measurements</TabsTrigger>
-            <TabsTrigger value="sleep" className="text-xs px-3 h-8 rounded-md">Sleep</TabsTrigger>
-            <TabsTrigger value="nutrition" className="text-xs px-3 h-8 rounded-md">Nutrition</TabsTrigger>
-            <TabsTrigger value="photos" className="text-xs px-3 h-8 rounded-md">Photos</TabsTrigger>
-            <TabsTrigger value="assignments" className="text-xs px-3 h-8 rounded-md">Assignments</TabsTrigger>
-            <TabsTrigger value="messages" className="text-xs px-3 h-8 rounded-md">Messages</TabsTrigger>
-            <TabsTrigger value="notes" className="text-xs px-3 h-8 rounded-md flex items-center gap-1">
-              <StickyNote className="w-3 h-3" />Notes
-            </TabsTrigger>
-            <TabsTrigger value="calls" className="text-xs px-3 h-8 rounded-md flex items-center gap-1">
-              <Phone className="w-3 h-3" />Calls
-            </TabsTrigger>
+        <div className="overflow-x-auto -mx-4 px-4 pb-2 scrollbar-none">
+          <TabsList className="flex w-max gap-1 h-auto bg-transparent p-0">
+            {[
+              { value: "overview", label: "Overview" },
+              { value: "program", label: "Program" },
+              { value: "workouts", label: "Workouts" },
+              { value: "measurements", label: "Measurements" },
+              { value: "sleep", label: "Sleep" },
+              { value: "nutrition", label: "Nutrition" },
+              { value: "photos", label: "Photos" },
+              { value: "assignments", label: "Assignments" },
+              { value: "messages", label: "Messages" },
+              { value: "notes", label: "Notes", icon: <StickyNote className="w-3 h-3" /> },
+              { value: "calls", label: "Calls", icon: <Phone className="w-3 h-3" /> },
+            ].map(tab => (
+              <TabsTrigger
+                key={tab.value}
+                value={tab.value}
+                className="flex items-center gap-1 text-xs px-3.5 py-1.5 h-auto rounded-full border border-transparent font-medium text-muted-foreground data-[state=active]:border-primary/25 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none"
+              >
+                {tab.icon}{tab.label}
+              </TabsTrigger>
+            ))}
           </TabsList>
         </div>
 

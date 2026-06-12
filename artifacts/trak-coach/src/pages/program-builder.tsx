@@ -43,27 +43,52 @@ const daySchema = z.object({
   phaseId: z.coerce.number().optional(),
 });
 
-const SET_TYPES = ["Normal", "Warm-up", "Drop Set", "Rest-Pause", "Failure"] as const;
+const SET_TYPES = [
+  "Normal", "Warm-up", "Drop Set", "Rest-Pause", "Failure",
+  "Duration", "Machine", "Reps Only", "Negative", "Bodyweight", "Weighted Bodyweight",
+] as const;
 
-function encodeExNotes(setType: string, rpe: string, notes: string): string {
+const EQUIPMENT_TYPES = [
+  "Dumbbell", "Barbell", "Hex Bar", "Suspension Band", "Band",
+  "T-Bar", "Sled", "Straight Bar", "EZ-Curl Bar", "Cable",
+] as const;
+
+const CABLE_GRIPS = [
+  "Rope", "Straight Bar", "V-Bar", "Standard Lat Bar",
+  "Neutral Grip Lat Bar", "Single Handle", "Ankle Strap", "Tricep Bar",
+] as const;
+
+function encodeExNotes(setType: string, rpe: string, laterality: string, equipment: string, grip: string, notes: string): string {
   const parts: string[] = [];
   if (setType && setType !== "Normal") parts.push(`[${setType}]`);
   if (rpe) parts.push(`RPE ${rpe}`);
+  const tags: string[] = [];
+  if (laterality === "unilateral") tags.push("@lat:uni");
+  if (equipment) tags.push(`@equip:${equipment.replace(/ /g, "_")}`);
+  if (equipment === "Cable" && grip) tags.push(`@grip:${grip.replace(/ /g, "_")}`);
+  if (tags.length) parts.push(tags.join(" "));
   if (notes) parts.push(notes);
   return parts.join(" | ");
 }
 
-function decodeExNotes(raw: string | null | undefined): { setType: string; rpe: string; notes: string } {
-  if (!raw) return { setType: "Normal", rpe: "", notes: "" };
+function decodeExNotes(raw: string | null | undefined): { setType: string; rpe: string; laterality: string; equipment: string; grip: string; notes: string } {
+  if (!raw) return { setType: "Normal", rpe: "", laterality: "bilateral", equipment: "", grip: "", notes: "" };
   const setTypeMatch = raw.match(/^\[([^\]]+)\]/);
   const rpeMatch = raw.match(/RPE (\d+(?:\.\d+)?)/);
+  const latMatch = raw.match(/@lat:(\S+)/);
+  const equipMatch = raw.match(/@equip:(\S+)/);
+  const gripMatch = raw.match(/@grip:(\S+)/);
   let notes = raw;
   if (setTypeMatch) notes = notes.replace(setTypeMatch[0], "").trim();
   if (rpeMatch) notes = notes.replace(`RPE ${rpeMatch[1]}`, "").trim();
+  notes = notes.replace(/@\S+/g, "").trim();
   notes = notes.replace(/^\|?\s*|\s*\|?$/g, "").replace(/\s*\|\s*/g, " ").trim();
   return {
     setType: setTypeMatch ? setTypeMatch[1] : "Normal",
     rpe: rpeMatch ? rpeMatch[1] : "",
+    laterality: latMatch?.[1] === "uni" ? "unilateral" : "bilateral",
+    equipment: equipMatch ? equipMatch[1].replace(/_/g, " ") : "",
+    grip: gripMatch ? gripMatch[1].replace(/_/g, " ") : "",
     notes,
   };
 }
@@ -76,6 +101,9 @@ const exerciseSchema = z.object({
   restSeconds: z.coerce.number().optional(),
   setType: z.string().default("Normal"),
   rpe: z.string().optional(),
+  laterality: z.enum(["bilateral", "unilateral"]).default("bilateral"),
+  equipment: z.string().default(""),
+  grip: z.string().default(""),
   notes: z.string().optional(),
   order: z.coerce.number().default(0),
 });
@@ -118,7 +146,7 @@ export function ProgramBuilder() {
   });
   const exForm = useForm<z.infer<typeof exerciseSchema>>({
     resolver: zodResolver(exerciseSchema),
-    defaultValues: { exerciseId: 0, sets: 3, reps: "8-12", weight: "", restSeconds: 60, setType: "Normal", rpe: "", notes: "", order: 0 },
+    defaultValues: { exerciseId: 0, sets: 3, reps: "8-12", weight: "", restSeconds: 60, setType: "Normal", rpe: "", laterality: "bilateral", equipment: "", grip: "", notes: "", order: 0 },
   });
 
   const invalidate = () => qc.invalidateQueries({ queryKey: getGetProgramQueryKey(programId) });
@@ -200,10 +228,10 @@ export function ProgramBuilder() {
 
   const handleAddExercise = (values: z.infer<typeof exerciseSchema>) => {
     if (!selectedDayId) return;
-    const encodedNotes = encodeExNotes(values.setType ?? "Normal", values.rpe ?? "", values.notes ?? "");
+    const encodedNotes = encodeExNotes(values.setType ?? "Normal", values.rpe ?? "", values.laterality ?? "bilateral", values.equipment ?? "", values.grip ?? "", values.notes ?? "");
     addExercise.mutate(
       { programId, dayId: selectedDayId, data: { exerciseId: values.exerciseId, sets: values.sets, reps: values.reps, weight: values.weight || undefined, restSeconds: values.restSeconds || undefined, notes: encodedNotes || undefined, order: values.order } },
-      { onSuccess: () => { invalidate(); setExDialogOpen(false); exForm.reset({ exerciseId: 0, sets: 3, reps: "8-12", weight: "", restSeconds: 60, setType: "Normal", rpe: "", notes: "", order: 0 }); } }
+      { onSuccess: () => { invalidate(); setExDialogOpen(false); exForm.reset({ exerciseId: 0, sets: 3, reps: "8-12", weight: "", restSeconds: 60, setType: "Normal", rpe: "", laterality: "bilateral", equipment: "", grip: "", notes: "", order: 0 }); } }
     );
   };
 
@@ -454,6 +482,49 @@ export function ProgramBuilder() {
                           </FormItem>
                         )} />
                       </div>
+                      <FormField control={exForm.control} name="laterality" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Movement Type</FormLabel>
+                          <div className="flex gap-2">
+                            {(["bilateral", "unilateral"] as const).map(v => (
+                              <button
+                                key={v}
+                                type="button"
+                                onClick={() => field.onChange(v)}
+                                className={`flex-1 h-9 rounded-lg text-sm font-medium border transition-all capitalize ${field.value === v ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:border-primary/50"}`}
+                              >
+                                {v}
+                              </button>
+                            ))}
+                          </div>
+                        </FormItem>
+                      )} />
+                      <FormField control={exForm.control} name="equipment" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Equipment <span className="text-muted-foreground">(Optional)</span></FormLabel>
+                          <Select onValueChange={v => { field.onChange(v); if (v !== "Cable") exForm.setValue("grip", ""); }} value={field.value}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Select equipment" /></SelectTrigger></FormControl>
+                            <SelectContent>
+                              <SelectItem value="">None</SelectItem>
+                              {EQUIPMENT_TYPES.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </FormItem>
+                      )} />
+                      {exForm.watch("equipment") === "Cable" && (
+                        <FormField control={exForm.control} name="grip" render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Cable Grip</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl><SelectTrigger><SelectValue placeholder="Select grip" /></SelectTrigger></FormControl>
+                              <SelectContent>
+                                <SelectItem value="">Not specified</SelectItem>
+                                {CABLE_GRIPS.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          </FormItem>
+                        )} />
+                      )}
                       <FormField control={exForm.control} name="notes" render={({ field }) => (
                         <FormItem>
                           <FormLabel>Coach Notes <span className="text-muted-foreground">(Optional)</span></FormLabel>
@@ -489,6 +560,8 @@ export function ProgramBuilder() {
                       {e.weight && <span className="text-xs text-muted-foreground">@ {e.weight}</span>}
                       {e.restSeconds && <span className="text-xs text-muted-foreground">{e.restSeconds}s rest</span>}
                       {decoded.rpe && <span className="text-xs font-medium text-amber-600 dark:text-amber-400">RPE {decoded.rpe}</span>}
+                      {decoded.equipment && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{decoded.equipment}{decoded.grip ? ` · ${decoded.grip}` : ""}</Badge>}
+                      {decoded.laterality === "unilateral" && <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-blue-400/50 text-blue-600 dark:text-blue-400">Unilateral</Badge>}
                       {decoded.notes && <span className="text-xs text-muted-foreground italic">"{decoded.notes}"</span>}
                     </div>
                   </div>

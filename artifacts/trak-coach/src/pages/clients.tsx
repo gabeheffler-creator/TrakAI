@@ -73,7 +73,7 @@ export function ClientList() {
       </div>
 
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-        <SheetContent side="bottom" className="rounded-t-2xl max-h-[90vh] overflow-y-auto">
+        <SheetContent side="bottom" className="rounded-t-2xl max-h-[90vh] overflow-y-auto bg-background">
           <SheetHeader className="mb-4">
             <SheetTitle>Add New Client</SheetTitle>
           </SheetHeader>
