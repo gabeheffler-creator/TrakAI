@@ -24,6 +24,7 @@ import {
 } from "recharts";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { startOfWeek, format, parseISO } from "date-fns";
 
 type ChartData = { date: string; [key: string]: number | string | null };
@@ -421,8 +422,20 @@ function HistoryList({
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
+type Timeframe = "30d" | "90d" | "1y" | "all";
+
+function filterByTf<T extends { date: string }>(items: T[], tf: Timeframe): T[] {
+  if (tf === "all") return items;
+  const days = tf === "30d" ? 30 : tf === "90d" ? 90 : 365;
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days);
+  const cutoffStr = cutoff.toISOString().split("T")[0];
+  return items.filter(i => i.date >= cutoffStr);
+}
+
 export function ProgressPage() {
   const [view, setView] = useState<"charts" | "history">("charts");
+  const [timeframe, setTimeframe] = useState<Timeframe>("all");
   const { clientId } = useClientId();
   const { units, weightLabel, lengthLabel } = useUnitSystem();
 
@@ -440,7 +453,7 @@ export function ProgressPage() {
 
   const MEASUREMENT_CHARTS = getMeasurementCharts(weightLabel, lengthLabel);
 
-  const sorted = (measurements ?? []).slice().sort((a, b) => a.date.localeCompare(b.date));
+  const sorted = filterByTf((measurements ?? []).slice().sort((a, b) => a.date.localeCompare(b.date)), timeframe);
   const first = sorted[0];
   const last = sorted[sorted.length - 1];
 
@@ -475,11 +488,11 @@ export function ProgressPage() {
     right_calf:   m.rightCalf   != null ? toDisplayLength(Number(m.rightCalf), m.unit, units) : null,
   }));
 
-  const sortedSleep = (sleepLogs ?? []).slice().sort((a, b) => a.date.localeCompare(b.date));
+  const sortedSleep = filterByTf((sleepLogs ?? []).slice().sort((a, b) => a.date.localeCompare(b.date)), timeframe);
   const sleepData: ChartData[] = sortedSleep.map(s => ({ date: s.date, hours: s.hoursSlept }));
   const sleepPoints = sortedSleep.map(s => ({ date: s.date, value: Number(s.hoursSlept) }));
 
-  const sortedWorkouts = (workoutLogs ?? []).slice().sort((a, b) => a.date.localeCompare(b.date));
+  const sortedWorkouts = filterByTf((workoutLogs ?? []).slice().sort((a, b) => a.date.localeCompare(b.date)), timeframe);
   const workoutRate = (() => {
     if (sortedWorkouts.length < 2) return null;
     const t0 = new Date(sortedWorkouts[0].date).getTime();
@@ -514,28 +527,41 @@ export function ProgressPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-8 pb-8">
-      {/* Header + toggle */}
-      <div className="flex items-end justify-between">
+      {/* Header + controls */}
+      <div className="flex items-end justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold">Progress</h1>
           <p className="text-sm text-muted-foreground mt-0.5">Your stats over time</p>
         </div>
-        {hasMeasurements && (
-          <div className="flex rounded-lg border border-border overflow-hidden text-sm">
-            <button
-              onClick={() => setView("charts")}
-              className={`px-3 py-1.5 transition-colors ${view === "charts" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
-            >
-              Charts
-            </button>
-            <button
-              onClick={() => setView("history")}
-              className={`px-3 py-1.5 transition-colors ${view === "history" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
-            >
-              History
-            </button>
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          <Select value={timeframe} onValueChange={v => setTimeframe(v as Timeframe)}>
+            <SelectTrigger className="h-8 text-xs w-[120px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="30d">Last 30 days</SelectItem>
+              <SelectItem value="90d">Last 90 days</SelectItem>
+              <SelectItem value="1y">Last year</SelectItem>
+              <SelectItem value="all">All time</SelectItem>
+            </SelectContent>
+          </Select>
+          {hasMeasurements && (
+            <div className="flex rounded-lg border border-border overflow-hidden text-sm">
+              <button
+                onClick={() => setView("charts")}
+                className={`px-3 py-1.5 transition-colors ${view === "charts" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+              >
+                Charts
+              </button>
+              <button
+                onClick={() => setView("history")}
+                className={`px-3 py-1.5 transition-colors ${view === "history" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+              >
+                History
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Summary cards — always visible */}

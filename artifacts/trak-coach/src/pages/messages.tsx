@@ -114,7 +114,6 @@ function ConversationPanel({ clientId }: { clientId: number }) {
         </div>
         <div className="min-w-0">
           <p className="font-semibold text-sm truncate">{client?.name ?? "Client"}</p>
-          <p className="text-xs text-muted-foreground truncate">{client?.email}</p>
         </div>
       </div>
 
@@ -274,7 +273,6 @@ export function Messages() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className={cn("text-sm font-medium truncate", isActive && "text-primary", clientUnread > 0 && "font-semibold")}>{client.name}</p>
-                  <p className="text-xs text-muted-foreground truncate">{client.email}</p>
                 </div>
               </button>
             );

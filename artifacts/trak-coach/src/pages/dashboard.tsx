@@ -1,11 +1,45 @@
+import { useState } from "react";
 import { useGetCoachDashboard } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, Dumbbell, ActivitySquare, AlertCircle, MessageSquare } from "lucide-react";
+import { Users, Dumbbell, ActivitySquare, AlertCircle, MessageSquare, Sparkles, X } from "lucide-react";
 import { Link } from "wouter";
 import { formatDistanceToNow, parseISO } from "date-fns";
 
+const AI_ALERT_KEY = "trak_ai_model_alert_v1_dismissed";
+
+function AiModelAlert({ onDismiss }: { onDismiss: () => void }) {
+  return (
+    <div className="flex items-start gap-3 p-4 rounded-xl border border-primary/20 bg-primary/5 text-sm">
+      <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+        <Sparkles className="w-4 h-4 text-primary" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="font-semibold text-foreground">AI nutrition model updated</p>
+        <p className="text-muted-foreground mt-0.5">
+          We've improved macro and calorie estimates — your clients will see more accurate AI results going forward.
+        </p>
+      </div>
+      <button
+        onClick={onDismiss}
+        className="text-muted-foreground hover:text-foreground transition-colors mt-0.5 flex-shrink-0"
+        aria-label="Dismiss"
+      >
+        <X className="w-4 h-4" />
+      </button>
+    </div>
+  );
+}
+
 export function Dashboard() {
   const { data: dashboard, isLoading, error } = useGetCoachDashboard();
+  const [aiAlertDismissed, setAiAlertDismissed] = useState(
+    () => localStorage.getItem(AI_ALERT_KEY) === "true"
+  );
+
+  const dismissAiAlert = () => {
+    localStorage.setItem(AI_ALERT_KEY, "true");
+    setAiAlertDismissed(true);
+  };
 
   if (isLoading) {
     return <div className="p-8">Loading dashboard...</div>;
@@ -21,6 +55,8 @@ export function Dashboard() {
         <h1 className="text-3xl font-bold tracking-tight">Overview</h1>
         <p className="text-muted-foreground mt-2">Welcome back, Coach.</p>
       </div>
+
+      {!aiAlertDismissed && <AiModelAlert onDismiss={dismissAiAlert} />}
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>

@@ -3,8 +3,8 @@ import { useListWorkoutLogs, getListWorkoutLogsQueryKey } from "@workspace/api-c
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dumbbell, ChevronLeft, ChevronDown, ChevronUp } from "lucide-react";
-import { Link } from "wouter";
+import { Dumbbell, ChevronLeft, ChevronDown, ChevronUp, ChevronRight } from "lucide-react";
+import { Link, useLocation } from "wouter";
 import { useState } from "react";
 import { useUnitSystem } from "@/hooks/use-unit-system";
 
@@ -21,6 +21,7 @@ function convertWeight(value: number, storedUnit: string, targetSystem: "imperia
 export function WorkoutsPage() {
   const { clientId } = useClientId();
   const { units: unitSystem } = useUnitSystem();
+  const [, setLocation] = useLocation();
   const { data: logs, isLoading } = useListWorkoutLogs(clientId!, {
     query: { enabled: !!clientId, queryKey: getListWorkoutLogsQueryKey(clientId!) }
   });
@@ -62,7 +63,7 @@ export function WorkoutsPage() {
           const hasDetail = sets.length > 0;
 
           return (
-            <Card key={log.id} data-testid={`card-workout-${log.id}`}>
+            <Card key={log.id} data-testid={`card-workout-${log.id}`} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setLocation(`/workouts/${log.id}`)}>
               <CardContent className="pt-4 pb-4">
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
@@ -77,11 +78,14 @@ export function WorkoutsPage() {
                       {log.durationMinutes ? ` · ${log.durationMinutes} min` : ""}
                     </p>
                   </div>
-                  {hasDetail && (
-                    <button onClick={() => toggle(log.id)} className="ml-2 p-1 rounded hover:bg-accent transition-colors text-muted-foreground">
-                      {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                    </button>
-                  )}
+                  <div className="flex items-center gap-1 ml-2">
+                    {hasDetail && (
+                      <button onClick={e => { e.stopPropagation(); toggle(log.id); }} className="p-1 rounded hover:bg-accent transition-colors text-muted-foreground">
+                        {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      </button>
+                    )}
+                    <ChevronRight className="w-4 h-4 text-muted-foreground/50" />
+                  </div>
                 </div>
 
                 {isOpen && hasDetail && (

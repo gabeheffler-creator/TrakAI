@@ -166,15 +166,20 @@ export function Dashboard() {
           </div>
           <div className="space-y-2">
             {dashboard?.recentWorkouts?.slice(0, 3).map(w => (
-              <Card key={w.id} data-testid={`card-recent-workout-${w.id}`}>
-                <CardContent className="pt-3 pb-3 flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium">{w.programDayName ?? "Free workout"}</p>
-                    <p className="text-xs text-muted-foreground">{w.date}</p>
-                  </div>
-                  {w.durationMinutes && <p className="text-sm text-muted-foreground">{w.durationMinutes}min</p>}
-                </CardContent>
-              </Card>
+              <Link key={w.id} href="/workouts">
+                <Card data-testid={`card-recent-workout-${w.id}`} className="cursor-pointer hover:bg-accent/50 transition-colors">
+                  <CardContent className="pt-3 pb-3 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium">{w.programDayName ?? "Free workout"}</p>
+                      <p className="text-xs text-muted-foreground">{w.date}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {w.durationMinutes && <p className="text-sm text-muted-foreground">{w.durationMinutes}min</p>}
+                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
             ))}
           </div>
         </div>

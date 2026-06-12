@@ -392,6 +392,7 @@ export function WorkoutPage() {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [swappedExercises, setSwappedExercises] = useState<Record<number, { exerciseName: string; muscleGroup: string; exerciseId: number }>>({});
   const [listEditingSet, setListEditingSet] = useState<{ exIdx: number; setIdx: number } | null>(null);
+  const [isExitingWorkout, setIsExitingWorkout] = useState(false);
   const [listEditWeight, setListEditWeight] = useState("");
   const [listEditReps, setListEditReps] = useState("");
   const [listEditRpe, setListEditRpe] = useState<number | null>(null);
@@ -666,7 +667,7 @@ export function WorkoutPage() {
     setSwapModal(false);
   };
 
-  const reset = () => {
+  const reset = useCallback(() => {
     setMode("select");
     setCurrentExIdx(0);
     setSets([]);
@@ -676,7 +677,16 @@ export function WorkoutPage() {
     setShowEarlyExit(false);
     setEarlyExitReason("");
     setShowCancelConfirm(false);
-  };
+    setIsExitingWorkout(false);
+  }, []);
+
+  const handleWorkoutExit = useCallback((dest = "/") => {
+    setIsExitingWorkout(true);
+    setTimeout(() => {
+      reset();
+      setLocation(dest);
+    }, 380);
+  }, [reset, setLocation]);
 
   const handleCancelWorkout = () => {
     if (clientId && workoutLogId) {
@@ -686,7 +696,7 @@ export function WorkoutPage() {
         data: { status: "cancelled" },
       });
     }
-    reset();
+    handleWorkoutExit("/");
   };
 
   const handleEarlyExitSubmit = () => {
@@ -703,20 +713,61 @@ export function WorkoutPage() {
 
   useEffect(() => {
     if (mode !== "early-exit-done") return;
-    const t = setTimeout(() => reset(), 3200);
+    const t = setTimeout(() => handleWorkoutExit("/"), 2800);
     return () => clearTimeout(t);
   }, [mode]);
 
-  if (!clientId) return <div className="p-4 text-muted-foreground">Please join via an invite link first.</div>;
+  if (!clientId) {
+    return (
+      <div className="max-w-sm mx-auto py-20 text-center space-y-5">
+        <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mx-auto">
+          <svg className="w-8 h-8 text-muted-foreground/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
+        </div>
+        <div>
+          <p className="font-semibold">You're not connected yet</p>
+          <p className="text-sm text-muted-foreground mt-1">Enter the access code your coach gave you to get started.</p>
+        </div>
+        <Link href="/enter-code">
+          <Button className="w-full h-12 font-bold">Enter access code</Button>
+        </Link>
+      </div>
+    );
+  }
 
   if (!assignment && mode === "select") {
     return (
-      <div className="max-w-lg mx-auto space-y-4">
-        <h1 className="text-2xl font-bold">Workout</h1>
-        <div className="text-center py-16 text-muted-foreground">
-          <Dumbbell className="w-12 h-12 mx-auto mb-4 opacity-20" />
-          <p>No program assigned yet.</p>
-          <p className="text-sm mt-1">Ask your coach to assign a program.</p>
+      <div className="max-w-lg mx-auto space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold">Workout</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Ready when you are</p>
+        </div>
+        <div className="rounded-2xl border border-dashed border-border bg-card/50 p-8 text-center space-y-3">
+          <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mx-auto">
+            <Dumbbell className="w-8 h-8 text-muted-foreground/40" />
+          </div>
+          <div>
+            <p className="font-semibold">No program assigned yet</p>
+            <p className="text-sm text-muted-foreground mt-1">Your coach hasn't assigned a program yet. Check back soon!</p>
+          </div>
+        </div>
+        <Button
+          size="lg"
+          className="w-full h-14 text-base font-bold opacity-40 cursor-not-allowed"
+          disabled
+        >
+          <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
+          Start Workout
+        </Button>
+        <div className="pt-2">
+          <Link href="/workouts">
+            <Button variant="ghost" className="w-full text-muted-foreground" size="sm">
+              View History
+            </Button>
+          </Link>
         </div>
       </div>
     );
@@ -729,10 +780,14 @@ export function WorkoutPage() {
     );
   }
 
+  const exitSlide = isExitingWorkout
+    ? "translate-y-full opacity-0 transition-transform transition-opacity duration-[380ms] ease-in"
+    : "";
+
   // ── EARLY EXIT DONE ──────────────────────────────────────────────────────
   if (mode === "early-exit-done") {
     return (
-      <div className="fixed inset-0 bg-background flex flex-col items-center justify-center p-8 text-center z-[60] animate-in fade-in slide-in-from-bottom-8 duration-500">
+      <div className={cn("fixed inset-0 bg-background flex flex-col items-center justify-center p-8 text-center z-[60] animate-in fade-in slide-in-from-bottom-8 duration-500", exitSlide)}>
         <div className="text-7xl mb-6 animate-in zoom-in duration-500 delay-150">💪</div>
         <h1 className="text-3xl font-black mb-3 animate-in fade-in duration-500 delay-200">No worries!</h1>
         <p className="text-muted-foreground text-lg animate-in fade-in duration-500 delay-300">
@@ -745,14 +800,14 @@ export function WorkoutPage() {
   // ── DONE SCREEN ──────────────────────────────────────────────────────────
   if (mode === "done") {
     return (
-      <div className="fixed inset-0 bg-background flex flex-col items-center justify-center p-8 text-center z-[60]">
+      <div className={cn("fixed inset-0 bg-background flex flex-col items-center justify-center p-8 text-center z-[60]", exitSlide)}>
         <Trophy className="w-20 h-20 text-yellow-500 mb-6" />
         <h1 className="text-3xl font-black mb-2">Workout Complete!</h1>
         <p className="text-muted-foreground mb-2">{selectedDay?.name}</p>
         <p className="text-lg font-semibold mb-8">{exercises.length} exercises</p>
         <div className="flex flex-col gap-3 w-full max-w-xs">
-          <Button size="lg" onClick={() => setLocation("/workouts")} className="w-full">View History</Button>
-          <Button size="lg" variant="outline" onClick={reset} className="w-full">Do Another Workout</Button>
+          <Button size="lg" onClick={() => handleWorkoutExit("/workouts")} className="w-full">View History</Button>
+          <Button size="lg" variant="outline" onClick={() => handleWorkoutExit("/")} className="w-full">Go Home</Button>
         </div>
       </div>
     );
@@ -761,7 +816,7 @@ export function WorkoutPage() {
   // ── PRE-WORKOUT CHECK-IN ─────────────────────────────────────────────────
   if (mode === "checkin") {
     return (
-      <div className="fixed inset-0 bg-background flex flex-col z-[60]">
+      <div className={cn("fixed inset-0 bg-background flex flex-col z-[60]", exitSlide)}>
         <div className="flex items-center justify-between px-4 py-4 border-b border-border">
           <button onClick={() => setMode("select")} className="text-muted-foreground hover:text-foreground text-sm flex items-center gap-1">
             <X className="w-4 h-4" /> Back
@@ -841,7 +896,7 @@ export function WorkoutPage() {
   // ── WORKOUT OVERVIEW ─────────────────────────────────────────────────────
   if (mode === "overview") {
     return (
-      <div className="fixed inset-0 bg-background flex flex-col z-[60]">
+      <div className={cn("fixed inset-0 bg-background flex flex-col z-[60]", exitSlide)}>
         <div className="flex items-center justify-between px-4 py-4 border-b border-border">
           <button onClick={() => setMode("checkin")} className="text-muted-foreground hover:text-foreground text-sm flex items-center gap-1">
             <X className="w-4 h-4" /> Back
@@ -901,13 +956,13 @@ export function WorkoutPage() {
           onCancel={() => { playSwipe(); closeRpeSheet(); }}
         />
 
-        <div className="fixed inset-0 z-[60] overflow-hidden">
+        <div className={cn("fixed inset-0 z-[60] overflow-hidden", exitSlide)}>
           <div className="absolute inset-0 bg-background flex flex-col">
             {/* Header */}
             <div className="px-4 pt-4 pb-3 border-b border-border bg-background">
               <div className="flex items-center justify-between mb-3">
                 <button
-                  onClick={reset}
+                  onClick={() => handleWorkoutExit("/")}
                   className="text-muted-foreground hover:text-foreground text-sm flex items-center gap-1"
                 >
                   <X className="w-4 h-4" /> Exit
@@ -1233,7 +1288,7 @@ export function WorkoutPage() {
         )}
 
         {/* Outer: clipping layer only */}
-        <div className="fixed inset-0 z-[60] overflow-hidden">
+        <div className={cn("fixed inset-0 z-[60] overflow-hidden", exitSlide)}>
           {/* Inner: the WHOLE page moves as one unit */}
           <div
             className="absolute inset-0 bg-background flex flex-col"
@@ -1248,7 +1303,7 @@ export function WorkoutPage() {
           <div className="px-4 pt-4 pb-3 border-b border-border bg-background">
             <div className="flex items-center justify-between mb-3">
               <button
-                onClick={reset}
+                onClick={() => handleWorkoutExit("/")}
                 className="text-muted-foreground hover:text-foreground text-sm flex items-center gap-1"
               >
                 <X className="w-4 h-4" /> Exit

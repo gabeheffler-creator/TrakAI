@@ -2,10 +2,18 @@ import { useState } from "react";
 import { useDarkMode } from "@/hooks/use-dark-mode";
 import { useToast } from "@/hooks/use-toast";
 import { Switch } from "@/components/ui/switch";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Moon, Sun, Bug, MessageSquare, ChevronRight, CheckCircle } from "lucide-react";
+import { Moon, Sun, Bug, MessageSquare, ChevronRight, CheckCircle, Palette, Save } from "lucide-react";
+
+const BRAND_KEY = "trak_coach_brand";
+interface BrandSettings { name: string; tagline: string; primaryColor: string; }
+function readBrand(): BrandSettings {
+  try { return JSON.parse(localStorage.getItem(BRAND_KEY) ?? "{}"); } catch { return { name: "", tagline: "", primaryColor: "" }; }
+}
+function saveBrand(b: BrandSettings) { localStorage.setItem(BRAND_KEY, JSON.stringify(b)); }
 
 function SettingRow({
   icon,
@@ -70,18 +78,30 @@ export function SettingsPage() {
   const { dark, toggle } = useDarkMode();
   const { toast } = useToast();
 
-  const [bugDialogOpen, setBugDialogOpen] = useState(false);
+  const [brand, setBrand] = useState<BrandSettings>(() => {
+    const saved = readBrand();
+    return { name: saved.name ?? "", tagline: saved.tagline ?? "", primaryColor: saved.primaryColor ?? "" };
+  });
+  const [brandSaved, setBrandSaved] = useState(false);
+
+  const handleSaveBrand = () => {
+    saveBrand(brand);
+    setBrandSaved(true);
+    setTimeout(() => setBrandSaved(false), 2000);
+  };
+
+  const [bugSheetOpen, setBugSheetOpen] = useState(false);
   const [bugText, setBugText] = useState("");
   const [bugPending, setBugPending] = useState(false);
   const [bugSubmitted, setBugSubmitted] = useState(false);
 
-  const [feedbackDialogOpen, setFeedbackDialogOpen] = useState(false);
+  const [feedbackSheetOpen, setFeedbackSheetOpen] = useState(false);
   const [feedbackText, setFeedbackText] = useState("");
   const [feedbackPending, setFeedbackPending] = useState(false);
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
 
-  const handleOpenBug = () => { setBugText(""); setBugSubmitted(false); setBugDialogOpen(true); };
-  const handleOpenFeedback = () => { setFeedbackText(""); setFeedbackSubmitted(false); setFeedbackDialogOpen(true); };
+  const handleOpenBug = () => { setBugText(""); setBugSubmitted(false); setBugSheetOpen(true); };
+  const handleOpenFeedback = () => { setFeedbackText(""); setFeedbackSubmitted(false); setFeedbackSheetOpen(true); };
 
   const handleSubmitBug = async () => {
     if (!bugText.trim()) return;
@@ -90,7 +110,7 @@ export function SettingsPage() {
       await submitFeedback("bug", bugText.trim(), "coach");
       setBugSubmitted(true);
       setBugText("");
-      setTimeout(() => { setBugDialogOpen(false); setBugSubmitted(false); }, 1800);
+      setTimeout(() => { setBugSheetOpen(false); setBugSubmitted(false); }, 1800);
     } catch {
       toast({ title: "Failed to send report", variant: "destructive" });
     } finally {
@@ -105,7 +125,7 @@ export function SettingsPage() {
       await submitFeedback("feedback", feedbackText.trim(), "coach");
       setFeedbackSubmitted(true);
       setFeedbackText("");
-      setTimeout(() => { setFeedbackDialogOpen(false); setFeedbackSubmitted(false); }, 1800);
+      setTimeout(() => { setFeedbackSheetOpen(false); setFeedbackSubmitted(false); }, 1800);
     } catch {
       toast({ title: "Failed to send feedback", variant: "destructive" });
     } finally {
@@ -134,6 +154,59 @@ export function SettingsPage() {
         </div>
       </div>
 
+      {/* ── White Labeling ─────────────────────────── */}
+      <SectionHeader title="White Labeling" />
+      <div className="rounded-2xl border border-border bg-card p-4 space-y-4">
+        <p className="text-xs text-muted-foreground">Customize how your brand appears to clients.</p>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">Brand Name</label>
+            <Input
+              placeholder="e.g. Alex's Coaching"
+              value={brand.name}
+              onChange={e => setBrand(b => ({ ...b, name: e.target.value }))}
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">Tagline</label>
+            <Input
+              placeholder="e.g. Train harder. Live better."
+              value={brand.tagline}
+              onChange={e => setBrand(b => ({ ...b, tagline: e.target.value }))}
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">Brand Color</label>
+            <div className="flex items-center gap-3">
+              <input
+                type="color"
+                value={brand.primaryColor || "#000000"}
+                onChange={e => setBrand(b => ({ ...b, primaryColor: e.target.value }))}
+                className="w-10 h-10 rounded-lg border border-border cursor-pointer bg-transparent"
+              />
+              <Input
+                placeholder="#3b82f6"
+                value={brand.primaryColor}
+                onChange={e => setBrand(b => ({ ...b, primaryColor: e.target.value }))}
+                className="font-mono text-sm"
+              />
+            </div>
+          </div>
+        </div>
+        <Button
+          size="sm"
+          className="w-full"
+          onClick={handleSaveBrand}
+          variant={brandSaved ? "outline" : "default"}
+        >
+          {brandSaved ? (
+            <><CheckCircle className="w-4 h-4 mr-2 text-green-500" /> Saved!</>
+          ) : (
+            <><Save className="w-4 h-4 mr-2" /> Save Brand Settings</>
+          )}
+        </Button>
+      </div>
+
       {/* ── Support ────────────────────────────────── */}
       <SectionHeader title="Support" />
       <div className="rounded-2xl border border-border bg-card divide-y divide-border">
@@ -155,12 +228,12 @@ export function SettingsPage() {
         </div>
       </div>
 
-      {/* ── Feedback dialog ───────────────────────── */}
-      <Dialog open={feedbackDialogOpen} onOpenChange={open => { if (!open) setFeedbackDialogOpen(false); }}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Send feedback</DialogTitle>
-          </DialogHeader>
+      {/* ── Feedback sheet ────────────────────────── */}
+      <Sheet open={feedbackSheetOpen} onOpenChange={open => { if (!open) setFeedbackSheetOpen(false); }}>
+        <SheetContent side="bottom" className="rounded-t-2xl pb-8">
+          <SheetHeader className="mb-4">
+            <SheetTitle>Send feedback</SheetTitle>
+          </SheetHeader>
 
           {feedbackSubmitted ? (
             <div className="flex flex-col items-center justify-center py-8 gap-3 text-center animate-in fade-in zoom-in duration-300">
@@ -181,7 +254,7 @@ export function SettingsPage() {
                 autoFocus
               />
               <div className="flex gap-2 justify-end">
-                <Button variant="ghost" size="sm" onClick={() => setFeedbackDialogOpen(false)}>
+                <Button variant="ghost" size="sm" onClick={() => setFeedbackSheetOpen(false)}>
                   Cancel
                 </Button>
                 <Button size="sm" disabled={!feedbackText.trim() || feedbackPending} onClick={handleSubmitFeedback}>
@@ -190,15 +263,15 @@ export function SettingsPage() {
               </div>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
 
-      {/* ── Bug report dialog ─────────────────────── */}
-      <Dialog open={bugDialogOpen} onOpenChange={open => { if (!open) setBugDialogOpen(false); }}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Report a bug</DialogTitle>
-          </DialogHeader>
+      {/* ── Bug report sheet ──────────────────────── */}
+      <Sheet open={bugSheetOpen} onOpenChange={open => { if (!open) setBugSheetOpen(false); }}>
+        <SheetContent side="bottom" className="rounded-t-2xl pb-8">
+          <SheetHeader className="mb-4">
+            <SheetTitle>Report a bug</SheetTitle>
+          </SheetHeader>
 
           {bugSubmitted ? (
             <div className="flex flex-col items-center justify-center py-8 gap-3 text-center animate-in fade-in zoom-in duration-300">
@@ -219,7 +292,7 @@ export function SettingsPage() {
                 autoFocus
               />
               <div className="flex gap-2 justify-end">
-                <Button variant="ghost" size="sm" onClick={() => setBugDialogOpen(false)}>
+                <Button variant="ghost" size="sm" onClick={() => setBugSheetOpen(false)}>
                   Cancel
                 </Button>
                 <Button size="sm" disabled={!bugText.trim() || bugPending} onClick={handleSubmitBug}>
@@ -228,8 +301,8 @@ export function SettingsPage() {
               </div>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

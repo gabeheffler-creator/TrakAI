@@ -1,5 +1,6 @@
 import { useState, useRef, useMemo } from "react";
 import { useClientId } from "@/hooks/use-client-id";
+import { useUnitSystem } from "@/hooks/use-unit-system";
 import {
   useListNutritionLogs,
   useCreateNutritionLog,
@@ -12,8 +13,48 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Camera, Plus, Minus, Loader2, Pencil, Check, ChevronDown, ChevronUp, UtensilsCrossed, Trash2 } from "lucide-react";
+import { Camera, Plus, Minus, Loader2, Pencil, Check, ChevronDown, ChevronUp, UtensilsCrossed, Trash2, Target, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+interface NutritionGoals {
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  waterOz: number;
+}
+
+const GOALS_KEY = "trak_nutrition_goals";
+const DEFAULT_GOALS: NutritionGoals = { calories: 2000, protein: 150, carbs: 200, fat: 65, waterOz: 64 };
+
+function readGoals(): NutritionGoals {
+  try {
+    const raw = localStorage.getItem(GOALS_KEY);
+    return raw ? { ...DEFAULT_GOALS, ...JSON.parse(raw) } : DEFAULT_GOALS;
+  } catch { return DEFAULT_GOALS; }
+}
+function saveGoals(g: NutritionGoals) { localStorage.setItem(GOALS_KEY, JSON.stringify(g)); }
+
+function GoalBar({ label, actual, goal, color }: { label: string; actual: number; goal: number; color: string }) {
+  const pct = goal > 0 ? Math.min(100, Math.round((actual / goal) * 100)) : 0;
+  const over = actual > goal && goal > 0;
+  return (
+    <div className="space-y-0.5">
+      <div className="flex justify-between text-xs">
+        <span className="text-muted-foreground">{label}</span>
+        <span className={cn("font-semibold tabular-nums", over ? "text-destructive" : "text-foreground")}>
+          {actual}<span className="text-muted-foreground font-normal">/{goal}</span>
+        </span>
+      </div>
+      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+        <div
+          className={cn("h-full rounded-full transition-all duration-500", color, over && "bg-destructive")}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
+}
 
 interface MealSlot {
   id: string;
@@ -42,6 +83,7 @@ const GLASS_ML = Math.round(OZ_PER_GLASS * ML_PER_OZ); // 237
 function PhotoBox({
   slot,
   aiResult,
+  calLabel,
   onFileChange,
   onCantTrackToggle,
   onNoteChange,
@@ -52,6 +94,7 @@ function PhotoBox({
 }: {
   slot: MealSlot;
   aiResult: AiResult | null;
+  calLabel: string;
   onFileChange: (file: File, url: string) => void;
   onCantTrackToggle: () => void;
   onNoteChange: (v: string) => void;
@@ -98,7 +141,7 @@ function PhotoBox({
               onChange={e => onCalorieGuessChange(e.target.value)}
               className="h-8 text-sm"
             />
-            <span className="text-xs text-muted-foreground">kcal</span>
+            <span className="text-xs text-muted-foreground">{calLabel}</span>
           </div>
         </div>
       ) : (
@@ -160,7 +203,7 @@ function PhotoBox({
               ) : (
                 <div className="grid grid-cols-5 gap-1 text-center">
                   {([
-                    { label: "Cal", val: aiResult.calories, unit: "kcal" },
+                    { label: "Cal", val: aiResult.calories, unit: calLabel },
                     { label: "Protein", val: aiResult.protein, unit: "g" },
                     { label: "Carbs", val: aiResult.carbs, unit: "g" },
                     { label: "Fat", val: aiResult.fat, unit: "g" },
@@ -198,6 +241,17 @@ export function NutritionPage() {
   const { clientId } = useClientId();
   const qc = useQueryClient();
   const { toast } = useToast();
+
+  const [goals, setGoalsState] = useState<NutritionGoals>(readGoals);
+  const [editGoals, setEditGoals] = useState(false);
+  const [goalsForm, setGoalsForm] = useState<NutritionGoals>(readGoals);
+
+  const handleSaveGoals = () => {
+    saveGoals(goalsForm);
+    setGoalsState(goalsForm);
+    setEditGoals(false);
+    toast({ title: "Goals saved!" });
+  };
 
   const [diarySlot, setDiarySlot] = useState<MealSlot>(makeSlot("MFP Diary Overview"));
   const [mealSlots, setMealSlots] = useState<MealSlot[]>([
@@ -375,6 +429,9 @@ export function NutritionPage() {
     return Object.entries(grouped).sort(([a], [b]) => b.localeCompare(a));
   }, [logs]);
 
+  const { units } = useUnitSystem();
+  const calLabel = units === "imperial" ? "cal" : "kcal";
+
   if (!clientId) return <div className="p-4 text-muted-foreground">Please join via an invite link first.</div>;
 
   const today = new Date().toISOString().split("T")[0];
@@ -396,14 +453,70 @@ export function NutritionPage() {
 
       {/* ── Today's Summary ───────────────────── */}
       <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Today's Totals</p>
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Today's Totals</p>
+          <button
+            onClick={() => { setGoalsForm(goals); setEditGoals(v => !v); }}
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Target className="w-3.5 h-3.5" />
+            {editGoals ? "Close" : "Goals"}
+          </button>
+        </div>
+
+        {editGoals && (
+          <div className="bg-muted/50 rounded-xl p-3 space-y-3 border border-border">
+            <p className="text-xs font-semibold text-foreground">Daily Goals</p>
+            <div className="grid grid-cols-2 gap-2">
+              {(["calories", "protein", "carbs", "fat", "waterOz"] as const).map(k => (
+                <div key={k} className="space-y-1">
+                  <label className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                    {k === "waterOz" ? "Water (oz)" : k === "calories" ? calLabel : k}
+                  </label>
+                  <Input
+                    type="number"
+                    value={goalsForm[k]}
+                    onChange={e => setGoalsForm(p => ({ ...p, [k]: Number(e.target.value) }))}
+                    className="h-8 text-sm"
+                    min={0}
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={handleSaveGoals} className="flex-1 gap-1">
+                <Check className="w-3.5 h-3.5" /> Save Goals
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setEditGoals(false)} className="gap-1">
+                <X className="w-3.5 h-3.5" /> Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+
         {hasTodayData ? (
           <>
             {/* Calories big display */}
             <div className="flex items-end gap-1.5">
               <span className="text-4xl font-bold tabular-nums leading-none">{totalCal.toLocaleString()}</span>
-              <span className="text-sm text-muted-foreground pb-0.5">kcal</span>
+              <span className="text-sm text-muted-foreground pb-0.5">{calLabel}</span>
+              {goals.calories > 0 && (
+                <span className="text-xs text-muted-foreground pb-0.5 ml-1">
+                  / {goals.calories.toLocaleString()} goal
+                </span>
+              )}
             </div>
+
+            {/* Goal progress bars */}
+            {goals.calories > 0 && (
+              <div className="space-y-2">
+                <GoalBar label={`Calories (${calLabel})`} actual={Math.round(totalCal)} goal={goals.calories} color="bg-primary" />
+                <GoalBar label="Protein (g)" actual={Math.round(totalPro)} goal={goals.protein} color="bg-blue-500" />
+                <GoalBar label="Carbs (g)" actual={Math.round(totalCarb)} goal={goals.carbs} color="bg-orange-500" />
+                <GoalBar label="Fat (g)" actual={Math.round(totalFat)} goal={goals.fat} color="bg-yellow-500" />
+              </div>
+            )}
+
             {/* Macro pills */}
             <div className="grid grid-cols-3 gap-2">
               {[
@@ -432,6 +545,7 @@ export function NutritionPage() {
       <PhotoBox
         slot={diarySlot}
         aiResult={aiResults[diarySlot.id] ?? null}
+        calLabel={calLabel}
         onFileChange={(f, u) => handleFileChange(diarySlot.id, true, f, u)}
         onCantTrackToggle={() => updateSlot(diarySlot.id, true, { cantTrack: !diarySlot.cantTrack })}
         onNoteChange={v => updateSlot(diarySlot.id, true, { cantTrackNote: v })}
@@ -451,6 +565,7 @@ export function NutritionPage() {
             key={slot.id}
             slot={slot}
             aiResult={aiResults[slot.id] ?? null}
+            calLabel={calLabel}
             onFileChange={(f, u) => handleFileChange(slot.id, false, f, u)}
             onCantTrackToggle={() => updateSlot(slot.id, false, { cantTrack: !slot.cantTrack })}
             onNoteChange={v => updateSlot(slot.id, false, { cantTrackNote: v })}
@@ -576,7 +691,7 @@ export function NutritionPage() {
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium">{n.notes ?? n.date}</p>
                             <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
-                              {n.calories && <span className="text-xs text-muted-foreground">{n.calories} kcal</span>}
+                              {n.calories && <span className="text-xs text-muted-foreground">{n.calories} {calLabel}</span>}
                               {n.protein && <span className="text-xs text-muted-foreground">P: {n.protein}g</span>}
                               {n.carbs && <span className="text-xs text-muted-foreground">C: {n.carbs}g</span>}
                               {n.fat && <span className="text-xs text-muted-foreground">F: {n.fat}g</span>}

@@ -595,19 +595,25 @@ export function ClientProfile() {
       )}
 
       <Tabs defaultValue="overview">
-        <TabsList className="w-full md:w-auto flex-wrap h-auto gap-1">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="program">Program</TabsTrigger>
-          <TabsTrigger value="workouts">Workouts</TabsTrigger>
-          <TabsTrigger value="measurements">Measurements</TabsTrigger>
-          <TabsTrigger value="sleep">Sleep</TabsTrigger>
-          <TabsTrigger value="nutrition">Nutrition</TabsTrigger>
-          <TabsTrigger value="photos">Photos</TabsTrigger>
-          <TabsTrigger value="assignments">Assignments</TabsTrigger>
-          <TabsTrigger value="messages">Messages</TabsTrigger>
-          <TabsTrigger value="notes"><StickyNote className="w-3.5 h-3.5 mr-1" />Notes</TabsTrigger>
-          <TabsTrigger value="calls"><Phone className="w-3.5 h-3.5 mr-1" />Calls</TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto -mx-4 px-4 pb-1 scrollbar-none">
+          <TabsList className="flex w-max gap-0.5 h-9 p-0.5 bg-muted rounded-lg">
+            <TabsTrigger value="overview" className="text-xs px-3 h-8 rounded-md">Overview</TabsTrigger>
+            <TabsTrigger value="program" className="text-xs px-3 h-8 rounded-md">Program</TabsTrigger>
+            <TabsTrigger value="workouts" className="text-xs px-3 h-8 rounded-md">Workouts</TabsTrigger>
+            <TabsTrigger value="measurements" className="text-xs px-3 h-8 rounded-md">Measurements</TabsTrigger>
+            <TabsTrigger value="sleep" className="text-xs px-3 h-8 rounded-md">Sleep</TabsTrigger>
+            <TabsTrigger value="nutrition" className="text-xs px-3 h-8 rounded-md">Nutrition</TabsTrigger>
+            <TabsTrigger value="photos" className="text-xs px-3 h-8 rounded-md">Photos</TabsTrigger>
+            <TabsTrigger value="assignments" className="text-xs px-3 h-8 rounded-md">Assignments</TabsTrigger>
+            <TabsTrigger value="messages" className="text-xs px-3 h-8 rounded-md">Messages</TabsTrigger>
+            <TabsTrigger value="notes" className="text-xs px-3 h-8 rounded-md flex items-center gap-1">
+              <StickyNote className="w-3 h-3" />Notes
+            </TabsTrigger>
+            <TabsTrigger value="calls" className="text-xs px-3 h-8 rounded-md flex items-center gap-1">
+              <Phone className="w-3 h-3" />Calls
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* Overview */}
         <TabsContent value="overview" className="space-y-4 mt-4">

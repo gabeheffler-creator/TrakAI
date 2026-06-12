@@ -18,6 +18,7 @@ const surveySchema = z.object({
   currentTools: z.string().optional(),
   painPoints: z.string().optional(),
   mostValuableFeature: z.string().min(1, "Please select a feature"),
+  softwareBudget: z.string().optional(),
   betaInterest: z.string().min(1, "Please select your interest level")
 });
 
@@ -36,19 +37,28 @@ const ROLES = [
 const CLIENT_COUNTS = ["1–5", "6–15", "16–30", "30+"];
 
 const FEATURES = [
-  "AI-powered program building",
-  "Automated client check-ins",
-  "Progress tracking & analytics",
-  "Client communication tools",
-  "Nutrition & habit tracking",
-  "Video exercise library",
+  "AI-powered program & workout builder",
+  "Automated client check-ins & compliance tracking",
+  "Progress & body composition analytics",
+  "Nutrition tracking with AI photo logging",
+  "White-label client app with your branding",
+  "Built-in onboarding & assessment flows",
+  "Client messaging & communication hub",
   "I want it all"
+];
+
+const BUDGET_RANGES = [
+  "I'd use it if it's free",
+  "$0–$49 / month",
+  "$50–$149 / month",
+  "$150–$299 / month",
+  "$300+ / month — just make it worth it"
 ];
 
 const INTEREST_LEVELS = [
   "Very interested — sign me up!",
   "Interested — tell me more",
-  "Curious but not sure yet",
+  "Curious but want to see more first",
   "Not right now"
 ];
 
@@ -68,6 +78,7 @@ export default function SurveyPage() {
       currentTools: "",
       painPoints: "",
       mostValuableFeature: "",
+      softwareBudget: "",
       betaInterest: ""
     },
     mode: "onTouched"
@@ -342,6 +353,27 @@ export default function SurveyPage() {
                       ))}
                     </RadioGroup>
                     {errors.mostValuableFeature && <p className="text-destructive font-mono text-xs">{errors.mostValuableFeature.message}</p>}
+                  </div>
+
+                  <div className="space-y-4">
+                    <Label className="text-sm font-bold uppercase tracking-wider text-muted-foreground block mb-4">Monthly software budget</Label>
+                    <RadioGroup
+                      onValueChange={(val) => form.setValue("softwareBudget", val)}
+                      defaultValue={form.getValues("softwareBudget")}
+                      className="grid gap-2"
+                    >
+                      {BUDGET_RANGES.map((range) => (
+                        <div key={range} className="flex items-center space-x-2">
+                          <RadioGroupItem value={range} id={`budget-${range}`} className="peer sr-only" />
+                          <Label
+                            htmlFor={`budget-${range}`}
+                            className="flex flex-1 items-center justify-between border-2 border-muted bg-transparent px-4 py-3 hover:bg-muted peer-data-[state=checked]:border-foreground peer-data-[state=checked]:bg-foreground peer-data-[state=checked]:text-background cursor-pointer font-medium transition-all shadow-sm"
+                          >
+                            {range}
+                          </Label>
+                        </div>
+                      ))}
+                    </RadioGroup>
                   </div>
 
                   <div className="space-y-4">

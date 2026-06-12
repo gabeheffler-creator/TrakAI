@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useClientId } from "@/hooks/use-client-id";
 import {
   useListSleepLogs,
@@ -34,11 +34,23 @@ const qualityColors: Record<string, string> = {
   great: "text-green-500",
 };
 
+type Timeframe = "7d" | "30d" | "90d" | "all";
+
+function filterByTimeframe<T extends { date: string }>(items: T[], tf: Timeframe): T[] {
+  if (tf === "all") return items;
+  const days = tf === "7d" ? 7 : tf === "30d" ? 30 : 90;
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days);
+  const cutoffStr = cutoff.toISOString().split("T")[0];
+  return items.filter(i => i.date >= cutoffStr);
+}
+
 export function SleepPage() {
   const { clientId } = useClientId();
   const qc = useQueryClient();
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [timeframe, setTimeframe] = useState<Timeframe>("30d");
 
   const { data: logs, isLoading } = useListSleepLogs(clientId!, {
     query: { enabled: !!clientId, queryKey: getListSleepLogsQueryKey(clientId!) }
@@ -77,8 +89,11 @@ export function SleepPage() {
     });
   };
 
-  const avgSleep = logs?.length
-    ? (logs.reduce((acc, l) => acc + Number(l.hoursSlept), 0) / logs.length).toFixed(1)
+  const filtered = useMemo(() => filterByTimeframe(logs ?? [], timeframe), [logs, timeframe]);
+  const sortedFiltered = filtered.slice().sort((a, b) => b.date.localeCompare(a.date));
+
+  const avgSleep = filtered.length
+    ? (filtered.reduce((acc, l) => acc + Number(l.hoursSlept), 0) / filtered.length).toFixed(1)
     : null;
 
   if (!clientId) return <div className="p-4 text-muted-foreground">Not logged in.</div>;
@@ -87,58 +102,71 @@ export function SleepPage() {
     <div className="max-w-lg mx-auto space-y-5">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Sleep</h1>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" data-testid="button-log-sleep"><Plus className="w-4 h-4 mr-1" /> Log Sleep</Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>Log Sleep</DialogTitle></DialogHeader>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField control={form.control} name="date" render={({ field }) => (
-                  <FormItem><FormLabel>Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl></FormItem>
-                )} />
-                <FormField control={form.control} name="hoursSlept" render={({ field }) => (
-                  <FormItem><FormLabel>Hours Slept</FormLabel><FormControl><Input type="number" step="0.5" {...field} data-testid="input-hours-slept" /></FormControl></FormItem>
-                )} />
-                <FormField control={form.control} name="quality" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Sleep Quality</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl><SelectTrigger><SelectValue placeholder="How did you sleep?" /></SelectTrigger></FormControl>
-                      <SelectContent>
-                        <SelectItem value="poor">Poor</SelectItem>
-                        <SelectItem value="fair">Fair</SelectItem>
-                        <SelectItem value="good">Good</SelectItem>
-                        <SelectItem value="great">Great</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </FormItem>
-                )} />
-                <FormField control={form.control} name="notes" render={({ field }) => (
-                  <FormItem><FormLabel>Notes</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
-                )} />
-                <FormField control={form.control} name="energyRating" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Energy on Waking</FormLabel>
-                    <Select
-                      onValueChange={v => field.onChange(Number(v))}
-                      value={field.value != null ? String(field.value) : ""}
-                    >
-                      <FormControl><SelectTrigger><SelectValue placeholder="Rate your energy (1–10)" /></SelectTrigger></FormControl>
-                      <SelectContent>
-                        {Array.from({ length: 10 }, (_, i) => i + 1).map(n => (
-                          <SelectItem key={n} value={String(n)}>{n} — {n <= 3 ? "Exhausted" : n <= 5 ? "Tired" : n <= 7 ? "OK" : n <= 9 ? "Good" : "Excellent"}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </FormItem>
-                )} />
-                <Button type="submit" className="w-full" disabled={logSleep.isPending}>Log</Button>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+        <div className="flex items-center gap-2">
+          <Select value={timeframe} onValueChange={v => setTimeframe(v as Timeframe)}>
+            <SelectTrigger className="h-8 text-xs w-[110px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="7d">Last 7 days</SelectItem>
+              <SelectItem value="30d">Last 30 days</SelectItem>
+              <SelectItem value="90d">Last 90 days</SelectItem>
+              <SelectItem value="all">All time</SelectItem>
+            </SelectContent>
+          </Select>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" data-testid="button-log-sleep"><Plus className="w-4 h-4 mr-1" /> Log Sleep</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Log Sleep</DialogTitle></DialogHeader>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                  <FormField control={form.control} name="date" render={({ field }) => (
+                    <FormItem><FormLabel>Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl></FormItem>
+                  )} />
+                  <FormField control={form.control} name="hoursSlept" render={({ field }) => (
+                    <FormItem><FormLabel>Hours Slept</FormLabel><FormControl><Input type="number" step="0.5" {...field} data-testid="input-hours-slept" /></FormControl></FormItem>
+                  )} />
+                  <FormField control={form.control} name="quality" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Sleep Quality</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl><SelectTrigger><SelectValue placeholder="How did you sleep?" /></SelectTrigger></FormControl>
+                        <SelectContent>
+                          <SelectItem value="poor">Poor</SelectItem>
+                          <SelectItem value="fair">Fair</SelectItem>
+                          <SelectItem value="good">Good</SelectItem>
+                          <SelectItem value="great">Great</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="notes" render={({ field }) => (
+                    <FormItem><FormLabel>Notes</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
+                  )} />
+                  <FormField control={form.control} name="energyRating" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Energy on Waking</FormLabel>
+                      <Select
+                        onValueChange={v => field.onChange(Number(v))}
+                        value={field.value != null ? String(field.value) : ""}
+                      >
+                        <FormControl><SelectTrigger><SelectValue placeholder="Rate your energy (1–10)" /></SelectTrigger></FormControl>
+                        <SelectContent>
+                          {Array.from({ length: 10 }, (_, i) => i + 1).map(n => (
+                            <SelectItem key={n} value={String(n)}>{n} — {n <= 3 ? "Exhausted" : n <= 5 ? "Tired" : n <= 7 ? "OK" : n <= 9 ? "Good" : "Excellent"}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FormItem>
+                  )} />
+                  <Button type="submit" className="w-full" disabled={logSleep.isPending}>Log</Button>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {avgSleep && (
@@ -147,19 +175,19 @@ export function SleepPage() {
             <Moon className="w-8 h-8 text-primary" />
             <div>
               <p className="text-3xl font-bold">{avgSleep}h</p>
-              <p className="text-xs text-muted-foreground">average sleep ({logs?.length} entries)</p>
+              <p className="text-xs text-muted-foreground">average sleep · {filtered.length} entries</p>
             </div>
           </CardContent>
         </Card>
       )}
 
       {isLoading && <p className="text-muted-foreground">Loading...</p>}
-      {(logs?.length ?? 0) === 0 && !isLoading && (
-        <p className="text-muted-foreground text-sm text-center py-8">No sleep logged yet.</p>
+      {sortedFiltered.length === 0 && !isLoading && (
+        <p className="text-muted-foreground text-sm text-center py-8">No sleep logged for this period.</p>
       )}
 
       <div className="space-y-2">
-        {logs?.slice().reverse().map(s => (
+        {sortedFiltered.map(s => (
           <Card key={s.id} data-testid={`card-sleep-${s.id}`}>
             <CardContent className="pt-3 pb-3 flex items-center justify-between">
               <div className="flex items-center gap-3">

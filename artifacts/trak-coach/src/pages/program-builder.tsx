@@ -43,12 +43,39 @@ const daySchema = z.object({
   phaseId: z.coerce.number().optional(),
 });
 
+const SET_TYPES = ["Normal", "Warm-up", "Drop Set", "Rest-Pause", "Failure"] as const;
+
+function encodeExNotes(setType: string, rpe: string, notes: string): string {
+  const parts: string[] = [];
+  if (setType && setType !== "Normal") parts.push(`[${setType}]`);
+  if (rpe) parts.push(`RPE ${rpe}`);
+  if (notes) parts.push(notes);
+  return parts.join(" | ");
+}
+
+function decodeExNotes(raw: string | null | undefined): { setType: string; rpe: string; notes: string } {
+  if (!raw) return { setType: "Normal", rpe: "", notes: "" };
+  const setTypeMatch = raw.match(/^\[([^\]]+)\]/);
+  const rpeMatch = raw.match(/RPE (\d+(?:\.\d+)?)/);
+  let notes = raw;
+  if (setTypeMatch) notes = notes.replace(setTypeMatch[0], "").trim();
+  if (rpeMatch) notes = notes.replace(`RPE ${rpeMatch[1]}`, "").trim();
+  notes = notes.replace(/^\|?\s*|\s*\|?$/g, "").replace(/\s*\|\s*/g, " ").trim();
+  return {
+    setType: setTypeMatch ? setTypeMatch[1] : "Normal",
+    rpe: rpeMatch ? rpeMatch[1] : "",
+    notes,
+  };
+}
+
 const exerciseSchema = z.object({
   exerciseId: z.coerce.number().min(1),
   sets: z.coerce.number().min(1),
   reps: z.string().min(1),
   weight: z.string().optional(),
   restSeconds: z.coerce.number().optional(),
+  setType: z.string().default("Normal"),
+  rpe: z.string().optional(),
   notes: z.string().optional(),
   order: z.coerce.number().default(0),
 });
@@ -91,7 +118,7 @@ export function ProgramBuilder() {
   });
   const exForm = useForm<z.infer<typeof exerciseSchema>>({
     resolver: zodResolver(exerciseSchema),
-    defaultValues: { exerciseId: 0, sets: 3, reps: "8-12", weight: "", restSeconds: 60, notes: "", order: 0 },
+    defaultValues: { exerciseId: 0, sets: 3, reps: "8-12", weight: "", restSeconds: 60, setType: "Normal", rpe: "", notes: "", order: 0 },
   });
 
   const invalidate = () => qc.invalidateQueries({ queryKey: getGetProgramQueryKey(programId) });
@@ -173,9 +200,10 @@ export function ProgramBuilder() {
 
   const handleAddExercise = (values: z.infer<typeof exerciseSchema>) => {
     if (!selectedDayId) return;
+    const encodedNotes = encodeExNotes(values.setType ?? "Normal", values.rpe ?? "", values.notes ?? "");
     addExercise.mutate(
-      { programId, dayId: selectedDayId, data: { exerciseId: values.exerciseId, sets: values.sets, reps: values.reps, weight: values.weight || undefined, restSeconds: values.restSeconds || undefined, notes: values.notes || undefined, order: values.order } },
-      { onSuccess: () => { invalidate(); setExDialogOpen(false); exForm.reset({ exerciseId: 0, sets: 3, reps: "8-12", weight: "", restSeconds: 60, notes: "", order: 0 }); } }
+      { programId, dayId: selectedDayId, data: { exerciseId: values.exerciseId, sets: values.sets, reps: values.reps, weight: values.weight || undefined, restSeconds: values.restSeconds || undefined, notes: encodedNotes || undefined, order: values.order } },
+      { onSuccess: () => { invalidate(); setExDialogOpen(false); exForm.reset({ exerciseId: 0, sets: 3, reps: "8-12", weight: "", restSeconds: 60, setType: "Normal", rpe: "", notes: "", order: 0 }); } }
     );
   };
 
@@ -405,7 +433,34 @@ export function ProgramBuilder() {
                           <FormItem><FormLabel>Rest (sec)</FormLabel><FormControl><Input type="number" {...field} /></FormControl></FormItem>
                         )} />
                       </div>
-                      <Button type="submit" className="w-full" disabled={addExercise.isPending}>Add</Button>
+                      <div className="grid grid-cols-2 gap-3">
+                        <FormField control={exForm.control} name="setType" render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Set Type</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                              <SelectContent>
+                                {SET_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          </FormItem>
+                        )} />
+                        <FormField control={exForm.control} name="rpe" render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>RPE <span className="text-muted-foreground">(1–10)</span></FormLabel>
+                            <FormControl>
+                              <Input type="number" min="1" max="10" step="0.5" placeholder="e.g. 8" {...field} />
+                            </FormControl>
+                          </FormItem>
+                        )} />
+                      </div>
+                      <FormField control={exForm.control} name="notes" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Coach Notes <span className="text-muted-foreground">(Optional)</span></FormLabel>
+                          <FormControl><Input {...field} placeholder="e.g. Control the eccentric" /></FormControl>
+                        </FormItem>
+                      )} />
+                      <Button type="submit" className="w-full" disabled={addExercise.isPending}>Add Exercise</Button>
                     </form>
                   </Form>
                 </DialogContent>
@@ -415,27 +470,38 @@ export function ProgramBuilder() {
           <CardContent className="space-y-2 p-3">
             {!selectedDay && <p className="text-muted-foreground text-sm text-center py-8">Select a day to view its exercises</p>}
             {selectedDay?.exercises?.length === 0 && <p className="text-muted-foreground text-xs text-center py-8">No exercises added yet</p>}
-            {selectedDay?.exercises?.map((e, idx) => (
-              <div key={e.id} data-testid={`exercise-${e.id}`} className="flex items-center gap-3 px-3 py-2.5 rounded-md bg-muted/50">
-                <span className="text-xs text-muted-foreground w-5 text-center">{idx + 1}</span>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">{e.exerciseName}</p>
-                  <div className="flex gap-2 mt-0.5 flex-wrap">
-                    <Badge variant="outline" className="text-xs">{e.muscleGroup}</Badge>
-                    <span className="text-xs text-muted-foreground">{e.sets} × {e.reps}</span>
-                    {e.weight && <span className="text-xs text-muted-foreground">@ {e.weight}</span>}
-                    {e.restSeconds && <span className="text-xs text-muted-foreground">{e.restSeconds}s rest</span>}
+            {selectedDay?.exercises?.map((e, idx) => {
+              const decoded = decodeExNotes(e.notes);
+              const isSpecialSet = decoded.setType !== "Normal";
+              return (
+                <div key={e.id} data-testid={`exercise-${e.id}`} className="flex items-center gap-3 px-3 py-2.5 rounded-md bg-muted/50">
+                  <span className="text-xs text-muted-foreground w-5 text-center">{idx + 1}</span>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <p className="text-sm font-medium">{e.exerciseName}</p>
+                      {isSpecialSet && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-primary/40 text-primary">{decoded.setType}</Badge>
+                      )}
+                    </div>
+                    <div className="flex gap-2 mt-0.5 flex-wrap items-center">
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0">{e.muscleGroup}</Badge>
+                      <span className="text-xs text-muted-foreground">{e.sets} × {e.reps}</span>
+                      {e.weight && <span className="text-xs text-muted-foreground">@ {e.weight}</span>}
+                      {e.restSeconds && <span className="text-xs text-muted-foreground">{e.restSeconds}s rest</span>}
+                      {decoded.rpe && <span className="text-xs font-medium text-amber-600 dark:text-amber-400">RPE {decoded.rpe}</span>}
+                      {decoded.notes && <span className="text-xs text-muted-foreground italic">"{decoded.notes}"</span>}
+                    </div>
                   </div>
+                  <button
+                    onClick={() => handleDeleteExercise(selectedDay.id, e.id)}
+                    className="text-muted-foreground hover:text-destructive transition-colors"
+                    data-testid={`button-delete-exercise-${e.id}`}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
-                <button
-                  onClick={() => handleDeleteExercise(selectedDay.id, e.id)}
-                  className="text-muted-foreground hover:text-destructive transition-colors"
-                  data-testid={`button-delete-exercise-${e.id}`}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </CardContent>
         </Card>
       </div>

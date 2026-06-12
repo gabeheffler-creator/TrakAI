@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -20,7 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Plus, Trash2, ChevronRight, Dumbbell } from "lucide-react";
 
 const programSchema = z.object({
-  name: z.string().min(1),
+  name: z.string().min(1, "Name is required"),
   description: z.string().optional(),
   durationWeeks: z.coerce.number().optional(),
 });
@@ -31,7 +31,7 @@ export function Programs() {
   const deleteProgram = useDeleteProgram();
   const qc = useQueryClient();
   const { toast } = useToast();
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   const form = useForm<z.infer<typeof programSchema>>({
     resolver: zodResolver(programSchema),
@@ -42,7 +42,7 @@ export function Programs() {
     createProgram.mutate({ data: { name: values.name, description: values.description || undefined, durationWeeks: values.durationWeeks || undefined } }, {
       onSuccess: () => {
         qc.invalidateQueries({ queryKey: getListProgramsQueryKey() });
-        setDialogOpen(false);
+        setSheetOpen(false);
         form.reset();
         toast({ title: "Program created" });
       },
@@ -67,29 +67,34 @@ export function Programs() {
           <h1 className="text-3xl font-bold tracking-tight">Programs</h1>
           <p className="text-muted-foreground mt-1">Build and manage workout programs</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button data-testid="button-create-program"><Plus className="w-4 h-4 mr-2" /> New Program</Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>Create Program</DialogTitle></DialogHeader>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField control={form.control} name="name" render={({ field }) => (
-                  <FormItem><FormLabel>Name</FormLabel><FormControl><Input {...field} data-testid="input-program-name" /></FormControl><FormMessage /></FormItem>
-                )} />
-                <FormField control={form.control} name="description" render={({ field }) => (
-                  <FormItem><FormLabel>Description</FormLabel><FormControl><Textarea {...field} rows={3} /></FormControl></FormItem>
-                )} />
-                <FormField control={form.control} name="durationWeeks" render={({ field }) => (
-                  <FormItem><FormLabel>Duration (weeks)</FormLabel><FormControl><Input type="number" {...field} /></FormControl></FormItem>
-                )} />
-                <Button type="submit" className="w-full" disabled={createProgram.isPending}>Create</Button>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+        <Button data-testid="button-create-program" onClick={() => { form.reset(); setSheetOpen(true); }}>
+          <Plus className="w-4 h-4 mr-2" /> New Program
+        </Button>
       </div>
+
+      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+        <SheetContent side="bottom" className="rounded-t-2xl max-h-[90vh] overflow-y-auto">
+          <SheetHeader className="mb-4">
+            <SheetTitle>Create Program</SheetTitle>
+          </SheetHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pb-8">
+              <FormField control={form.control} name="name" render={({ field }) => (
+                <FormItem><FormLabel>Name</FormLabel><FormControl><Input placeholder="e.g. 12-Week Strength Builder" {...field} data-testid="input-program-name" /></FormControl><FormMessage /></FormItem>
+              )} />
+              <FormField control={form.control} name="description" render={({ field }) => (
+                <FormItem><FormLabel>Description <span className="text-muted-foreground">(Optional)</span></FormLabel><FormControl><Textarea placeholder="What is this program designed to achieve?" {...field} rows={3} /></FormControl></FormItem>
+              )} />
+              <FormField control={form.control} name="durationWeeks" render={({ field }) => (
+                <FormItem><FormLabel>Duration in weeks <span className="text-muted-foreground">(Optional)</span></FormLabel><FormControl><Input type="number" placeholder="e.g. 12" {...field} /></FormControl></FormItem>
+              )} />
+              <Button type="submit" className="w-full" disabled={createProgram.isPending}>
+                {createProgram.isPending ? "Creating…" : "Create Program"}
+              </Button>
+            </form>
+          </Form>
+        </SheetContent>
+      </Sheet>
 
       {isLoading && <p className="text-muted-foreground">Loading...</p>}
 

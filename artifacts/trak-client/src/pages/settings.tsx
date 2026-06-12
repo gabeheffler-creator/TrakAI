@@ -4,11 +4,15 @@ import { useUnitSystem } from "@/hooks/use-unit-system";
 import { useWorkoutPrefs } from "@/hooks/use-workout-prefs";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Moon, Sun, Ruler, Dumbbell, BarChart2, Bug, MessageSquare, ChevronRight, CheckCircle } from "lucide-react";
+import { Moon, Sun, Ruler, Dumbbell, BarChart2, Bug, MessageSquare, ChevronRight, CheckCircle, FlaskConical } from "lucide-react";
+
+const BETA_MODE_KEY = "trak_beta_mode";
+function readBetaMode() { return localStorage.getItem(BETA_MODE_KEY) === "true"; }
+function saveBetaMode(v: boolean) { localStorage.setItem(BETA_MODE_KEY, String(v)); }
 
 function SettingRow({
   icon,
@@ -74,19 +78,22 @@ export function SettingsPage() {
   const { units, setUnits } = useUnitSystem();
   const { workoutView, setWorkoutView, showProgressBar, setShowProgressBar } = useWorkoutPrefs();
   const { toast } = useToast();
+  const [betaMode, setBetaModeState] = useState(() => readBetaMode());
 
-  const [bugDialogOpen, setBugDialogOpen] = useState(false);
+  const toggleBetaMode = (v: boolean) => { saveBetaMode(v); setBetaModeState(v); };
+
+  const [bugSheetOpen, setBugSheetOpen] = useState(false);
   const [bugText, setBugText] = useState("");
   const [bugPending, setBugPending] = useState(false);
   const [bugSubmitted, setBugSubmitted] = useState(false);
 
-  const [feedbackDialogOpen, setFeedbackDialogOpen] = useState(false);
+  const [feedbackSheetOpen, setFeedbackSheetOpen] = useState(false);
   const [feedbackText, setFeedbackText] = useState("");
   const [feedbackPending, setFeedbackPending] = useState(false);
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
 
-  const handleOpenBug = () => { setBugText(""); setBugSubmitted(false); setBugDialogOpen(true); };
-  const handleOpenFeedback = () => { setFeedbackText(""); setFeedbackSubmitted(false); setFeedbackDialogOpen(true); };
+  const handleOpenBug = () => { setBugText(""); setBugSubmitted(false); setBugSheetOpen(true); };
+  const handleOpenFeedback = () => { setFeedbackText(""); setFeedbackSubmitted(false); setFeedbackSheetOpen(true); };
 
   const handleSubmitBug = async () => {
     if (!bugText.trim()) return;
@@ -95,7 +102,7 @@ export function SettingsPage() {
       await submitFeedback("bug", bugText.trim(), "client");
       setBugSubmitted(true);
       setBugText("");
-      setTimeout(() => { setBugDialogOpen(false); setBugSubmitted(false); }, 1800);
+      setTimeout(() => { setBugSheetOpen(false); setBugSubmitted(false); }, 1800);
     } catch {
       toast({ title: "Failed to send report", variant: "destructive" });
     } finally {
@@ -110,7 +117,7 @@ export function SettingsPage() {
       await submitFeedback("feedback", feedbackText.trim(), "client");
       setFeedbackSubmitted(true);
       setFeedbackText("");
-      setTimeout(() => { setFeedbackDialogOpen(false); setFeedbackSubmitted(false); }, 1800);
+      setTimeout(() => { setFeedbackSheetOpen(false); setFeedbackSubmitted(false); }, 1800);
     } catch {
       toast({ title: "Failed to send feedback", variant: "destructive" });
     } finally {
@@ -125,7 +132,7 @@ export function SettingsPage() {
         <p className="text-sm text-muted-foreground mt-1">Customize your experience</p>
       </div>
 
-      {/* ── Appearance ─────────────────────────────── */}
+      {/* ── Appearance ─────────────────────────── */}
       <SectionHeader title="Appearance" />
       <div className="rounded-2xl border border-border bg-card divide-y divide-border">
         <div className="px-4">
@@ -139,7 +146,7 @@ export function SettingsPage() {
         </div>
       </div>
 
-      {/* ── Measurements ───────────────────────────── */}
+      {/* ── Measurements ───────────────────────── */}
       <SectionHeader title="Measurements" />
       <div className="rounded-2xl border border-border bg-card divide-y divide-border">
         <div className="px-4">
@@ -161,7 +168,7 @@ export function SettingsPage() {
         </div>
       </div>
 
-      {/* ── Workout ────────────────────────────────── */}
+      {/* ── Workout ────────────────────────────── */}
       <SectionHeader title="Workout" />
       <div className="rounded-2xl border border-border bg-card divide-y divide-border">
         <div className="px-4">
@@ -195,7 +202,21 @@ export function SettingsPage() {
         </div>
       </div>
 
-      {/* ── Support ────────────────────────────────── */}
+      {/* ── Beta ───────────────────────────────── */}
+      <SectionHeader title="Beta Features" />
+      <div className="rounded-2xl border border-border bg-card divide-y divide-border">
+        <div className="px-4">
+          <SettingRow
+            icon={<FlaskConical className="w-4 h-4" />}
+            label="Beta mode"
+            description="Enable experimental features before public release"
+          >
+            <Switch checked={betaMode} onCheckedChange={toggleBetaMode} />
+          </SettingRow>
+        </div>
+      </div>
+
+      {/* ── Support ────────────────────────────── */}
       <SectionHeader title="Support" />
       <div className="rounded-2xl border border-border bg-card divide-y divide-border">
         <div className="px-4">
@@ -216,12 +237,12 @@ export function SettingsPage() {
         </div>
       </div>
 
-      {/* ── Feedback dialog ───────────────────────── */}
-      <Dialog open={feedbackDialogOpen} onOpenChange={open => { if (!open) setFeedbackDialogOpen(false); }}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Send feedback</DialogTitle>
-          </DialogHeader>
+      {/* ── Feedback sheet ────────────────────── */}
+      <Sheet open={feedbackSheetOpen} onOpenChange={open => { if (!open) setFeedbackSheetOpen(false); }}>
+        <SheetContent side="bottom" className="rounded-t-2xl pb-8">
+          <SheetHeader className="mb-4">
+            <SheetTitle>Send feedback</SheetTitle>
+          </SheetHeader>
 
           {feedbackSubmitted ? (
             <div className="flex flex-col items-center justify-center py-8 gap-3 text-center animate-in fade-in zoom-in duration-300">
@@ -242,7 +263,7 @@ export function SettingsPage() {
                 autoFocus
               />
               <div className="flex gap-2 justify-end">
-                <Button variant="ghost" size="sm" onClick={() => setFeedbackDialogOpen(false)}>
+                <Button variant="ghost" size="sm" onClick={() => setFeedbackSheetOpen(false)}>
                   Cancel
                 </Button>
                 <Button size="sm" disabled={!feedbackText.trim() || feedbackPending} onClick={handleSubmitFeedback}>
@@ -251,15 +272,15 @@ export function SettingsPage() {
               </div>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
 
-      {/* ── Bug report dialog ─────────────────────── */}
-      <Dialog open={bugDialogOpen} onOpenChange={open => { if (!open) setBugDialogOpen(false); }}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Report a bug</DialogTitle>
-          </DialogHeader>
+      {/* ── Bug report sheet ──────────────────── */}
+      <Sheet open={bugSheetOpen} onOpenChange={open => { if (!open) setBugSheetOpen(false); }}>
+        <SheetContent side="bottom" className="rounded-t-2xl pb-8">
+          <SheetHeader className="mb-4">
+            <SheetTitle>Report a bug</SheetTitle>
+          </SheetHeader>
 
           {bugSubmitted ? (
             <div className="flex flex-col items-center justify-center py-8 gap-3 text-center animate-in fade-in zoom-in duration-300">
@@ -280,7 +301,7 @@ export function SettingsPage() {
                 autoFocus
               />
               <div className="flex gap-2 justify-end">
-                <Button variant="ghost" size="sm" onClick={() => setBugDialogOpen(false)}>
+                <Button variant="ghost" size="sm" onClick={() => setBugSheetOpen(false)}>
                   Cancel
                 </Button>
                 <Button size="sm" disabled={!bugText.trim() || bugPending} onClick={handleSubmitBug}>
@@ -289,8 +310,8 @@ export function SettingsPage() {
               </div>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
