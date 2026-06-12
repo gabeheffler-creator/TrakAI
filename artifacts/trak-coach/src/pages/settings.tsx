@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useDarkMode } from "@/hooks/use-dark-mode";
 import { useToast } from "@/hooks/use-toast";
 import { Switch } from "@/components/ui/switch";
@@ -6,7 +6,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Moon, Sun, Bug, MessageSquare, ChevronRight, CheckCircle, Palette, Save } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Moon, Sun, Bug, MessageSquare, ChevronRight, CheckCircle, Palette, Save, Smartphone, AlertTriangle } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const BRAND_KEY = "trak_coach_brand";
 interface BrandSettings { name: string; tagline: string; primaryColor: string; }
@@ -15,18 +17,52 @@ function readBrand(): BrandSettings {
 }
 function saveBrand(b: BrandSettings) { localStorage.setItem(BRAND_KEY, JSON.stringify(b)); }
 
+const CLIENT_SECTIONS = [
+  { key: "workout", label: "Workout" },
+  { key: "exercises", label: "Exercise Library" },
+  { key: "progress", label: "Progress" },
+  { key: "nutrition", label: "Nutrition" },
+  { key: "stats", label: "Stats & Measurements" },
+  { key: "sleep", label: "Sleep" },
+  { key: "photos", label: "Progress Photos" },
+  { key: "assignments", label: "Tasks & Assignments" },
+  { key: "messages", label: "Messages" },
+];
+
+const DISALLOWED_PATTERNS = [
+  /https?:\/\//i,
+  /www\./i,
+  /\.(com|net|org|io|co)\b/i,
+  /\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b/,
+  /\bsteroid/i,
+  /\billegal/i,
+  /\bdrug\b/i,
+];
+
+function containsDisallowedContent(text: string): boolean {
+  return DISALLOWED_PATTERNS.some(p => p.test(text));
+}
+
+async function fetchAppSettings() {
+  const res = await fetch("/api/coach/app-settings");
+  if (!res.ok) return {};
+  return res.json();
+}
+
+async function patchAppSettings(patch: Record<string, unknown>) {
+  const res = await fetch("/api/coach/app-settings", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) throw new Error("Failed to save");
+  return res.json();
+}
+
 function SettingRow({
-  icon,
-  label,
-  description,
-  children,
-  onClick,
+  icon, label, description, children, onClick,
 }: {
-  icon: React.ReactNode;
-  label: string;
-  description?: string;
-  children?: React.ReactNode;
-  onClick?: () => void;
+  icon: React.ReactNode; label: string; description?: string; children?: React.ReactNode; onClick?: () => void;
 }) {
   const inner = (
     <div className="flex items-center justify-between gap-4 py-4">
@@ -45,7 +81,6 @@ function SettingRow({
       </div>
     </div>
   );
-
   if (onClick) {
     return (
       <button onClick={onClick} className="w-full text-left hover:bg-muted/30 transition-colors rounded-xl">
@@ -53,7 +88,6 @@ function SettingRow({
       </button>
     );
   }
-
   return inner;
 }
 
@@ -88,6 +122,52 @@ export function SettingsPage() {
     saveBrand(brand);
     setBrandSaved(true);
     setTimeout(() => setBrandSaved(false), 2000);
+  };
+
+  const [hiddenSections, setHiddenSections] = useState<Set<string>>(new Set());
+  const [customContent, setCustomContent] = useState("");
+  const [settingsSaved, setSettingsSaved] = useState(false);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [disallowedOpen, setDisallowedOpen] = useState(false);
+  const [pendingCustomContent, setPendingCustomContent] = useState("");
+
+  useEffect(() => {
+    fetchAppSettings().then(s => {
+      if (s.hiddenSections) setHiddenSections(new Set(s.hiddenSections as string[]));
+      if (s.customContent) setCustomContent(s.customContent as string);
+      setSettingsLoaded(true);
+    });
+  }, []);
+
+  const toggleSection = async (key: string) => {
+    const next = new Set(hiddenSections);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    setHiddenSections(next);
+    try {
+      await patchAppSettings({ hiddenSections: Array.from(next) });
+    } catch {
+      toast({ title: "Failed to save section settings", variant: "destructive" });
+    }
+  };
+
+  const handleSaveCustomContent = () => {
+    if (containsDisallowedContent(customContent)) {
+      setPendingCustomContent(customContent);
+      setDisallowedOpen(true);
+      return;
+    }
+    saveCustomContent(customContent);
+  };
+
+  const saveCustomContent = async (content: string) => {
+    try {
+      await patchAppSettings({ customContent: content });
+      setSettingsSaved(true);
+      setTimeout(() => setSettingsSaved(false), 2000);
+      toast({ title: "Custom content saved" });
+    } catch {
+      toast({ title: "Failed to save", variant: "destructive" });
+    }
   };
 
   const [bugSheetOpen, setBugSheetOpen] = useState(false);
@@ -140,7 +220,6 @@ export function SettingsPage() {
         <p className="text-sm text-muted-foreground mt-1">Customize your experience</p>
       </div>
 
-      {/* ── Appearance ─────────────────────────────── */}
       <SectionHeader title="Appearance" />
       <div className="rounded-2xl border border-border bg-card divide-y divide-border">
         <div className="px-4">
@@ -154,7 +233,6 @@ export function SettingsPage() {
         </div>
       </div>
 
-      {/* ── White Labeling ─────────────────────────── */}
       <SectionHeader title="White Labeling" />
       <div className="rounded-2xl border border-border bg-card p-4 space-y-4">
         <p className="text-xs text-muted-foreground">Customize how your brand appears to clients.</p>
@@ -175,23 +253,6 @@ export function SettingsPage() {
               onChange={e => setBrand(b => ({ ...b, tagline: e.target.value }))}
             />
           </div>
-          <div>
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">Brand Color</label>
-            <div className="flex items-center gap-3">
-              <input
-                type="color"
-                value={brand.primaryColor || "#000000"}
-                onChange={e => setBrand(b => ({ ...b, primaryColor: e.target.value }))}
-                className="w-10 h-10 rounded-lg border border-border cursor-pointer bg-transparent"
-              />
-              <Input
-                placeholder="#3b82f6"
-                value={brand.primaryColor}
-                onChange={e => setBrand(b => ({ ...b, primaryColor: e.target.value }))}
-                className="font-mono text-sm"
-              />
-            </div>
-          </div>
         </div>
         <Button
           size="sm"
@@ -207,7 +268,40 @@ export function SettingsPage() {
         </Button>
       </div>
 
-      {/* ── Support ────────────────────────────────── */}
+      <SectionHeader title="Client App Sections" />
+      <div className="rounded-2xl border border-border bg-card p-4 space-y-1">
+        <p className="text-xs text-muted-foreground mb-3">Toggle which sections your clients can see. Changes save instantly.</p>
+        {!settingsLoaded ? (
+          <p className="text-xs text-muted-foreground py-2">Loading…</p>
+        ) : (
+          <div className="space-y-1 divide-y divide-border">
+            {CLIENT_SECTIONS.map(s => (
+              <div key={s.key} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
+                <span className="text-sm font-medium">{s.label}</span>
+                <Switch
+                  checked={!hiddenSections.has(s.key)}
+                  onCheckedChange={() => toggleSection(s.key)}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <SectionHeader title="Custom Content" />
+      <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
+        <p className="text-xs text-muted-foreground">Add custom instructions, guidelines, or notes visible in the client app.</p>
+        <Textarea
+          placeholder="e.g. Weekly check-in instructions, nutrition philosophy, house rules for the program…"
+          value={customContent}
+          onChange={e => setCustomContent(e.target.value)}
+          className="min-h-[100px] resize-none text-sm"
+        />
+        <Button size="sm" className="w-full" onClick={handleSaveCustomContent} variant={settingsSaved ? "outline" : "default"}>
+          {settingsSaved ? <><CheckCircle className="w-4 h-4 mr-2 text-green-500" /> Saved!</> : <><Save className="w-4 h-4 mr-2" /> Save Custom Content</>}
+        </Button>
+      </div>
+
       <SectionHeader title="Support" />
       <div className="rounded-2xl border border-border bg-card divide-y divide-border">
         <div className="px-4">
@@ -228,13 +322,37 @@ export function SettingsPage() {
         </div>
       </div>
 
-      {/* ── Feedback sheet ────────────────────────── */}
+      {/* Disallowed content warning */}
+      <Dialog open={disallowedOpen} onOpenChange={setDisallowedOpen}>
+        <DialogContent className="max-w-sm">
+          <div className={cn("flex flex-col items-center gap-4 py-4 text-center", disallowedOpen && "animate-bounce-once")}>
+            <div className="w-14 h-14 rounded-full bg-amber-500/10 flex items-center justify-center">
+              <AlertTriangle className="w-7 h-7 text-amber-500" />
+            </div>
+            <DialogHeader>
+              <DialogTitle>Content Warning</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground">
+              Your custom content may include links, phone numbers, or restricted terms that violate our platform guidelines. Please review and remove them before saving.
+            </p>
+            <div className="flex gap-3 w-full">
+              <Button variant="outline" className="flex-1" onClick={() => setDisallowedOpen(false)}>
+                Got it — I'll edit it
+              </Button>
+              <Button className="flex-1" onClick={() => { setDisallowedOpen(false); saveCustomContent(pendingCustomContent); }}>
+                Save anyway
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Feedback sheet */}
       <Sheet open={feedbackSheetOpen} onOpenChange={open => { if (!open) setFeedbackSheetOpen(false); }}>
         <SheetContent side="bottom" className="rounded-t-2xl pb-8">
           <SheetHeader className="mb-4">
             <SheetTitle>Send feedback</SheetTitle>
           </SheetHeader>
-
           {feedbackSubmitted ? (
             <div className="flex flex-col items-center justify-center py-8 gap-3 text-center animate-in fade-in zoom-in duration-300">
               <CheckCircle className="w-12 h-12 text-primary" />
@@ -243,9 +361,7 @@ export function SettingsPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Got an idea or suggestion? We'd love to hear it.
-              </p>
+              <p className="text-sm text-muted-foreground">Got an idea or suggestion? We'd love to hear it.</p>
               <Textarea
                 placeholder="e.g. It would be helpful to bulk-assign programs to multiple clients…"
                 value={feedbackText}
@@ -254,9 +370,7 @@ export function SettingsPage() {
                 autoFocus
               />
               <div className="flex gap-2 justify-end">
-                <Button variant="ghost" size="sm" onClick={() => setFeedbackSheetOpen(false)}>
-                  Cancel
-                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setFeedbackSheetOpen(false)}>Cancel</Button>
                 <Button size="sm" disabled={!feedbackText.trim() || feedbackPending} onClick={handleSubmitFeedback}>
                   {feedbackPending ? "Sending…" : "Send"}
                 </Button>
@@ -266,13 +380,12 @@ export function SettingsPage() {
         </SheetContent>
       </Sheet>
 
-      {/* ── Bug report sheet ──────────────────────── */}
+      {/* Bug report sheet */}
       <Sheet open={bugSheetOpen} onOpenChange={open => { if (!open) setBugSheetOpen(false); }}>
         <SheetContent side="bottom" className="rounded-t-2xl pb-8">
           <SheetHeader className="mb-4">
             <SheetTitle>Report a bug</SheetTitle>
           </SheetHeader>
-
           {bugSubmitted ? (
             <div className="flex flex-col items-center justify-center py-8 gap-3 text-center animate-in fade-in zoom-in duration-300">
               <CheckCircle className="w-12 h-12 text-primary" />
@@ -281,9 +394,7 @@ export function SettingsPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Describe what happened and what you expected to happen.
-              </p>
+              <p className="text-sm text-muted-foreground">Describe what happened and what you expected to happen.</p>
               <Textarea
                 placeholder="e.g. The program builder doesn't save when I click Save…"
                 value={bugText}
@@ -292,9 +403,7 @@ export function SettingsPage() {
                 autoFocus
               />
               <div className="flex gap-2 justify-end">
-                <Button variant="ghost" size="sm" onClick={() => setBugSheetOpen(false)}>
-                  Cancel
-                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setBugSheetOpen(false)}>Cancel</Button>
                 <Button size="sm" disabled={!bugText.trim() || bugPending} onClick={handleSubmitBug}>
                   {bugPending ? "Sending…" : "Send report"}
                 </Button>

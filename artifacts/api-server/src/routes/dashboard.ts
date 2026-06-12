@@ -8,7 +8,7 @@ import {
   assignmentsTable,
   messagesTable,
 } from "@workspace/db";
-import { eq, count, desc, and, gte } from "drizzle-orm";
+import { eq, count, desc, and, gte, isNotNull } from "drizzle-orm";
 import { GetClientDashboardParams } from "@workspace/api-zod";
 
 const router = Router();
@@ -68,11 +68,39 @@ router.get("/dashboard/coach", async (req, res) => {
       };
     }));
 
+    const recentCompleted = await db.select({
+      id: assignmentsTable.id,
+      clientId: assignmentsTable.clientId,
+      title: assignmentsTable.title,
+      type: assignmentsTable.type,
+      completedAt: assignmentsTable.completedAt,
+      createdAt: assignmentsTable.createdAt,
+    })
+      .from(assignmentsTable)
+      .where(and(eq(assignmentsTable.status, "completed"), isNotNull(assignmentsTable.completedAt)))
+      .orderBy(desc(assignmentsTable.completedAt))
+      .limit(10);
+
+    const completedTasks = await Promise.all(recentCompleted.map(async (a) => {
+      const [client] = await db.select({ name: clientsTable.name })
+        .from(clientsTable)
+        .where(eq(clientsTable.id, a.clientId));
+      return {
+        id: a.id,
+        clientId: a.clientId,
+        clientName: client?.name ?? "Unknown",
+        title: a.title,
+        type: a.type,
+        completedAt: a.completedAt?.toISOString() ?? null,
+      };
+    }));
+
     res.json({
       totalClients: clients.length,
       activePrograms: Number(activePrograms),
       recentActivity: activity,
       clientSummaries,
+      completedTasks,
     });
   } catch (err) {
     req.log.error(err);

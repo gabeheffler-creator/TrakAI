@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { messagesTable, pushSubscriptionsTable, clientsTable } from "@workspace/db";
-import { eq, isNull, and, sql } from "drizzle-orm";
+import { eq, isNull, and, sql, count, desc } from "drizzle-orm";
 import webpush from "web-push";
 import {
   ListMessagesParams,
@@ -21,6 +21,45 @@ if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
 }
 
 const router = Router();
+
+router.get("/coach/conversations", async (req, res) => {
+  try {
+    const clients = await db.select().from(clientsTable).orderBy(clientsTable.name);
+
+    const conversations = await Promise.all(clients.map(async (c) => {
+      const [lastMsg] = await db.select()
+        .from(messagesTable)
+        .where(eq(messagesTable.clientId, c.id))
+        .orderBy(desc(messagesTable.createdAt))
+        .limit(1);
+
+      const [{ unreadCount }] = await db
+        .select({ unreadCount: count() })
+        .from(messagesTable)
+        .where(and(
+          eq(messagesTable.clientId, c.id),
+          eq(messagesTable.sender, "client"),
+          isNull(messagesTable.readAt),
+        ));
+
+      return {
+        clientId: c.id,
+        name: c.name,
+        lastMessage: lastMsg ? {
+          content: lastMsg.content,
+          sender: lastMsg.sender,
+          createdAt: lastMsg.createdAt.toISOString(),
+        } : null,
+        unreadCount: Number(unreadCount),
+      };
+    }));
+
+    res.json(conversations);
+  } catch (err) {
+    req.log.error(err);
+    res.status(500).json({ error: "Failed to fetch conversations" });
+  }
+});
 
 router.get("/clients/:clientId/messages", async (req, res) => {
   try {

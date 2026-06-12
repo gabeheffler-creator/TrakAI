@@ -231,7 +231,10 @@ export function ProgramBuilder() {
     const encodedNotes = encodeExNotes(values.setType ?? "Normal", values.rpe ?? "", values.laterality ?? "bilateral", values.equipment ?? "", values.grip ?? "", values.notes ?? "");
     addExercise.mutate(
       { programId, dayId: selectedDayId, data: { exerciseId: values.exerciseId, sets: values.sets, reps: values.reps, weight: values.weight || undefined, restSeconds: values.restSeconds || undefined, notes: encodedNotes || undefined, order: values.order } },
-      { onSuccess: () => { invalidate(); setExDialogOpen(false); exForm.reset({ exerciseId: 0, sets: 3, reps: "8-12", weight: "", restSeconds: 60, setType: "Normal", rpe: "", laterality: "bilateral", equipment: "", grip: "", notes: "", order: 0 }); } }
+      {
+        onSuccess: () => { invalidate(); setExDialogOpen(false); exForm.reset({ exerciseId: 0, sets: 3, reps: "8-12", weight: "", restSeconds: 60, setType: "Normal", rpe: "", laterality: "bilateral", equipment: "", grip: "", notes: "", order: 0 }); },
+        onError: () => { toast({ title: "Failed to add exercise", description: "Please try again.", variant: "destructive" }); },
+      }
     );
   };
 
@@ -432,12 +435,12 @@ export function ProgramBuilder() {
                       <FormField control={exForm.control} name="exerciseId" render={({ field }) => (
                         <FormItem>
                           <FormLabel>Exercise</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
+                          <Select onValueChange={v => field.onChange(Number(v))} value={field.value ? String(field.value) : ""}>
                             <FormControl><SelectTrigger><SelectValue placeholder="Choose exercise" /></SelectTrigger></FormControl>
                             <SelectContent>
                               {exercises?.map(e => (
                                 <SelectItem key={e.id} value={String(e.id)}>
-                                  {e.name} <span className="text-muted-foreground text-xs">({e.muscleGroup})</span>
+                                  {e.name} ({e.muscleGroup})
                                 </SelectItem>
                               ))}
                             </SelectContent>

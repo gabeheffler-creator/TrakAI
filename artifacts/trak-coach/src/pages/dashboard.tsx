@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useGetCoachDashboard } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, Dumbbell, ActivitySquare, AlertCircle, MessageSquare, Sparkles, X } from "lucide-react";
+import { Users, Dumbbell, ActivitySquare, AlertCircle, MessageSquare, Sparkles, X, CheckCircle2 } from "lucide-react";
 import { Link } from "wouter";
 import { formatDistanceToNow, parseISO } from "date-fns";
+import { Badge } from "@/components/ui/badge";
 
 const AI_ALERT_KEY = "trak_ai_model_alert_v1_dismissed";
 
@@ -49,6 +50,11 @@ export function Dashboard() {
     return <div className="p-8 text-destructive">Failed to load dashboard</div>;
   }
 
+  const allClients = dashboard.clientSummaries ?? [];
+  const visibleClients = allClients.slice(0, 5);
+  const hasMore = allClients.length > 5;
+  const completedTasks = (dashboard as any).completedTasks ?? [];
+
   return (
     <div className="space-y-8">
       <div>
@@ -84,7 +90,7 @@ export function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {dashboard.clientSummaries?.reduce((acc, c) => acc + (c.assignmentsDue || 0) + (c.unreadMessages || 0), 0) || 0}
+              {allClients.reduce((acc, c) => acc + (c.assignmentsDue || 0) + (c.unreadMessages || 0), 0) || 0}
             </div>
           </CardContent>
         </Card>
@@ -96,8 +102,8 @@ export function Dashboard() {
             <CardTitle>Client Status</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {dashboard.clientSummaries?.map((client) => (
+            <div className="space-y-3">
+              {visibleClients.map((client) => (
                 <Link
                   key={client.clientId}
                   href={`/clients/${client.clientId}`}
@@ -123,8 +129,16 @@ export function Dashboard() {
                   </div>
                 </Link>
               ))}
-              {(!dashboard.clientSummaries || dashboard.clientSummaries.length === 0) && (
+              {allClients.length === 0 && (
                 <div className="text-sm text-muted-foreground">No clients found.</div>
+              )}
+              {hasMore && (
+                <Link
+                  href="/clients"
+                  className="block text-center text-sm text-primary hover:underline pt-1"
+                >
+                  View all {allClients.length} clients →
+                </Link>
               )}
             </div>
           </CardContent>
@@ -152,6 +166,44 @@ export function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {completedTasks.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5 text-green-500" />
+              Completed Tasks
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {completedTasks.map((task: any) => (
+                <Link
+                  key={task.id}
+                  href={`/clients/${task.clientId}`}
+                  className="flex items-start justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex items-start gap-3">
+                    <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium">{task.title}</p>
+                      <p className="text-xs text-muted-foreground">{task.clientName}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <Badge variant="outline" className="text-[10px]">{task.type}</Badge>
+                    {task.completedAt && (
+                      <span className="text-xs text-muted-foreground">
+                        {formatDistanceToNow(parseISO(task.completedAt), { addSuffix: true })}
+                      </span>
+                    )}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

@@ -11,3 +11,5 @@ export * from "./messages";
 export * from "./push_subscriptions";
 export * from "./coach_notes";
 export * from "./call_logs";
+export * from "./nutrition_goals";
+export * from "./coach_settings";

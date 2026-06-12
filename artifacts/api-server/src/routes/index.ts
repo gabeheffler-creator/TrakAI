@@ -19,6 +19,8 @@ import videoCallRouter from "./video_call";
 import feedbackRouter from "./feedback";
 import surveyRouter from "./survey";
 import inviteRouter from "./invite";
+import nutritionGoalsRouter from "./nutrition_goals";
+import coachSettingsRouter from "./coach_settings";
 
 const router: IRouter = Router();
 
@@ -42,5 +44,7 @@ router.use(videoCallRouter);
 router.use(feedbackRouter);
 router.use(surveyRouter);
 router.use(inviteRouter);
+router.use(nutritionGoalsRouter);
+router.use(coachSettingsRouter);
 
 export default router;

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams } from "wouter";
 import {
   useGetClient,
@@ -58,7 +58,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import { Copy, Send, Plus, CheckCircle, Circle, Trash2, ArrowLeft, ChevronDown, ChevronRight, Dumbbell, Pencil, X, Check, Phone, StickyNote, Clock, Video } from "lucide-react";
+import { Copy, Send, Plus, CheckCircle, Circle, Trash2, ArrowLeft, ChevronDown, ChevronRight, Dumbbell, Pencil, X, Check, Phone, StickyNote, Clock, Video, Target } from "lucide-react";
 import { Link as WLink } from "wouter";
 import { format, parseISO } from "date-fns";
 import { VideoCall } from "@/components/video-call";
@@ -399,6 +399,40 @@ export function ClientProfile() {
   const [msgInput, setMsgInput] = useState("");
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [programDialogOpen, setProgramDialogOpen] = useState(false);
+  const [nutritionGoal, setNutritionGoal] = useState<Record<string, number | null> | null>(null);
+  const [goalDialogOpen, setGoalDialogOpen] = useState(false);
+  const [goalInputs, setGoalInputs] = useState({ calories: "", protein: "", carbs: "", fat: "" });
+
+  useEffect(() => {
+    if (!clientId) return;
+    fetch(`/api/clients/${clientId}/nutrition-goal`)
+      .then(r => r.ok ? r.json() : null)
+      .then(g => { if (g) { setNutritionGoal(g); setGoalInputs({ calories: String(g.calories ?? ""), protein: String(g.protein ?? ""), carbs: String(g.carbs ?? ""), fat: String(g.fat ?? "") }); } })
+      .catch(() => {});
+  }, [clientId]);
+
+  const handleSetGoal = async () => {
+    try {
+      const body = {
+        calories: goalInputs.calories ? Number(goalInputs.calories) : undefined,
+        protein: goalInputs.protein ? Number(goalInputs.protein) : undefined,
+        carbs: goalInputs.carbs ? Number(goalInputs.carbs) : undefined,
+        fat: goalInputs.fat ? Number(goalInputs.fat) : undefined,
+        periodType: "day",
+      };
+      const res = await fetch(`/api/clients/${clientId}/nutrition-goal`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        const g = await res.json();
+        setNutritionGoal(g);
+        setGoalDialogOpen(false);
+        toast({ title: "Nutrition goal saved!" });
+      }
+    } catch { toast({ title: "Failed to save goal", variant: "destructive" }); }
+  };
 
   const { data: client } = useGetClient(clientId, { query: { enabled: !!clientId, queryKey: getGetClientQueryKey(clientId) } });
   const { data: dashboard } = useGetClientDashboard(clientId, { query: { enabled: !!clientId, queryKey: getGetClientDashboardQueryKey(clientId) } });
@@ -848,6 +882,51 @@ export function ClientProfile() {
 
         {/* Nutrition */}
         <TabsContent value="nutrition" className="mt-4">
+          {/* Coach-set goal */}
+          <div className="mb-4 p-4 rounded-xl border border-border bg-card">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold">Daily Nutrition Goal</p>
+                {nutritionGoal ? (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {nutritionGoal.calories ?? "—"} kcal · P {nutritionGoal.protein ?? "—"}g · C {nutritionGoal.carbs ?? "—"}g · F {nutritionGoal.fat ?? "—"}g
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground mt-1">No goal set yet</p>
+                )}
+              </div>
+              <Dialog open={goalDialogOpen} onOpenChange={setGoalDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" variant="outline"><Target className="w-3.5 h-3.5 mr-1.5" /> Set Goal</Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader><DialogTitle>Set Daily Nutrition Goal</DialogTitle></DialogHeader>
+                  <div className="space-y-3 mt-2">
+                    <div className="grid grid-cols-2 gap-3">
+                      {[
+                        { key: "calories" as const, label: "Calories (kcal)" },
+                        { key: "protein" as const, label: "Protein (g)" },
+                        { key: "carbs" as const, label: "Carbs (g)" },
+                        { key: "fat" as const, label: "Fat (g)" },
+                      ].map(f => (
+                        <div key={f.key}>
+                          <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{f.label}</label>
+                          <Input
+                            type="number"
+                            min={0}
+                            value={goalInputs[f.key]}
+                            onChange={e => setGoalInputs(p => ({ ...p, [f.key]: e.target.value }))}
+                            placeholder="—"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <Button className="w-full" onClick={handleSetGoal}>Save Goal</Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+          </div>
           {(nutritionLogs?.length ?? 0) === 0 && <p className="text-muted-foreground text-sm">No nutrition logs yet.</p>}
           {nutritionLogs && nutritionLogs.length > 0 && (() => {
             // Group by date, most recent first

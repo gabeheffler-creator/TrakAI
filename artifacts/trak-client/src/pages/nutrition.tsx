@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import { useClientId } from "@/hooks/use-client-id";
 import { useUnitSystem } from "@/hooks/use-unit-system";
 import {
@@ -24,16 +24,6 @@ interface NutritionGoals {
   waterOz: number;
 }
 
-const GOALS_KEY = "trak_nutrition_goals";
-const DEFAULT_GOALS: NutritionGoals = { calories: 2000, protein: 150, carbs: 200, fat: 65, waterOz: 64 };
-
-function readGoals(): NutritionGoals {
-  try {
-    const raw = localStorage.getItem(GOALS_KEY);
-    return raw ? { ...DEFAULT_GOALS, ...JSON.parse(raw) } : DEFAULT_GOALS;
-  } catch { return DEFAULT_GOALS; }
-}
-function saveGoals(g: NutritionGoals) { localStorage.setItem(GOALS_KEY, JSON.stringify(g)); }
 
 function GoalBar({ label, actual, goal, color }: { label: string; actual: number; goal: number; color: string }) {
   const pct = goal > 0 ? Math.min(100, Math.round((actual / goal) * 100)) : 0;
@@ -242,16 +232,15 @@ export function NutritionPage() {
   const qc = useQueryClient();
   const { toast } = useToast();
 
-  const [goals, setGoalsState] = useState<NutritionGoals>(readGoals);
-  const [editGoals, setEditGoals] = useState(false);
-  const [goalsForm, setGoalsForm] = useState<NutritionGoals>(readGoals);
+  const [coachGoals, setCoachGoals] = useState<NutritionGoals | null>(null);
 
-  const handleSaveGoals = () => {
-    saveGoals(goalsForm);
-    setGoalsState(goalsForm);
-    setEditGoals(false);
-    toast({ title: "Goals saved!" });
-  };
+  useEffect(() => {
+    if (!clientId) return;
+    fetch(`/api/clients/${clientId}/nutrition-goal`)
+      .then(r => r.ok ? r.json() : null)
+      .then(g => { if (g) setCoachGoals(g); })
+      .catch(() => {});
+  }, [clientId]);
 
   const [diarySlot, setDiarySlot] = useState<MealSlot>(makeSlot("MFP Diary Overview"));
   const [mealSlots, setMealSlots] = useState<MealSlot[]>([
@@ -455,44 +444,12 @@ export function NutritionPage() {
       <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
         <div className="flex items-center justify-between">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Today's Totals</p>
-          <button
-            onClick={() => { setGoalsForm(goals); setEditGoals(v => !v); }}
-            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <Target className="w-3.5 h-3.5" />
-            {editGoals ? "Close" : "Goals"}
-          </button>
+          {coachGoals && (
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Target className="w-3.5 h-3.5" /> Coach goals active
+            </span>
+          )}
         </div>
-
-        {editGoals && (
-          <div className="bg-muted/50 rounded-xl p-3 space-y-3 border border-border">
-            <p className="text-xs font-semibold text-foreground">Daily Goals</p>
-            <div className="grid grid-cols-2 gap-2">
-              {(["calories", "protein", "carbs", "fat", "waterOz"] as const).map(k => (
-                <div key={k} className="space-y-1">
-                  <label className="text-[10px] text-muted-foreground uppercase tracking-wide">
-                    {k === "waterOz" ? "Water (oz)" : k === "calories" ? calLabel : k}
-                  </label>
-                  <Input
-                    type="number"
-                    value={goalsForm[k]}
-                    onChange={e => setGoalsForm(p => ({ ...p, [k]: Number(e.target.value) }))}
-                    className="h-8 text-sm"
-                    min={0}
-                  />
-                </div>
-              ))}
-            </div>
-            <div className="flex gap-2">
-              <Button size="sm" onClick={handleSaveGoals} className="flex-1 gap-1">
-                <Check className="w-3.5 h-3.5" /> Save Goals
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => setEditGoals(false)} className="gap-1">
-                <X className="w-3.5 h-3.5" /> Cancel
-              </Button>
-            </div>
-          </div>
-        )}
 
         {hasTodayData ? (
           <>
@@ -500,20 +457,20 @@ export function NutritionPage() {
             <div className="flex items-end gap-1.5">
               <span className="text-4xl font-bold tabular-nums leading-none">{totalCal.toLocaleString()}</span>
               <span className="text-sm text-muted-foreground pb-0.5">{calLabel}</span>
-              {goals.calories > 0 && (
+              {coachGoals && (coachGoals.calories ?? 0) > 0 && (
                 <span className="text-xs text-muted-foreground pb-0.5 ml-1">
-                  / {goals.calories.toLocaleString()} goal
+                  / {(coachGoals.calories ?? 0).toLocaleString()} goal
                 </span>
               )}
             </div>
 
             {/* Goal progress bars */}
-            {goals.calories > 0 && (
+            {coachGoals && (coachGoals.calories ?? 0) > 0 && (
               <div className="space-y-2">
-                <GoalBar label={`Calories (${calLabel})`} actual={Math.round(totalCal)} goal={goals.calories} color="bg-primary" />
-                <GoalBar label="Protein (g)" actual={Math.round(totalPro)} goal={goals.protein} color="bg-blue-500" />
-                <GoalBar label="Carbs (g)" actual={Math.round(totalCarb)} goal={goals.carbs} color="bg-orange-500" />
-                <GoalBar label="Fat (g)" actual={Math.round(totalFat)} goal={goals.fat} color="bg-yellow-500" />
+                <GoalBar label={`Calories (${calLabel})`} actual={Math.round(totalCal)} goal={coachGoals.calories ?? 0} color="bg-primary" />
+                <GoalBar label="Protein (g)" actual={Math.round(totalPro)} goal={coachGoals.protein ?? 0} color="bg-blue-500" />
+                <GoalBar label="Carbs (g)" actual={Math.round(totalCarb)} goal={coachGoals.carbs ?? 0} color="bg-orange-500" />
+                <GoalBar label="Fat (g)" actual={Math.round(totalFat)} goal={coachGoals.fat ?? 0} color="bg-yellow-500" />
               </div>
             )}
 

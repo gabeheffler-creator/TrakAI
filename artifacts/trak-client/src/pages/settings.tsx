@@ -8,7 +8,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Moon, Sun, Ruler, Dumbbell, BarChart2, Bug, MessageSquare, ChevronRight, CheckCircle, FlaskConical } from "lucide-react";
+import { Moon, Sun, Ruler, Dumbbell, BarChart2, Bug, MessageSquare, ChevronRight, CheckCircle, FlaskConical, FileDown } from "lucide-react";
+import { Link } from "wouter";
 
 const BETA_MODE_KEY = "trak_beta_mode";
 function readBetaMode() { return localStorage.getItem(BETA_MODE_KEY) === "true"; }
@@ -213,6 +214,21 @@ export function SettingsPage() {
           >
             <Switch checked={betaMode} onCheckedChange={toggleBetaMode} />
           </SettingRow>
+        </div>
+      </div>
+
+      {/* ── Data ───────────────────────────────── */}
+      <SectionHeader title="Data" />
+      <div className="rounded-2xl border border-border bg-card divide-y divide-border">
+        <div className="px-4">
+          <Link href="/data-import">
+            <SettingRow
+              icon={<FileDown className="w-4 h-4" />}
+              label="Import data"
+              description="Bulk-import measurements from a CSV file"
+              onClick={() => {}}
+            />
+          </Link>
         </div>
       </div>
 

@@ -5,7 +5,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
@@ -20,7 +19,17 @@ const exerciseSchema = z.object({
   description: z.string().optional(),
 });
 
-const MUSCLE_GROUPS = ["Chest", "Back", "Shoulders", "Biceps", "Triceps", "Legs", "Glutes", "Core", "Cardio", "Full Body"];
+const MUSCLE_GROUPS = [
+  "Chest", "Back", "Shoulders", "Biceps", "Triceps", "Traps",
+  "Legs", "Glutes", "Core", "Full Body", "Cardio", "HIIT", "Mobility",
+];
+
+const GROUP_ORDER: Record<string, number> = {
+  "Chest": 1, "Back": 2, "Shoulders": 3, "Biceps": 4, "Triceps": 5, "Traps": 6,
+  "Legs": 7, "Glutes": 8, "Core": 9, "Full Body": 10,
+  "Cardio": 97, "HIIT": 98, "Mobility": 99,
+};
+function groupOrder(g: string) { return GROUP_ORDER[g] ?? 50; }
 
 export function Exercises() {
   const { data: exercises, isLoading } = useListExercises();
@@ -118,20 +127,15 @@ export function Exercises() {
 
       {isLoading && <p className="text-muted-foreground">Loading...</p>}
 
-      {grouped && Object.entries(grouped).sort().map(([group, exs]) => (
+      {grouped && Object.entries(grouped).sort(([a], [b]) => groupOrder(a) - groupOrder(b)).map(([group, exs]) => (
         <div key={group}>
-          <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">{group}</h2>
-          <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+          <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">{group}</h2>
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
             {exs.map(e => (
-              <Card key={e.id} data-testid={`card-exercise-${e.id}`}>
-                <CardContent className="pt-3 pb-3 px-4">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="font-medium text-sm">{e.name}</p>
-                      {e.description && <p className="text-xs text-muted-foreground mt-0.5">{e.description}</p>}
-                    </div>
-                    <Badge variant="secondary" className="text-xs ml-2 flex-shrink-0">{e.muscleGroup}</Badge>
-                  </div>
+              <Card key={e.id} data-testid={`card-exercise-${e.id}`} className="border-2 border-purple-500/40 hover:border-purple-500/70 transition-colors">
+                <CardContent className="pt-4 pb-4 px-5">
+                  <p className="font-semibold text-base">{e.name}</p>
+                  {e.description && <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{e.description}</p>}
                 </CardContent>
               </Card>
             ))}

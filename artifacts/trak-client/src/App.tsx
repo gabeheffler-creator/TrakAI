@@ -20,6 +20,7 @@ import { StatsPage } from "@/pages/stats";
 import { SoundsPage } from "@/pages/sounds";
 import { ExercisesPage } from "@/pages/exercises";
 import { SettingsPage } from "@/pages/settings";
+import { DataImportPage } from "@/pages/data-import";
 
 const queryClient = new QueryClient();
 
@@ -46,6 +47,7 @@ function Router() {
             <Route path="/sounds" component={SoundsPage} />
             <Route path="/exercises" component={ExercisesPage} />
             <Route path="/settings" component={SettingsPage} />
+            <Route path="/data-import" component={DataImportPage} />
           </Switch>
         </Layout>
       </Route>
