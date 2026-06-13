@@ -442,60 +442,68 @@ export function NutritionPage() {
 
       {/* ── Today's Summary ───────────────────── */}
       <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Today's Totals</p>
-          {coachGoals && (
-            <span className="flex items-center gap-1 text-xs text-muted-foreground">
-              <Target className="w-3.5 h-3.5" /> Coach goals active
-            </span>
+        {/* Calories row — always visible */}
+        <div className="flex items-end justify-between">
+          <div className="flex items-end gap-1.5">
+            <span className="text-4xl font-bold tabular-nums leading-none">{totalCal.toLocaleString()}</span>
+            <span className="text-sm text-muted-foreground pb-0.5">{calLabel}</span>
+          </div>
+          {coachGoals && (coachGoals.calories ?? 0) > 0 ? (
+            <div className="text-right pb-0.5">
+              <p className="text-xs text-muted-foreground leading-none">goal</p>
+              <p className="text-lg font-semibold tabular-nums leading-tight">
+                {(coachGoals.calories ?? 0).toLocaleString()}
+                <span className="text-xs font-normal text-muted-foreground ml-0.5">{calLabel}</span>
+              </p>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground pb-0.5 self-end">Today</p>
           )}
         </div>
 
-        {hasTodayData ? (
-          <>
-            {/* Calories big display */}
-            <div className="flex items-end gap-1.5">
-              <span className="text-4xl font-bold tabular-nums leading-none">{totalCal.toLocaleString()}</span>
-              <span className="text-sm text-muted-foreground pb-0.5">{calLabel}</span>
-              {coachGoals && (coachGoals.calories ?? 0) > 0 && (
-                <span className="text-xs text-muted-foreground pb-0.5 ml-1">
-                  / {(coachGoals.calories ?? 0).toLocaleString()} goal
-                </span>
-              )}
+        {/* Calorie progress bar — always shown if goal set */}
+        {coachGoals && (coachGoals.calories ?? 0) > 0 && (
+          <div className="space-y-1">
+            <div className="h-2 rounded-full bg-muted overflow-hidden">
+              <div
+                className={cn("h-full rounded-full transition-all duration-500", totalCal > (coachGoals.calories ?? 0) ? "bg-destructive" : "bg-primary")}
+                style={{ width: `${Math.min(100, (coachGoals.calories ?? 0) > 0 ? (totalCal / (coachGoals.calories ?? 1)) * 100 : 0)}%` }}
+              />
             </div>
-
-            {/* Goal progress bars */}
-            {coachGoals && (coachGoals.calories ?? 0) > 0 && (
-              <div className="space-y-2">
-                <GoalBar label={`Calories (${calLabel})`} actual={Math.round(totalCal)} goal={coachGoals.calories ?? 0} color="bg-primary" />
-                <GoalBar label="Protein (g)" actual={Math.round(totalPro)} goal={coachGoals.protein ?? 0} color="bg-blue-500" />
-                <GoalBar label="Carbs (g)" actual={Math.round(totalCarb)} goal={coachGoals.carbs ?? 0} color="bg-orange-500" />
-                <GoalBar label="Fat (g)" actual={Math.round(totalFat)} goal={coachGoals.fat ?? 0} color="bg-yellow-500" />
-              </div>
-            )}
-
-            {/* Macro pills */}
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { label: "Protein", val: Math.round(totalPro),  unit: "g", color: "bg-blue-500/10 text-blue-600 dark:text-blue-400" },
-                { label: "Carbs",   val: Math.round(totalCarb), unit: "g", color: "bg-orange-500/10 text-orange-600 dark:text-orange-400" },
-                { label: "Fat",     val: Math.round(totalFat),  unit: "g", color: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400" },
-              ].map(m => (
-                <div key={m.label} className={`rounded-xl px-3 py-2 text-center ${m.color}`}>
-                  <p className="text-lg font-bold tabular-nums leading-none">{m.val}<span className="text-xs font-normal ml-0.5">{m.unit}</span></p>
-                  <p className="text-[11px] mt-0.5 opacity-70">{m.label}</p>
-                </div>
-              ))}
-            </div>
-            {todayWater && (
-              <p className="text-xs text-muted-foreground">
-                💧 {Math.round((todayWater.waterMl ?? 0) / ML_PER_OZ)} oz water
-              </p>
-            )}
-          </>
-        ) : (
-          <p className="text-sm text-muted-foreground py-2">No entries logged yet today.</p>
+            <p className="text-xs text-muted-foreground text-right">
+              {(coachGoals.calories ?? 0) - totalCal > 0
+                ? `${((coachGoals.calories ?? 0) - totalCal).toLocaleString()} ${calLabel} remaining`
+                : `${(totalCal - (coachGoals.calories ?? 0)).toLocaleString()} ${calLabel} over goal`}
+            </p>
+          </div>
         )}
+
+        {/* Macro row — always visible, shows 0 until logged */}
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { label: "Protein", val: Math.round(totalPro),  goal: coachGoals?.protein,  unit: "g", color: "bg-blue-500/10 text-blue-600 dark:text-blue-400" },
+            { label: "Carbs",   val: Math.round(totalCarb), goal: coachGoals?.carbs,     unit: "g", color: "bg-orange-500/10 text-orange-600 dark:text-orange-400" },
+            { label: "Fat",     val: Math.round(totalFat),  goal: coachGoals?.fat,       unit: "g", color: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400" },
+          ].map(m => (
+            <div key={m.label} className={`rounded-xl px-3 py-2 text-center ${m.color}`}>
+              <p className="text-lg font-bold tabular-nums leading-none">
+                {m.val}
+                {m.goal ? <span className="text-[10px] font-normal opacity-60">/{m.goal}</span> : null}
+                <span className="text-xs font-normal ml-0.5">{m.unit}</span>
+              </p>
+              <p className="text-[11px] mt-0.5 opacity-70">{m.label}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Water or empty-state note */}
+        {todayWater ? (
+          <p className="text-xs text-muted-foreground">
+            💧 {Math.round((todayWater.waterMl ?? 0) / ML_PER_OZ)} oz water logged
+          </p>
+        ) : !hasTodayData ? (
+          <p className="text-xs text-muted-foreground italic">No entries logged yet — submit below to see your totals.</p>
+        ) : null}
       </div>
 
       {/* Diary Overview slot */}
@@ -593,11 +601,11 @@ export function NutritionPage() {
         {submitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving…</> : "Submit Today's Nutrition"}
       </Button>
 
-      {/* Past logs — collapsible */}
+      {/* Past logs — daily totals */}
       {pastLogsByDate.length > 0 && (
         <div>
           <button
-            onClick={() => { setShowPastLogs(v => !v); setSelectedDate(null); }}
+            onClick={() => setShowPastLogs(v => !v)}
             className="w-full flex items-center justify-between px-4 py-3 rounded-2xl border border-border bg-card hover:bg-muted/50 transition-colors"
           >
             <span className="text-sm font-semibold">Past Logs</span>
@@ -608,67 +616,65 @@ export function NutritionPage() {
           </button>
 
           {showPastLogs && (
-            <div className="mt-3 space-y-2">
-              {/* Date selector */}
-              <div className="flex gap-2 flex-wrap">
-                {pastLogsByDate.map(([date]) => (
-                  <button
-                    key={date}
-                    onClick={() => setSelectedDate(d => d === date ? null : date)}
-                    className={cn(
-                      "text-xs px-3 py-1.5 rounded-full border transition-colors",
-                      selectedDate === date
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "border-border text-muted-foreground hover:border-primary/50"
-                    )}
-                  >
-                    {new Date(date + "T12:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-                  </button>
-                ))}
-              </div>
-
-              {/* Entries for selected date */}
-              {selectedDate && (() => {
-                const entries = pastLogsByDate.find(([d]) => d === selectedDate)?.[1] ?? [];
+            <div className="mt-2 space-y-2">
+              {pastLogsByDate.map(([date, entries]) => {
+                const food = entries.filter(n => n.imageUrl !== "water_only");
+                const water = entries.find(n => n.imageUrl === "water_only");
+                const dayCal  = food.reduce((s, n) => s + (n.calories ?? 0), 0);
+                const dayPro  = food.reduce((s, n) => s + Number(n.protein ?? 0), 0);
+                const dayCarb = food.reduce((s, n) => s + Number(n.carbs   ?? 0), 0);
+                const dayFat  = food.reduce((s, n) => s + Number(n.fat     ?? 0), 0);
+                const goalCal = coachGoals?.calories ?? 0;
+                const pct = goalCal > 0 ? Math.min(100, (dayCal / goalCal) * 100) : 0;
+                const over = goalCal > 0 && dayCal > goalCal;
                 return (
-                  <div className="space-y-2 pt-1">
-                    {entries.map(n => {
-                      const isWaterOnly = n.imageUrl === "water_only";
-                      return (
-                        <div key={n.id} className="flex items-center gap-3 p-3 rounded-xl border border-border bg-card">
-                          {isWaterOnly ? (
-                            <div className="w-12 h-12 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0 text-2xl">💧</div>
-                          ) : n.imageUrl && n.imageUrl !== "cant_track" ? (
-                            <img src={n.imageUrl} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
-                          ) : (
-                            <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-                              <UtensilsCrossed className="w-5 h-5 text-muted-foreground/40" />
-                            </div>
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium">{n.notes ?? n.date}</p>
-                            <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
-                              {n.calories && <span className="text-xs text-muted-foreground">{n.calories} {calLabel}</span>}
-                              {n.protein && <span className="text-xs text-muted-foreground">P: {n.protein}g</span>}
-                              {n.carbs && <span className="text-xs text-muted-foreground">C: {n.carbs}g</span>}
-                              {n.fat && <span className="text-xs text-muted-foreground">F: {n.fat}g</span>}
-                              {n.waterMl && <span className="text-xs text-muted-foreground">{Math.round(n.waterMl / ML_PER_OZ)} oz water</span>}
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => deleteNutritionLog.mutate({ clientId: clientId!, nutritionId: n.id }, {
-                              onSuccess: () => qc.invalidateQueries({ queryKey: getListNutritionLogsQueryKey(clientId!) })
-                            })}
-                            className="text-muted-foreground hover:text-destructive p-1"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      );
-                    })}
+                  <div key={date} className="p-3 rounded-xl border border-border bg-card space-y-2">
+                    {/* Date + calorie total */}
+                    <div className="flex items-end justify-between">
+                      <p className="text-sm font-semibold">
+                        {new Date(date + "T12:00:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
+                      </p>
+                      <div className="text-right">
+                        <span className="text-base font-bold tabular-nums">{dayCal.toLocaleString()}</span>
+                        <span className="text-xs text-muted-foreground ml-1">{calLabel}</span>
+                        {goalCal > 0 && (
+                          <span className={cn("text-xs ml-1", over ? "text-destructive" : "text-muted-foreground")}>
+                            / {goalCal.toLocaleString()}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Progress bar if goal set */}
+                    {goalCal > 0 && (
+                      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className={cn("h-full rounded-full transition-all", over ? "bg-destructive" : "bg-primary")}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    )}
+
+                    {/* Macro row */}
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
+                        P <span className="tabular-nums">{Math.round(dayPro)}g</span>
+                      </span>
+                      <span className="text-xs font-medium text-orange-600 dark:text-orange-400">
+                        C <span className="tabular-nums">{Math.round(dayCarb)}g</span>
+                      </span>
+                      <span className="text-xs font-medium text-yellow-600 dark:text-yellow-400">
+                        F <span className="tabular-nums">{Math.round(dayFat)}g</span>
+                      </span>
+                      {water && (
+                        <span className="text-xs text-muted-foreground ml-auto">
+                          💧 {Math.round((water.waterMl ?? 0) / ML_PER_OZ)} oz
+                        </span>
+                      )}
+                    </div>
                   </div>
                 );
-              })()}
+              })}
             </div>
           )}
         </div>
