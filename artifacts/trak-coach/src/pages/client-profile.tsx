@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams } from "wouter";
 import {
   useGetClient,
@@ -62,6 +62,59 @@ import { Copy, Send, Plus, CheckCircle, Circle, Trash2, ArrowLeft, ChevronDown, 
 import { Link as WLink } from "wouter";
 import { format, parseISO } from "date-fns";
 import { VideoCall } from "@/components/video-call";
+
+// ── Macro dial ──────────────────────────────────────────────
+function MacroDial({
+  label, pct, onChange, color, trackColor, grams,
+}: {
+  label: string; pct: number; onChange: (p: number) => void;
+  color: string; trackColor: string; grams: number | null;
+}) {
+  const size = 100;
+  const sw = 10;
+  const r = (size - sw) / 2;
+  const circ = 2 * Math.PI * r;
+  const clamped = Math.max(0, Math.min(100, pct));
+  const dash = (clamped / 100) * circ;
+  const svgRef = useRef<SVGSVGElement>(null);
+
+  const handlePointer = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
+    if (!svgRef.current) return;
+    const rect = svgRef.current.getBoundingClientRect();
+    const dx = e.clientX - (rect.left + rect.width / 2);
+    const dy = e.clientY - (rect.top + rect.height / 2);
+    let angle = Math.atan2(dx, -dy) * (180 / Math.PI);
+    if (angle < 0) angle += 360;
+    onChange(Math.round((angle / 360) * 100));
+  }, [onChange]);
+
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <svg
+        ref={svgRef} width={size} height={size}
+        className="cursor-pointer select-none touch-none"
+        onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); handlePointer(e); }}
+        onPointerMove={e => { if (e.buttons > 0) handlePointer(e); }}
+      >
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={trackColor} strokeWidth={sw} />
+        {clamped > 0 && (
+          <circle
+            cx={size/2} cy={size/2} r={r} fill="none"
+            stroke={color} strokeWidth={sw}
+            strokeDasharray={`${dash} ${circ}`}
+            strokeLinecap="round"
+            transform={`rotate(-90 ${size/2} ${size/2})`}
+          />
+        )}
+        <text x={size/2} y={size/2 - 5} textAnchor="middle" fontSize="16" fontWeight="700" fill="currentColor">{clamped}%</text>
+        <text x={size/2} y={size/2 + 13} textAnchor="middle" fontSize="11" fill="currentColor" opacity="0.55">
+          {grams !== null ? `${grams}g` : "—"}
+        </text>
+      </svg>
+      <p className="text-xs font-semibold">{label}</p>
+    </div>
+  );
+}
 
 const messageSchema = z.object({ content: z.string().min(1) });
 const assignmentSchema = z.object({
@@ -901,28 +954,76 @@ export function ClientProfile() {
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader><DialogTitle>Set Daily Nutrition Goal</DialogTitle></DialogHeader>
-                  <div className="space-y-3 mt-2">
-                    <div className="grid grid-cols-2 gap-3">
-                      {[
-                        { key: "calories" as const, label: "Calories (kcal)" },
-                        { key: "protein" as const, label: "Protein (g)" },
-                        { key: "carbs" as const, label: "Carbs (g)" },
-                        { key: "fat" as const, label: "Fat (g)" },
-                      ].map(f => (
-                        <div key={f.key}>
-                          <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{f.label}</label>
+                  {(() => {
+                    const cal = Number(goalInputs.calories) || 0;
+                    // pct from stored grams
+                    const proteinPct = cal > 0 ? Math.min(100, Math.round((Number(goalInputs.protein || 0) * 4 / cal) * 100)) : 0;
+                    const carbsPct   = cal > 0 ? Math.min(100, Math.round((Number(goalInputs.carbs   || 0) * 4 / cal) * 100)) : 0;
+                    const fatPct     = cal > 0 ? Math.min(100, Math.round((Number(goalInputs.fat     || 0) * 9 / cal) * 100)) : 0;
+                    const totalPct   = proteinPct + carbsPct + fatPct;
+
+                    const setDialPct = (macro: "protein" | "carbs" | "fat", pct: number) => {
+                      const calsPerG = macro === "fat" ? 9 : 4;
+                      const grams = cal > 0 ? Math.round((pct / 100) * cal / calsPerG) : 0;
+                      setGoalInputs(p => ({ ...p, [macro]: String(grams) }));
+                    };
+
+                    const proteinG = cal > 0 ? Math.round((proteinPct / 100) * cal / 4) : null;
+                    const carbsG   = cal > 0 ? Math.round((carbsPct   / 100) * cal / 4) : null;
+                    const fatG     = cal > 0 ? Math.round((fatPct     / 100) * cal / 9) : null;
+
+                    return (
+                      <div className="space-y-5 mt-2">
+                        {/* Calories */}
+                        <div>
+                          <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Daily Calories (kcal)</label>
                           <Input
-                            type="number"
-                            min={0}
-                            value={goalInputs[f.key]}
-                            onChange={e => setGoalInputs(p => ({ ...p, [f.key]: e.target.value }))}
-                            placeholder="—"
+                            type="number" min={0}
+                            value={goalInputs.calories}
+                            onChange={e => setGoalInputs(p => ({ ...p, calories: e.target.value }))}
+                            placeholder="e.g. 2000"
                           />
                         </div>
-                      ))}
-                    </div>
-                    <Button className="w-full" onClick={handleSetGoal}>Save Goal</Button>
-                  </div>
+
+                        {/* Macro dials */}
+                        <div>
+                          <p className="text-xs font-medium text-muted-foreground mb-3 text-center">Macro Split — drag each dial</p>
+                          <div className="grid grid-cols-3 gap-2 justify-items-center">
+                            <MacroDial
+                              label="Protein" pct={proteinPct} grams={proteinG}
+                              color="#3b82f6" trackColor="rgba(59,130,246,0.15)"
+                              onChange={p => setDialPct("protein", p)}
+                            />
+                            <MacroDial
+                              label="Carbs" pct={carbsPct} grams={carbsG}
+                              color="#f97316" trackColor="rgba(249,115,22,0.15)"
+                              onChange={p => setDialPct("carbs", p)}
+                            />
+                            <MacroDial
+                              label="Fat" pct={fatPct} grams={fatG}
+                              color="#eab308" trackColor="rgba(234,179,8,0.15)"
+                              onChange={p => setDialPct("fat", p)}
+                            />
+                          </div>
+
+                          {/* Total % indicator */}
+                          <div className="mt-3 flex items-center justify-center gap-1.5">
+                            <span className={`text-xs font-medium tabular-nums ${totalPct === 100 ? "text-green-600 dark:text-green-400" : totalPct > 100 ? "text-destructive" : "text-muted-foreground"}`}>
+                              Total: {totalPct}%
+                            </span>
+                            {totalPct === 100 && <Check className="w-3.5 h-3.5 text-green-500" />}
+                            {totalPct > 0 && totalPct !== 100 && (
+                              <span className="text-xs text-muted-foreground italic">
+                                {totalPct < 100 ? `(${100 - totalPct}% unallocated)` : `(${totalPct - 100}% over)`}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <Button className="w-full" onClick={handleSetGoal}>Save Goal</Button>
+                      </div>
+                    );
+                  })()}
                 </DialogContent>
               </Dialog>
             </div>
