@@ -457,17 +457,23 @@ export function NutritionPage() {
               </p>
             </div>
           ) : (
-            <p className="text-xs text-muted-foreground pb-0.5 self-end">Today</p>
+            <div className="text-right pb-0.5">
+              <p className="text-xs text-muted-foreground leading-none">goal</p>
+              <p className="text-lg font-semibold tabular-nums leading-tight text-muted-foreground/40">
+                ––
+                <span className="text-xs font-normal ml-0.5">{calLabel}</span>
+              </p>
+            </div>
           )}
         </div>
 
-        {/* Calorie progress bar — always shown if goal set */}
-        {coachGoals && (coachGoals.calories ?? 0) > 0 && (
+        {/* Calorie progress bar — always visible, dashed placeholder when no goal */}
+        {coachGoals && (coachGoals.calories ?? 0) > 0 ? (
           <div className="space-y-1">
             <div className="h-2 rounded-full bg-muted overflow-hidden">
               <div
                 className={cn("h-full rounded-full transition-all duration-500", totalCal > (coachGoals.calories ?? 0) ? "bg-destructive" : "bg-primary")}
-                style={{ width: `${Math.min(100, (coachGoals.calories ?? 0) > 0 ? (totalCal / (coachGoals.calories ?? 1)) * 100 : 0)}%` }}
+                style={{ width: `${Math.min(100, (totalCal / (coachGoals.calories ?? 1)) * 100)}%` }}
               />
             </div>
             <p className="text-xs text-muted-foreground text-right">
@@ -475,6 +481,11 @@ export function NutritionPage() {
                 ? `${((coachGoals.calories ?? 0) - totalCal).toLocaleString()} ${calLabel} remaining`
                 : `${(totalCal - (coachGoals.calories ?? 0)).toLocaleString()} ${calLabel} over goal`}
             </p>
+          </div>
+        ) : (
+          <div className="space-y-1">
+            <div className="h-2 rounded-full border border-dashed border-muted-foreground/30 overflow-hidden" />
+            <p className="text-xs text-muted-foreground/50 text-right italic">No goal set — your coach will add one</p>
           </div>
         )}
 
