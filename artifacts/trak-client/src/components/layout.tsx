@@ -1,5 +1,6 @@
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { Home, Dumbbell, Ruler, Moon, UtensilsCrossed, Camera, ClipboardList, MessageCircle, TrendingUp, BookOpen, Settings } from "lucide-react";
+import { Home, Dumbbell, Ruler, Moon, UtensilsCrossed, Camera, ClipboardList, MessageCircle, TrendingUp, BookOpen, Settings, Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClientId } from "@/hooks/use-client-id";
 import { TrakLogo } from "@/components/trak-logo";
@@ -19,8 +20,55 @@ const navigation = [
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 
-export function Layout({ children }: { children: React.ReactNode }) {
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 639px)");
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener("change", handler);
+    setIsMobile(mq.matches);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+  return isMobile;
+}
+
+function NavLinks({ unread, onNav }: { unread: number; onNav?: () => void }) {
   const [location] = useLocation();
+  return (
+    <>
+      {navigation.map((item) => {
+        const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
+        return (
+          <Link
+            key={item.name}
+            href={item.href}
+            onClick={onNav}
+            className={cn(
+              "flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors",
+              isActive
+                ? "bg-primary text-primary-foreground"
+                : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            )}
+          >
+            <span className="relative mr-3 flex-shrink-0">
+              <item.icon className={cn("h-4 w-4", isActive ? "text-primary-foreground" : "text-muted-foreground")} />
+            </span>
+            {item.name}
+            {item.name === "Messages" && unread > 0 && (
+              <span className="ml-auto min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                {unread > 99 ? "99+" : unread}
+              </span>
+            )}
+          </Link>
+        );
+      })}
+    </>
+  );
+}
+
+export function Layout({ children }: { children: React.ReactNode }) {
+  const isMobile = useIsMobile();
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const { clientId } = useClientId();
 
   const { data: messages } = useListMessages(clientId!, {
@@ -32,6 +80,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
   });
   const unreadCount = messages?.filter(m => m.sender === "coach" && !m.readAt).length ?? 0;
 
+  const [location] = useLocation();
+  useEffect(() => { setDrawerOpen(false); }, [location]);
+
   if (!clientId) {
     return (
       <div className="flex min-h-screen w-full bg-background">
@@ -40,47 +91,62 @@ export function Layout({ children }: { children: React.ReactNode }) {
     );
   }
 
+  const sidebarContent = (
+    <div className="flex-1 flex flex-col pt-6 pb-4 overflow-y-auto">
+      <div className="flex items-center flex-shrink-0 px-4 mb-6">
+        <TrakLogo />
+      </div>
+      <nav className="flex-1 px-3 space-y-1">
+        <NavLinks unread={unreadCount} onNav={() => setDrawerOpen(false)} />
+      </nav>
+    </div>
+  );
+
+  if (isMobile) {
+    return (
+      <div className="flex flex-col min-h-screen w-full bg-background">
+        {/* Mobile top bar */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-sidebar flex-shrink-0">
+          <TrakLogo />
+          <button
+            onClick={() => setDrawerOpen(v => !v)}
+            className="p-1.5 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors relative"
+            aria-label="Toggle menu"
+          >
+            {drawerOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            {!drawerOpen && unreadCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] px-0.5 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {/* Mobile drawer overlay */}
+        {drawerOpen && (
+          <>
+            <div className="fixed inset-0 z-40 bg-black/40" onClick={() => setDrawerOpen(false)} />
+            <div className="fixed top-0 left-0 h-full w-56 z-50 bg-sidebar border-r border-sidebar-border shadow-xl flex flex-col animate-in slide-in-from-left duration-200">
+              {sidebarContent}
+            </div>
+          </>
+        )}
+
+        <main className="flex-1 p-4 overflow-y-auto">
+          {children}
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen w-full bg-background">
-      {/* Permanent sidebar — always visible */}
+      {/* Permanent sidebar — desktop */}
       <div className="flex w-48 flex-col fixed inset-y-0 z-50">
         <div className="flex-1 flex flex-col min-h-0 bg-sidebar border-r border-sidebar-border">
-          <div className="flex-1 flex flex-col pt-6 pb-4 overflow-y-auto">
-            <div className="flex items-center flex-shrink-0 px-4 mb-6">
-              <TrakLogo />
-            </div>
-            <nav className="flex-1 px-3 space-y-1">
-              {navigation.map((item) => {
-                const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
-                return (
-                  <Link
-                    key={item.name}
-                    href={item.href}
-                    className={cn(
-                      "flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors",
-                      isActive
-                        ? "bg-primary text-primary-foreground"
-                        : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                    )}
-                  >
-                    <span className="relative mr-3 flex-shrink-0">
-                      <item.icon className={cn("h-4 w-4", isActive ? "text-primary-foreground" : "text-muted-foreground")} />
-                    </span>
-                    {item.name}
-                    {item.name === "Messages" && unreadCount > 0 && (
-                      <span className="ml-auto min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
-                        {unreadCount > 99 ? "99+" : unreadCount}
-                      </span>
-                    )}
-                  </Link>
-                );
-              })}
-            </nav>
-          </div>
+          {sidebarContent}
         </div>
       </div>
-
-      {/* Main content — offset by sidebar width */}
       <div className="flex flex-col flex-1 w-full min-w-0 pl-48">
         <main className="flex-1 p-4 md:p-6">
           {children}

@@ -2,25 +2,19 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { nutritionGoalsTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
-import { z } from "zod/v4";
 
 const router = Router();
 
-const NutritionGoalBody = z.object({
-  calories: z.number().int().positive().optional(),
-  protein: z.number().int().nonnegative().optional(),
-  carbs: z.number().int().nonnegative().optional(),
-  fat: z.number().int().nonnegative().optional(),
-  waterOz: z.number().int().nonnegative().optional(),
-  periodType: z.enum(["day", "week", "phase"]).default("day"),
-  effectiveWeek: z.number().int().positive().optional(),
-  durationWeeks: z.number().int().positive().optional(),
-  notes: z.string().optional(),
-});
+function toInt(v: unknown): number | null {
+  if (v === undefined || v === null || v === "") return null;
+  const n = Number(v);
+  return isNaN(n) ? null : Math.round(n);
+}
 
 router.get("/clients/:clientId/nutrition-goal", async (req, res) => {
   try {
     const clientId = Number(req.params.clientId);
+    if (isNaN(clientId)) { res.status(400).json({ error: "Invalid clientId" }); return; }
     const [goal] = await db.select().from(nutritionGoalsTable)
       .where(eq(nutritionGoalsTable.clientId, clientId))
       .orderBy(desc(nutritionGoalsTable.createdAt))
@@ -35,18 +29,22 @@ router.get("/clients/:clientId/nutrition-goal", async (req, res) => {
 router.post("/clients/:clientId/nutrition-goal", async (req, res) => {
   try {
     const clientId = Number(req.params.clientId);
-    const body = NutritionGoalBody.parse(req.body);
+    if (isNaN(clientId)) { res.status(400).json({ error: "Invalid clientId" }); return; }
+    const body = req.body as Record<string, unknown>;
+    const periodType = (["day", "week", "phase"] as const).includes(body.periodType as never)
+      ? (body.periodType as "day" | "week" | "phase")
+      : "day";
     const [goal] = await db.insert(nutritionGoalsTable).values({
       clientId,
-      calories: body.calories ?? null,
-      protein: body.protein ?? null,
-      carbs: body.carbs ?? null,
-      fat: body.fat ?? null,
-      waterOz: body.waterOz ?? null,
-      periodType: body.periodType,
-      effectiveWeek: body.effectiveWeek ?? null,
-      durationWeeks: body.durationWeeks ?? null,
-      notes: body.notes ?? null,
+      calories: toInt(body.calories),
+      protein: toInt(body.protein),
+      carbs: toInt(body.carbs),
+      fat: toInt(body.fat),
+      waterOz: toInt(body.waterOz),
+      periodType,
+      effectiveWeek: toInt(body.effectiveWeek),
+      durationWeeks: toInt(body.durationWeeks),
+      notes: typeof body.notes === "string" ? body.notes : null,
     }).returning();
     res.status(201).json({ ...goal, createdAt: goal.createdAt.toISOString() });
   } catch (err) {

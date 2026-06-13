@@ -1,7 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { coachSettingsTable } from "@workspace/db";
-import { z } from "zod/v4";
 
 const router = Router();
 
@@ -18,7 +17,11 @@ router.get("/coach/app-settings", async (req, res) => {
 
 router.patch("/coach/app-settings", async (req, res) => {
   try {
-    const body = z.record(z.unknown()).parse(req.body);
+    const body = req.body as Record<string, unknown>;
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      res.status(400).json({ error: "Invalid body" });
+      return;
+    }
     const [existing] = await db.select().from(coachSettingsTable).limit(1);
     const current = existing ? JSON.parse(existing.settingsJson) : {};
     const merged = { ...current, ...body };
