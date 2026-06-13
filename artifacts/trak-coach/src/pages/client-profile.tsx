@@ -63,55 +63,82 @@ import { Link as WLink } from "wouter";
 import { format, parseISO } from "date-fns";
 import { VideoCall } from "@/components/video-call";
 
-// ── Macro dial ──────────────────────────────────────────────
-function MacroDial({
-  label, pct, onChange, color, trackColor, grams,
+// ── Vertical drum / scroll picker ────────────────────────────
+const ITEM_H = 40;
+const VISIBLE = 5; // must be odd; center = selected
+
+function DrumDial({
+  label, pct, onChange, color, grams,
 }: {
   label: string; pct: number; onChange: (p: number) => void;
-  color: string; trackColor: string; grams: number | null;
+  color: string; grams: number | null;
 }) {
-  const size = 100;
-  const sw = 10;
-  const r = (size - sw) / 2;
-  const circ = 2 * Math.PI * r;
-  const clamped = Math.max(0, Math.min(100, pct));
-  const dash = (clamped / 100) * circ;
-  const svgRef = useRef<SVGSVGElement>(null);
+  const containerH = ITEM_H * VISIBLE;
+  const startRef = useRef<{ y: number; pct: number } | null>(null);
 
-  const handlePointer = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
-    if (!svgRef.current) return;
-    const rect = svgRef.current.getBoundingClientRect();
-    const dx = e.clientX - (rect.left + rect.width / 2);
-    const dy = e.clientY - (rect.top + rect.height / 2);
-    let angle = Math.atan2(dx, -dy) * (180 / Math.PI);
-    if (angle < 0) angle += 360;
-    onChange(Math.round((angle / 360) * 100));
+  const handlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    startRef.current = { y: e.clientY, pct };
+  }, [pct]);
+
+  const handlePointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!startRef.current || e.buttons === 0) return;
+    const delta = startRef.current.y - e.clientY;   // drag up = increase
+    const next = Math.round(startRef.current.pct + delta / ITEM_H);
+    onChange(Math.max(0, Math.min(100, next)));
   }, [onChange]);
 
+  const handlePointerUp = useCallback(() => { startRef.current = null; }, []);
+
+  // translateY so selected item sits in the middle slot
+  const translateY = -pct * ITEM_H + (VISIBLE - 1) / 2 * ITEM_H;
+
   return (
-    <div className="flex flex-col items-center gap-1">
-      <svg
-        ref={svgRef} width={size} height={size}
-        className="cursor-pointer select-none touch-none"
-        onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); handlePointer(e); }}
-        onPointerMove={e => { if (e.buttons > 0) handlePointer(e); }}
+    <div className="flex flex-col items-center gap-2 select-none">
+      {/* Drum container */}
+      <div
+        className="relative overflow-hidden cursor-ns-resize touch-none"
+        style={{ height: containerH, width: 72 }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
       >
-        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={trackColor} strokeWidth={sw} />
-        {clamped > 0 && (
-          <circle
-            cx={size/2} cy={size/2} r={r} fill="none"
-            stroke={color} strokeWidth={sw}
-            strokeDasharray={`${dash} ${circ}`}
-            strokeLinecap="round"
-            transform={`rotate(-90 ${size/2} ${size/2})`}
-          />
-        )}
-        <text x={size/2} y={size/2 - 5} textAnchor="middle" fontSize="16" fontWeight="700" fill="currentColor">{clamped}%</text>
-        <text x={size/2} y={size/2 + 13} textAnchor="middle" fontSize="11" fill="currentColor" opacity="0.55">
-          {grams !== null ? `${grams}g` : "—"}
-        </text>
-      </svg>
-      <p className="text-xs font-semibold">{label}</p>
+        {/* Center highlight band */}
+        <div
+          className="absolute inset-x-0 pointer-events-none z-10 rounded-lg border border-border/60"
+          style={{ top: (VISIBLE - 1) / 2 * ITEM_H, height: ITEM_H, background: `${color}18` }}
+        />
+
+        {/* Scrolling list — show only nearby values for perf */}
+        <div
+          className="absolute w-full"
+          style={{ transform: `translateY(${translateY}px)`, willChange: "transform" }}
+        >
+          {Array.from({ length: 101 }, (_, v) => {
+            const dist = Math.abs(v - pct);
+            const opacity = dist === 0 ? 1 : dist === 1 ? 0.55 : dist === 2 ? 0.25 : 0.08;
+            const scale  = dist === 0 ? 1 : dist === 1 ? 0.88 : 0.78;
+            return (
+              <div
+                key={v}
+                className="flex items-center justify-center font-semibold tabular-nums"
+                style={{ height: ITEM_H, fontSize: 15, opacity, transform: `scale(${scale})`, color: dist === 0 ? color : undefined, transition: "opacity 80ms, transform 80ms" }}
+              >
+                {v}%
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Fade top */}
+        <div className="absolute inset-x-0 top-0 pointer-events-none z-20" style={{ height: ITEM_H * 2, background: "linear-gradient(to bottom, var(--background) 30%, transparent)" }} />
+        {/* Fade bottom */}
+        <div className="absolute inset-x-0 bottom-0 pointer-events-none z-20" style={{ height: ITEM_H * 2, background: "linear-gradient(to top, var(--background) 30%, transparent)" }} />
+      </div>
+
+      <p className="text-xs font-semibold" style={{ color }}>{label}</p>
+      <p className="text-xs text-muted-foreground">{grams !== null ? `${grams}g` : "—"}</p>
     </div>
   );
 }
@@ -987,21 +1014,21 @@ export function ClientProfile() {
 
                         {/* Macro dials */}
                         <div>
-                          <p className="text-xs font-medium text-muted-foreground mb-3 text-center">Macro Split — drag each dial</p>
+                          <p className="text-xs font-medium text-muted-foreground mb-3 text-center">Macro Split — scroll each drum up/down</p>
                           <div className="grid grid-cols-3 gap-2 justify-items-center">
-                            <MacroDial
+                            <DrumDial
                               label="Protein" pct={proteinPct} grams={proteinG}
-                              color="#3b82f6" trackColor="rgba(59,130,246,0.15)"
+                              color="#3b82f6"
                               onChange={p => setDialPct("protein", p)}
                             />
-                            <MacroDial
+                            <DrumDial
                               label="Carbs" pct={carbsPct} grams={carbsG}
-                              color="#f97316" trackColor="rgba(249,115,22,0.15)"
+                              color="#f97316"
                               onChange={p => setDialPct("carbs", p)}
                             />
-                            <MacroDial
+                            <DrumDial
                               label="Fat" pct={fatPct} grams={fatG}
-                              color="#eab308" trackColor="rgba(234,179,8,0.15)"
+                              color="#eab308"
                               onChange={p => setDialPct("fat", p)}
                             />
                           </div>
