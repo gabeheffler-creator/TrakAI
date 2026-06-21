@@ -12,6 +12,7 @@ import { ProgramBuilder } from "@/pages/program-builder";
 import { Exercises } from "@/pages/exercises";
 import { Messages } from "@/pages/messages";
 import { SettingsPage } from "@/pages/settings";
+import { BetaLinksPage } from "@/pages/beta-links";
 
 const queryClient = new QueryClient();
 
@@ -28,6 +29,7 @@ function Router() {
         <Route path="/messages" component={Messages} />
         <Route path="/messages/:clientId" component={Messages} />
         <Route path="/settings" component={SettingsPage} />
+        <Route path="/beta-links" component={BetaLinksPage} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Users, Dumbbell, Activity, MessageCircle, Settings, Menu, X } from "lucide-react";
+import { LayoutDashboard, Users, Dumbbell, Activity, MessageCircle, Settings, Menu, X, Link2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TrakLogo } from "./trak-logo";
 import { useGetCoachUnreadCount, getGetCoachUnreadCountQueryKey } from "@workspace/api-client-react";
@@ -12,6 +12,7 @@ const navItems = [
   { name: "Exercises", href: "/exercises", icon: Activity },
   { name: "Messages", href: "/messages", icon: MessageCircle },
   { name: "Settings", href: "/settings", icon: Settings },
+  { name: "Beta Links", href: "/beta-links", icon: Link2 },
 ];
 
 function useIsMobile() {
