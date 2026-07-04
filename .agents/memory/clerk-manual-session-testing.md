@@ -18,3 +18,7 @@ const { jwt } = await clerkClient.sessions.getToken(session.id);
 **Why:** This exercises the exact same `@clerk/express` `getAuth`/`authenticateRequest` path as real browser sessions, so it's a faithful substitute for e2e auth testing when the browser tool itself is broken.
 
 **How to apply:** Always clean up (`clerkClient.users.deleteUser`) and delete any DB rows created this way afterward — these are real Clerk dev-instance users, not sandboxed test fixtures.
+
+Also use this fallback when the `runTest` browser subagent gets stuck on a Cloudflare "Verify you are human" checkbox during Clerk sign-up/sign-in (seen consistently, not just an infra fluke) — programmatic Clerk auth sidesteps the CAPTCHA entirely.
+
+**Environment note:** the `code_execution` JS sandbox does NOT have `process.env` populated with app secrets (e.g. `CLERK_SECRET_KEY`) even though `viewEnvVars()` shows they exist — `import('node:process')` there has an empty env. Run the Node script via the `bash` tool instead (e.g. from inside `artifacts/api-server` so `@clerk/express` resolves), where secrets ARE injected into `process.env` without ever being printed. Write the script to a temp `.mjs` file inside the package dir, run with `node`, then delete the temp file.

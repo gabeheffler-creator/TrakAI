@@ -9,6 +9,14 @@ export interface HealthStatus {
   status: string;
 }
 
+export type ClientStatus = typeof ClientStatus[keyof typeof ClientStatus];
+
+
+export const ClientStatus = {
+  active: 'active',
+  inactive: 'inactive',
+} as const;
+
 export interface Client {
   id: number;
   name: string;
@@ -21,6 +29,7 @@ export interface Client {
   notes?: string | null;
   /** @nullable */
   inviteToken?: string | null;
+  status?: ClientStatus;
   createdAt: string;
 }
 
@@ -42,6 +51,18 @@ export interface ClientUpdate {
   goal?: string | null;
   /** @nullable */
   notes?: string | null;
+}
+
+export type ClientStatusUpdateStatus = typeof ClientStatusUpdateStatus[keyof typeof ClientStatusUpdateStatus];
+
+
+export const ClientStatusUpdateStatus = {
+  active: 'active',
+  inactive: 'inactive',
+} as const;
+
+export interface ClientStatusUpdate {
+  status: ClientStatusUpdateStatus;
 }
 
 export interface InviteLink {

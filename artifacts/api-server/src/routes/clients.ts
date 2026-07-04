@@ -12,6 +12,8 @@ import {
   DeleteClientParams,
   GenerateInviteLinkParams,
   GetInviteParams,
+  UpdateClientStatusBody,
+  UpdateClientStatusParams,
 } from "@workspace/api-zod";
 import { requireCoachAuth, requireClientOwnership, requireCoachOnly, requireClientAuth, getUserEmail } from "../middlewares/auth";
 
@@ -96,6 +98,23 @@ router.patch("/clients/:clientId", requireClientOwnership(), async (req, res) =>
   } catch (err) {
     req.log.error(err);
     res.status(400).json({ error: "Failed to update client" });
+  }
+});
+
+// Activate / deactivate client (coach only)
+router.patch("/clients/:clientId/status", requireClientOwnership(), requireCoachOnly, async (req, res) => {
+  try {
+    const { clientId } = UpdateClientStatusParams.parse({ clientId: Number(req.params.clientId) });
+    const { status } = UpdateClientStatusBody.parse(req.body);
+    const [client] = await db.update(clientsTable)
+      .set({ status, updatedAt: new Date() })
+      .where(eq(clientsTable.id, clientId))
+      .returning();
+    if (!client) { res.status(404).json({ error: "Client not found" }); return; }
+    res.json({ ...client, createdAt: client.createdAt.toISOString() });
+  } catch (err) {
+    req.log.error(err);
+    res.status(400).json({ error: "Failed to update client status" });
   }
 });
 

@@ -29,7 +29,7 @@ router.get("/dashboard/coach", requireCoachAuth, async (req, res) => {
           .where(inArray(programAssignmentsTable.clientId, clientIds))
       : [{ value: 0 }];
 
-    const clientSummaries = await Promise.all(clients.map(async (c) => {
+    const clientSummaries = await Promise.all(clients.filter(c => c.status === "active").map(async (c) => {
       const [lastWorkout] = await db.select({ date: workoutLogsTable.createdAt })
         .from(workoutLogsTable)
         .where(eq(workoutLogsTable.clientId, c.id))

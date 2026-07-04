@@ -115,6 +115,10 @@ export const requireClientAuth: RequestHandler = async (req, res, next) => {
       res.status(403).json({ error: "No client account found for this user" });
       return;
     }
+    if (client.status === "inactive") {
+      res.status(403).json({ error: "This account has been deactivated by your coach", code: "CLIENT_DEACTIVATED" });
+      return;
+    }
     req.actor = { type: "client", client };
     next();
   } catch (err) {
@@ -158,6 +162,10 @@ export const requireClientOwnership = (paramName = "clientId"): RequestHandler =
       const { email } = await getUserIdentity(auth.userId);
       const directClient = await getClientForClerkUser(auth.userId, email);
       if (directClient && directClient.id === requestedClientId) {
+        if (directClient.status === "inactive") {
+          res.status(403).json({ error: "This account has been deactivated by your coach", code: "CLIENT_DEACTIVATED" });
+          return;
+        }
         req.actor = { type: "client", client: directClient };
         next();
         return;

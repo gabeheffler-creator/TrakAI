@@ -28,6 +28,7 @@ import type {
   Client,
   ClientDashboard,
   ClientInput,
+  ClientStatusUpdate,
   ClientUpdate,
   CoachDashboard,
   CoachNote,
@@ -531,6 +532,78 @@ export const useDeleteClient = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getDeleteClientMutationOptions(options));
+    }
+
+export const getUpdateClientStatusUrl = (clientId: number,) => {
+
+
+
+
+  return `/api/clients/${clientId}/status`
+}
+
+/**
+ * @summary Activate or deactivate a client (coach only)
+ */
+export const updateClientStatus = async (clientId: number,
+    clientStatusUpdate: ClientStatusUpdate, options?: RequestInit): Promise<Client> => {
+
+  return customFetch<Client>(getUpdateClientStatusUrl(clientId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      clientStatusUpdate,)
+  }
+);}
+
+
+
+
+export const getUpdateClientStatusMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateClientStatus>>, TError,{clientId: number;data: BodyType<ClientStatusUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateClientStatus>>, TError,{clientId: number;data: BodyType<ClientStatusUpdate>}, TContext> => {
+
+const mutationKey = ['updateClientStatus'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateClientStatus>>, {clientId: number;data: BodyType<ClientStatusUpdate>}> = (props) => {
+          const {clientId,data} = props ?? {};
+
+          return  updateClientStatus(clientId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateClientStatusMutationResult = NonNullable<Awaited<ReturnType<typeof updateClientStatus>>>
+    export type UpdateClientStatusMutationBody = BodyType<ClientStatusUpdate>
+    export type UpdateClientStatusMutationError = ErrorType<void>
+
+    /**
+ * @summary Activate or deactivate a client (coach only)
+ */
+export const useUpdateClientStatus = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateClientStatus>>, TError,{clientId: number;data: BodyType<ClientStatusUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateClientStatus>>,
+        TError,
+        {clientId: number;data: BodyType<ClientStatusUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateClientStatusMutationOptions(options));
     }
 
 export const getGenerateInviteLinkUrl = (clientId: number,) => {

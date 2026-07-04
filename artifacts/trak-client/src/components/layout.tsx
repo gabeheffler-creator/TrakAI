@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { Home, Dumbbell, Ruler, Moon, UtensilsCrossed, Camera, ClipboardList, MessageCircle, TrendingUp, BookOpen, Settings, Menu, X } from "lucide-react";
+import { Home, Dumbbell, Ruler, Moon, UtensilsCrossed, Camera, ClipboardList, MessageCircle, TrendingUp, BookOpen, Settings, Menu, X, ShieldOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClientId } from "@/hooks/use-client-id";
 import { TrakLogo } from "@/components/trak-logo";
@@ -70,7 +70,7 @@ function NavLinks({ unread, onNav }: { unread: number; onNav?: () => void }) {
 export function Layout({ children }: { children: React.ReactNode }) {
   const isMobile = useIsMobile();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const { clientId } = useClientId();
+  const { clientId, isDeactivated } = useClientId();
 
   const { data: messages } = useListMessages(clientId!, {
     query: {
@@ -83,6 +83,24 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   const [location] = useLocation();
   useEffect(() => { setDrawerOpen(false); }, [location]);
+
+  if (isDeactivated) {
+    return (
+      <div className="flex min-h-screen w-full items-center justify-center bg-background px-4">
+        <div className="max-w-sm text-center space-y-4">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
+            <ShieldOff className="h-6 w-6 text-destructive" />
+          </div>
+          <h1 className="text-xl font-bold">Account paused</h1>
+          <p className="text-sm text-muted-foreground">
+            Your coach has paused your access to Trak. Reach out to them directly if you'd
+            like to reenroll — your progress and history are safe and waiting for you.
+          </p>
+          <LogoutButton className="mx-auto" />
+        </div>
+      </div>
+    );
+  }
 
   if (!clientId) {
     return (

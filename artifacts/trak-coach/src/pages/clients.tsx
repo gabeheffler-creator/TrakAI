@@ -1,15 +1,27 @@
 import { useState } from "react";
-import { useListClients, useCreateClient, getListClientsQueryKey, useGenerateInviteLink } from "@workspace/api-client-react";
+import { useListClients, useCreateClient, getListClientsQueryKey, useGenerateInviteLink, useUpdateClientStatus } from "@workspace/api-client-react";
+import type { Client } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, UserX, UserCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 import { format } from "date-fns";
@@ -20,6 +32,88 @@ const clientSchema = z.object({
   phone: z.string().optional(),
   goal: z.string().min(1, "Goal is required"),
 });
+
+function ClientCard({ client }: { client: Client }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const updateStatus = useUpdateClientStatus();
+  const isActive = client.status !== "inactive";
+
+  const setStatus = (status: "active" | "inactive") => {
+    updateStatus.mutate({ clientId: client.id, data: { status } }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListClientsQueryKey() });
+        toast({ title: status === "active" ? "Client reactivated" : "Client deactivated" });
+      },
+      onError: () => toast({ title: "Failed to update client status", variant: "destructive" }),
+    });
+  };
+
+  return (
+    <Card className={cn("h-full transition-colors", isActive ? "hover:border-primary" : "opacity-60 grayscale")}>
+      <Link href={`/clients/${client.id}`} className="block cursor-pointer" data-testid={`link-client-${client.id}`}>
+        <CardHeader className="pb-2">
+          <CardTitle className="truncate text-base">{client.name}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 pb-2">
+          <div className="text-sm text-muted-foreground truncate">{client.email}</div>
+          {client.goal && <div className="text-sm font-medium truncate">{client.goal}</div>}
+          <div className="text-xs text-muted-foreground mt-4">
+            Joined {format(new Date(client.createdAt), "MMM d, yyyy")}
+          </div>
+        </CardContent>
+      </Link>
+      <CardContent className="pt-0">
+        {isActive ? (
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full text-destructive hover:text-destructive"
+              onClick={() => setConfirmOpen(true)}
+              data-testid={`button-deactivate-${client.id}`}
+            >
+              <UserX className="w-4 h-4 mr-2" /> Deactivate
+            </Button>
+            <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {client.name} will lose access to the Trak Client app. You'll keep full
+                    access to their data, and you can reactivate them anytime — nothing is deleted.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel data-testid="button-confirm-cancel">Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    onClick={() => setStatus("inactive")}
+                    data-testid="button-confirm-deactivate"
+                  >
+                    Yes, deactivate
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </>
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full"
+            disabled={updateStatus.isPending}
+            onClick={() => setStatus("active")}
+            data-testid={`button-reactivate-${client.id}`}
+          >
+            <UserCheck className="w-4 h-4 mr-2" /> Reactivate
+          </Button>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 export function ClientList() {
   const { data: clients, isLoading } = useListClients();
@@ -64,6 +158,8 @@ export function ClientList() {
     c.name.toLowerCase().includes(search.toLowerCase()) ||
     c.email.toLowerCase().includes(search.toLowerCase())
   );
+  const activeClients = filteredClients?.filter(c => c.status !== "inactive");
+  const inactiveClients = filteredClients?.filter(c => c.status === "inactive");
 
   return (
     <div className="space-y-6">
@@ -115,26 +211,33 @@ export function ClientList() {
       {isLoading ? (
         <div className="p-8 text-center">Loading clients...</div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredClients?.map((client) => (
-            <Link key={client.id} href={`/clients/${client.id}`} className="block h-full">
-              <Card className="h-full hover:border-primary transition-colors cursor-pointer">
-                <CardHeader className="pb-2">
-                  <CardTitle className="truncate text-base">{client.name}</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <div className="text-sm text-muted-foreground truncate">{client.email}</div>
-                  {client.goal && <div className="text-sm font-medium truncate">{client.goal}</div>}
-                  <div className="text-xs text-muted-foreground mt-4">
-                    Joined {format(new Date(client.createdAt), "MMM d, yyyy")}
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
-          {filteredClients?.length === 0 && (
-            <div className="col-span-full p-8 text-center text-muted-foreground border rounded-lg bg-card">
-              No clients found.
+        <div className="space-y-8">
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold text-muted-foreground">
+              Active Clients {activeClients ? `(${activeClients.length})` : ""}
+            </h2>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {activeClients?.map((client) => (
+                <ClientCard key={client.id} client={client} />
+              ))}
+              {activeClients?.length === 0 && (
+                <div className="col-span-full p-8 text-center text-muted-foreground border rounded-lg bg-card">
+                  No active clients found.
+                </div>
+              )}
+            </div>
+          </div>
+
+          {(inactiveClients?.length ?? 0) > 0 && (
+            <div className="space-y-4">
+              <h2 className="text-lg font-semibold text-muted-foreground">
+                Inactive Clients ({inactiveClients?.length})
+              </h2>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {inactiveClients?.map((client) => (
+                  <ClientCard key={client.id} client={client} />
+                ))}
+              </div>
             </div>
           )}
         </div>

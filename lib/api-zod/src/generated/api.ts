@@ -27,6 +27,7 @@ export const ListClientsResponseItem = zod.object({
   "goal": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "inviteToken": zod.string().nullish(),
+  "status": zod.enum(['active', 'inactive']).optional(),
   "createdAt": zod.coerce.date()
 })
 export const ListClientsResponse = zod.array(ListClientsResponseItem)
@@ -62,6 +63,7 @@ export const GetClientResponse = zod.object({
   "goal": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "inviteToken": zod.string().nullish(),
+  "status": zod.enum(['active', 'inactive']).optional(),
   "createdAt": zod.coerce.date()
 })
 
@@ -89,6 +91,7 @@ export const UpdateClientResponse = zod.object({
   "goal": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "inviteToken": zod.string().nullish(),
+  "status": zod.enum(['active', 'inactive']).optional(),
   "createdAt": zod.coerce.date()
 })
 
@@ -98,6 +101,30 @@ export const UpdateClientResponse = zod.object({
  */
 export const DeleteClientParams = zod.object({
   "clientId": zod.coerce.number()
+})
+
+
+/**
+ * @summary Activate or deactivate a client (coach only)
+ */
+export const UpdateClientStatusParams = zod.object({
+  "clientId": zod.coerce.number()
+})
+
+export const UpdateClientStatusBody = zod.object({
+  "status": zod.enum(['active', 'inactive'])
+})
+
+export const UpdateClientStatusResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "email": zod.string(),
+  "phone": zod.string().nullish(),
+  "goal": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "inviteToken": zod.string().nullish(),
+  "status": zod.enum(['active', 'inactive']).optional(),
+  "createdAt": zod.coerce.date()
 })
 
 
@@ -153,6 +180,7 @@ export const GetMyClientResponse = zod.object({
   "goal": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "inviteToken": zod.string().nullish(),
+  "status": zod.enum(['active', 'inactive']).optional(),
   "createdAt": zod.coerce.date()
 })
 
@@ -197,6 +225,7 @@ export const GetClientDashboardResponse = zod.object({
   "goal": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "inviteToken": zod.string().nullish(),
+  "status": zod.enum(['active', 'inactive']).optional(),
   "createdAt": zod.coerce.date()
 }),
   "currentProgram": zod.object({
