@@ -28,6 +28,7 @@ export * from './coachNoteInput';
 export * from './exercise';
 export * from './exerciseInput';
 export * from './healthStatus';
+export * from './inviteAcceptResult';
 export * from './inviteInfo';
 export * from './inviteLink';
 export * from './markReadInput';

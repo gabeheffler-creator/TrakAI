@@ -31,6 +31,7 @@ import {
   useListCallLogs,
   useCreateCallLog,
   useDeleteCallLog,
+  useGenerateInviteLink,
   getGetWorkoutLogQueryKey,
   getGetClientQueryKey,
   getListAssignmentsQueryKey,
@@ -482,6 +483,22 @@ export function ClientProfile() {
   const [nutritionGoal, setNutritionGoal] = useState<Record<string, number | null> | null>(null);
   const [goalDialogOpen, setGoalDialogOpen] = useState(false);
   const [goalInputs, setGoalInputs] = useState({ calories: "", protein: "", carbs: "", fat: "" });
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const generateInvite = useGenerateInviteLink();
+
+  const handleCopyInviteLink = () => {
+    generateInvite.mutate({ clientId }, {
+      onSuccess: (inv) => {
+        // The invite link points to the Trak Client app, not this (coach) app,
+        // so it uses the client app's base path, not this app's BASE_URL.
+        const url = `${window.location.origin}/client/join/${inv.token}`;
+        setInviteLink(url);
+        navigator.clipboard?.writeText(url).catch(() => {});
+        toast({ title: "Invite link copied to clipboard" });
+      },
+      onError: () => toast({ title: "Failed to generate invite link", variant: "destructive" }),
+    });
+  };
 
   useEffect(() => {
     if (!clientId) return;
@@ -682,10 +699,27 @@ export function ClientProfile() {
           <h1 className="text-2xl font-bold">{client.name}</h1>
           <p className="text-muted-foreground text-sm">{client.email}{client.phone ? ` · ${client.phone}` : ""}</p>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleCopyInviteLink}
+          disabled={generateInvite.isPending}
+          data-testid="button-copy-invite-link"
+        >
+          <Copy className="w-4 h-4 mr-2" /> {generateInvite.isPending ? "Generating…" : "Copy Invite Link"}
+        </Button>
         <Button variant="outline" size="sm" onClick={handleStartVideoCall}>
           <Video className="w-4 h-4 mr-2" /> Video Call
         </Button>
       </div>
+
+      {inviteLink && (
+        <Card>
+          <CardContent className="pt-4 pb-4 flex items-center justify-between gap-4">
+            <p className="text-sm break-all" data-testid="text-invite-link">{inviteLink}</p>
+          </CardContent>
+        </Card>
+      )}
 
       {client.goal && (
         <Card>

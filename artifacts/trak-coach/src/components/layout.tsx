@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Users, Dumbbell, Activity, MessageCircle, Settings, Menu, X, Link2 } from "lucide-react";
+import { LayoutDashboard, Users, Dumbbell, Activity, MessageCircle, Settings, Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TrakLogo } from "./trak-logo";
+import { LogoutButton } from "@/App";
 import { useGetCoachUnreadCount, getGetCoachUnreadCountQueryKey } from "@workspace/api-client-react";
 
 const navItems = [
@@ -12,7 +13,6 @@ const navItems = [
   { name: "Exercises", href: "/exercises", icon: Activity },
   { name: "Messages", href: "/messages", icon: MessageCircle },
   { name: "Settings", href: "/settings", icon: Settings },
-  { name: "Beta Links", href: "/beta-links", icon: Link2 },
 ];
 
 function useIsMobile() {
@@ -82,6 +82,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <nav className="flex-1 px-2 space-y-1">
         <NavLinks unread={totalUnread} onNav={() => setDrawerOpen(false)} />
       </nav>
+      <div className="px-2 pt-2 border-t border-sidebar-border">
+        <LogoutButton className="w-full justify-start text-sidebar-foreground hover:text-sidebar-accent-foreground" />
+      </div>
     </div>
   );
 

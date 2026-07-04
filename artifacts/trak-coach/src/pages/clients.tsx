@@ -45,7 +45,9 @@ export function ClientList() {
         toast({ title: "Client created! Sending invite email…" });
         generateInvite.mutate({ clientId: created.id }, {
           onSuccess: (inv) => {
-            const inviteUrl = `${window.location.origin.replace(/\/$/, "").replace("/coach", "/client")}/invite/${inv.token}`;
+            // The invite link points to the Trak Client app, not this (coach)
+            // app, so it uses the client app's base path, not this app's BASE_URL.
+            const inviteUrl = `${window.location.origin}/client/join/${inv.token}`;
             fetch("/api/invite/send-email", {
               method: "POST",
               headers: { "Content-Type": "application/json" },

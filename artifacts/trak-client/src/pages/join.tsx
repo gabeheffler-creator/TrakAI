@@ -1,51 +1,46 @@
-import { useEffect, useState } from "react";
-import { useParams, useLocation, useSearch } from "wouter";
-import { useGetInvite, getGetInviteQueryKey } from "@workspace/api-client-react";
-import { useClientId } from "@/hooks/use-client-id";
+import { useEffect } from "react";
+import { useParams, useLocation } from "wouter";
+import { useUser } from "@clerk/react";
+import {
+  useGetInvite,
+  getGetInviteQueryKey,
+  useAcceptInvite,
+  getGetMyClientQueryKey,
+} from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
 export function JoinPage() {
   const { token } = useParams<{ token: string }>();
-  const search = useSearch();
-  const auto = new URLSearchParams(search).get("auto") === "1";
   const [, setLocation] = useLocation();
-  const { clientId, setClientId } = useClientId();
-  const [joining, setJoining] = useState(false);
+  const { isSignedIn, isLoaded } = useUser();
+  const queryClient = useQueryClient();
 
   const { data: invite, isLoading, error } = useGetInvite(token, {
-    query: { enabled: !!token, queryKey: getGetInviteQueryKey(token) }
+    query: { enabled: !!token, queryKey: getGetInviteQueryKey(token), retry: false },
   });
 
-  // Already logged in as this client → skip straight home
+  const acceptInvite = useAcceptInvite({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetMyClientQueryKey() });
+        setLocation("/");
+      },
+    },
+  });
+
   useEffect(() => {
-    if (invite && clientId === invite.clientId) {
-      setLocation("/");
+    if (isSignedIn && invite && token && acceptInvite.isIdle) {
+      acceptInvite.mutate({ token });
     }
-  }, [invite, clientId, setLocation]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSignedIn, invite, token]);
 
-  // Auto-login mode (dev shortcut — ?auto=1)
-  useEffect(() => {
-    if (auto && invite && clientId !== invite.clientId) {
-      setClientId(invite.clientId);
-      setLocation("/");
-    }
-  }, [auto, invite, clientId, setClientId, setLocation]);
-
-  const handleJoin = async () => {
-    if (!invite) return;
-    setJoining(true);
-    try {
-      await fetch(`/api/invite/${token}/accept`, { method: "POST" });
-    } catch {
-      // non-fatal
-    }
-    setClientId(invite.clientId);
-    setLocation("/");
-  };
-
-  if (isLoading || (auto && invite)) {
+  if (isLoading || !isLoaded) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -68,6 +63,33 @@ export function JoinPage() {
     );
   }
 
+  if (isSignedIn) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-sm">
+          <CardContent className="pt-6 text-center space-y-4">
+            {acceptInvite.isError ? (
+              <>
+                <p className="text-2xl">Couldn't Join</p>
+                <p className="text-muted-foreground text-sm">
+                  This invite is for {invite.clientEmail}. Sign out and sign in
+                  with that email address to accept it.
+                </p>
+              </>
+            ) : (
+              <>
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground mx-auto" />
+                <p className="text-muted-foreground text-sm">Joining your coach's program…</p>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const redirectUrl = `${window.location.origin}${basePath}/join/${token}`;
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm">
@@ -82,10 +104,19 @@ export function JoinPage() {
           <div className="bg-accent rounded-lg p-4">
             <p className="text-sm text-muted-foreground">Joining as</p>
             <p className="text-xl font-bold text-accent-foreground mt-1">{invite.clientName}</p>
+            <p className="text-xs text-muted-foreground mt-1">{invite.clientEmail}</p>
           </div>
-          <Button className="w-full" size="lg" onClick={handleJoin} disabled={joining} data-testid="button-join">
-            {joining ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Joining…</> : "Get Started"}
-          </Button>
+          <p className="text-xs text-muted-foreground">
+            Create an account or sign in with <span className="font-medium">{invite.clientEmail}</span> to continue.
+          </p>
+          <div className="flex flex-col gap-2">
+            <Button asChild className="w-full" size="lg" data-testid="button-join-signup">
+              <a href={`${basePath}/sign-up?redirect_url=${encodeURIComponent(redirectUrl)}`}>Create account</a>
+            </Button>
+            <Button asChild className="w-full" size="lg" variant="outline" data-testid="button-join-signin">
+              <a href={`${basePath}/sign-in?redirect_url=${encodeURIComponent(redirectUrl)}`}>I already have an account</a>
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>

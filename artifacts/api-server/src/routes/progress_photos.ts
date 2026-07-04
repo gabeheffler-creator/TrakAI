@@ -8,10 +8,11 @@ import {
   CreateProgressPhotoBody,
   DeleteProgressPhotoParams,
 } from "@workspace/api-zod";
+import { requireClientOwnership } from "../middlewares/auth";
 
 const router = Router();
 
-router.get("/clients/:clientId/photos", async (req, res) => {
+router.get("/clients/:clientId/photos", requireClientOwnership(), async (req, res) => {
   try {
     const { clientId } = ListProgressPhotosParams.parse({ clientId: Number(req.params.clientId) });
     const rows = await db.select().from(progressPhotosTable)
@@ -24,7 +25,7 @@ router.get("/clients/:clientId/photos", async (req, res) => {
   }
 });
 
-router.post("/clients/:clientId/photos", async (req, res) => {
+router.post("/clients/:clientId/photos", requireClientOwnership(), async (req, res) => {
   try {
     const { clientId } = CreateProgressPhotoParams.parse({ clientId: Number(req.params.clientId) });
     const body = CreateProgressPhotoBody.parse(req.body);
@@ -41,7 +42,7 @@ router.post("/clients/:clientId/photos", async (req, res) => {
   }
 });
 
-router.delete("/clients/:clientId/photos/:photoId", async (req, res) => {
+router.delete("/clients/:clientId/photos/:photoId", requireClientOwnership(), async (req, res) => {
   try {
     const { photoId } = DeleteProgressPhotoParams.parse({
       clientId: Number(req.params.clientId),

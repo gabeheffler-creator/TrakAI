@@ -8,10 +8,11 @@ import {
   CreateNutritionLogBody,
   DeleteNutritionLogParams,
 } from "@workspace/api-zod";
+import { requireClientOwnership } from "../middlewares/auth";
 
 const router = Router();
 
-router.get("/clients/:clientId/nutrition", async (req, res) => {
+router.get("/clients/:clientId/nutrition", requireClientOwnership(), async (req, res) => {
   try {
     const { clientId } = ListNutritionLogsParams.parse({ clientId: Number(req.params.clientId) });
     const rows = await db.select().from(nutritionLogsTable)
@@ -32,7 +33,7 @@ router.get("/clients/:clientId/nutrition", async (req, res) => {
   }
 });
 
-router.post("/clients/:clientId/nutrition", async (req, res) => {
+router.post("/clients/:clientId/nutrition", requireClientOwnership(), async (req, res) => {
   try {
     const { clientId } = CreateNutritionLogParams.parse({ clientId: Number(req.params.clientId) });
     const body = CreateNutritionLogBody.parse(req.body);
@@ -63,7 +64,7 @@ router.post("/clients/:clientId/nutrition", async (req, res) => {
   }
 });
 
-router.delete("/clients/:clientId/nutrition/:nutritionId", async (req, res) => {
+router.delete("/clients/:clientId/nutrition/:nutritionId", requireClientOwnership(), async (req, res) => {
   try {
     const { nutritionId } = DeleteNutritionLogParams.parse({
       clientId: Number(req.params.clientId),

@@ -8,10 +8,11 @@ import {
   LogSleepBody,
   DeleteSleepLogParams,
 } from "@workspace/api-zod";
+import { requireClientOwnership } from "../middlewares/auth";
 
 const router = Router();
 
-router.get("/clients/:clientId/sleep", async (req, res) => {
+router.get("/clients/:clientId/sleep", requireClientOwnership(), async (req, res) => {
   try {
     const { clientId } = ListSleepLogsParams.parse({ clientId: Number(req.params.clientId) });
     const rows = await db.select().from(sleepLogsTable)
@@ -28,7 +29,7 @@ router.get("/clients/:clientId/sleep", async (req, res) => {
   }
 });
 
-router.post("/clients/:clientId/sleep", async (req, res) => {
+router.post("/clients/:clientId/sleep", requireClientOwnership(), async (req, res) => {
   try {
     const { clientId } = LogSleepParams.parse({ clientId: Number(req.params.clientId) });
     const body = LogSleepBody.parse(req.body);
@@ -47,7 +48,7 @@ router.post("/clients/:clientId/sleep", async (req, res) => {
   }
 });
 
-router.delete("/clients/:clientId/sleep/:sleepId", async (req, res) => {
+router.delete("/clients/:clientId/sleep/:sleepId", requireClientOwnership(), async (req, res) => {
   try {
     const { sleepId } = DeleteSleepLogParams.parse({
       clientId: Number(req.params.clientId),

@@ -8,10 +8,11 @@ import {
   LogMeasurementBody,
   DeleteMeasurementParams,
 } from "@workspace/api-zod";
+import { requireClientOwnership } from "../middlewares/auth";
 
 const router = Router();
 
-router.get("/clients/:clientId/measurements", async (req, res) => {
+router.get("/clients/:clientId/measurements", requireClientOwnership(), async (req, res) => {
   try {
     const { clientId } = ListMeasurementsParams.parse({ clientId: Number(req.params.clientId) });
     const rows = await db.select().from(measurementsTable)
@@ -41,7 +42,7 @@ router.get("/clients/:clientId/measurements", async (req, res) => {
   }
 });
 
-router.post("/clients/:clientId/measurements", async (req, res) => {
+router.post("/clients/:clientId/measurements", requireClientOwnership(), async (req, res) => {
   try {
     const { clientId } = LogMeasurementParams.parse({ clientId: Number(req.params.clientId) });
     const body = LogMeasurementBody.parse(req.body);
@@ -89,7 +90,7 @@ router.post("/clients/:clientId/measurements", async (req, res) => {
   }
 });
 
-router.delete("/clients/:clientId/measurements/:measurementId", async (req, res) => {
+router.delete("/clients/:clientId/measurements/:measurementId", requireClientOwnership(), async (req, res) => {
   try {
     const { measurementId } = DeleteMeasurementParams.parse({
       clientId: Number(req.params.clientId),

@@ -123,7 +123,37 @@ export const GetInviteParams = zod.object({
 
 export const GetInviteResponse = zod.object({
   "clientId": zod.number(),
-  "clientName": zod.string()
+  "clientName": zod.string(),
+  "clientEmail": zod.string()
+})
+
+
+/**
+ * @summary Accept an invite as the currently signed-in Clerk user
+ */
+export const AcceptInviteParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const AcceptInviteResponse = zod.object({
+  "clientId": zod.number(),
+  "clientName": zod.string(),
+  "alreadyJoined": zod.boolean()
+})
+
+
+/**
+ * @summary Get the client record for the currently signed-in Clerk user
+ */
+export const GetMyClientResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "email": zod.string(),
+  "phone": zod.string().nullish(),
+  "goal": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "inviteToken": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
 })
 
 

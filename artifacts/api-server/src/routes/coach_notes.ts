@@ -10,10 +10,11 @@ import {
   UpdateCoachNoteBody,
   DeleteCoachNoteParams,
 } from "@workspace/api-zod";
+import { requireClientOwnership, requireCoachOnly } from "../middlewares/auth";
 
 const router = Router();
 
-router.get("/clients/:clientId/coach-notes", async (req, res) => {
+router.get("/clients/:clientId/coach-notes", requireClientOwnership(), requireCoachOnly, async (req, res) => {
   try {
     const { clientId } = ListCoachNotesParams.parse({ clientId: Number(req.params.clientId) });
     const notes = await db.select().from(coachNotesTable)
@@ -26,7 +27,7 @@ router.get("/clients/:clientId/coach-notes", async (req, res) => {
   }
 });
 
-router.post("/clients/:clientId/coach-notes", async (req, res) => {
+router.post("/clients/:clientId/coach-notes", requireClientOwnership(), requireCoachOnly, async (req, res) => {
   try {
     const { clientId } = CreateCoachNoteParams.parse({ clientId: Number(req.params.clientId) });
     const body = CreateCoachNoteBody.parse(req.body);
@@ -38,7 +39,7 @@ router.post("/clients/:clientId/coach-notes", async (req, res) => {
   }
 });
 
-router.patch("/clients/:clientId/coach-notes/:noteId", async (req, res) => {
+router.patch("/clients/:clientId/coach-notes/:noteId", requireClientOwnership(), requireCoachOnly, async (req, res) => {
   try {
     const { clientId, noteId } = UpdateCoachNoteParams.parse({ clientId: Number(req.params.clientId), noteId: Number(req.params.noteId) });
     const body = UpdateCoachNoteBody.parse(req.body);
@@ -54,7 +55,7 @@ router.patch("/clients/:clientId/coach-notes/:noteId", async (req, res) => {
   }
 });
 
-router.delete("/clients/:clientId/coach-notes/:noteId", async (req, res) => {
+router.delete("/clients/:clientId/coach-notes/:noteId", requireClientOwnership(), requireCoachOnly, async (req, res) => {
   try {
     const { clientId, noteId } = DeleteCoachNoteParams.parse({ clientId: Number(req.params.clientId), noteId: Number(req.params.noteId) });
     await db.delete(coachNotesTable).where(and(eq(coachNotesTable.id, noteId), eq(coachNotesTable.clientId, clientId)));

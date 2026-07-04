@@ -12,10 +12,11 @@ import {
   LogSetParams,
   LogSetBody,
 } from "@workspace/api-zod";
+import { requireClientOwnership } from "../middlewares/auth";
 
 const router = Router();
 
-router.get("/clients/:clientId/workout-logs", async (req, res) => {
+router.get("/clients/:clientId/workout-logs", requireClientOwnership(), async (req, res) => {
   try {
     const { clientId } = ListWorkoutLogsParams.parse({ clientId: Number(req.params.clientId) });
     const logs = await db.select().from(workoutLogsTable)
@@ -48,7 +49,7 @@ router.get("/clients/:clientId/workout-logs", async (req, res) => {
   }
 });
 
-router.post("/clients/:clientId/workout-logs", async (req, res) => {
+router.post("/clients/:clientId/workout-logs", requireClientOwnership(), async (req, res) => {
   try {
     const { clientId } = CreateWorkoutLogParams.parse({ clientId: Number(req.params.clientId) });
     const body = CreateWorkoutLogBody.parse(req.body);
@@ -67,7 +68,7 @@ router.post("/clients/:clientId/workout-logs", async (req, res) => {
   }
 });
 
-router.get("/clients/:clientId/workout-logs/:logId", async (req, res) => {
+router.get("/clients/:clientId/workout-logs/:logId", requireClientOwnership(), async (req, res) => {
   try {
     const { clientId, logId } = GetWorkoutLogParams.parse({
       clientId: Number(req.params.clientId),
@@ -107,7 +108,7 @@ router.get("/clients/:clientId/workout-logs/:logId", async (req, res) => {
   }
 });
 
-router.patch("/clients/:clientId/workout-logs/:logId", async (req, res) => {
+router.patch("/clients/:clientId/workout-logs/:logId", requireClientOwnership(), async (req, res) => {
   try {
     const { clientId, logId } = UpdateWorkoutLogParams.parse({
       clientId: Number(req.params.clientId),
@@ -129,7 +130,7 @@ router.patch("/clients/:clientId/workout-logs/:logId", async (req, res) => {
   }
 });
 
-router.post("/clients/:clientId/workout-logs/:logId/sets", async (req, res) => {
+router.post("/clients/:clientId/workout-logs/:logId/sets", requireClientOwnership(), async (req, res) => {
   try {
     const { logId } = LogSetParams.parse({
       clientId: Number(req.params.clientId),

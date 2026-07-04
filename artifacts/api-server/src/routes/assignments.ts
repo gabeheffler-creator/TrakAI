@@ -11,6 +11,7 @@ import {
   DeleteAssignmentParams,
   CompleteAssignmentParams,
 } from "@workspace/api-zod";
+import { requireClientOwnership, requireCoachOnly } from "../middlewares/auth";
 
 const router = Router();
 
@@ -20,7 +21,7 @@ const fmt = (a: any) => ({
   createdAt: a.createdAt.toISOString(),
 });
 
-router.get("/clients/:clientId/assignments", async (req, res) => {
+router.get("/clients/:clientId/assignments", requireClientOwnership(), async (req, res) => {
   try {
     const { clientId } = ListAssignmentsParams.parse({ clientId: Number(req.params.clientId) });
     const rows = await db.select().from(assignmentsTable)
@@ -33,7 +34,7 @@ router.get("/clients/:clientId/assignments", async (req, res) => {
   }
 });
 
-router.post("/clients/:clientId/assignments", async (req, res) => {
+router.post("/clients/:clientId/assignments", requireClientOwnership(), requireCoachOnly, async (req, res) => {
   try {
     const { clientId } = CreateAssignmentParams.parse({ clientId: Number(req.params.clientId) });
     const body = CreateAssignmentBody.parse(req.body);
@@ -53,7 +54,7 @@ router.post("/clients/:clientId/assignments", async (req, res) => {
   }
 });
 
-router.patch("/clients/:clientId/assignments/:assignmentId", async (req, res) => {
+router.patch("/clients/:clientId/assignments/:assignmentId", requireClientOwnership(), requireCoachOnly, async (req, res) => {
   try {
     const { assignmentId } = UpdateAssignmentParams.parse({
       clientId: Number(req.params.clientId),
@@ -76,7 +77,7 @@ router.patch("/clients/:clientId/assignments/:assignmentId", async (req, res) =>
   }
 });
 
-router.delete("/clients/:clientId/assignments/:assignmentId", async (req, res) => {
+router.delete("/clients/:clientId/assignments/:assignmentId", requireClientOwnership(), requireCoachOnly, async (req, res) => {
   try {
     const { assignmentId } = DeleteAssignmentParams.parse({
       clientId: Number(req.params.clientId),
@@ -90,7 +91,7 @@ router.delete("/clients/:clientId/assignments/:assignmentId", async (req, res) =
   }
 });
 
-router.post("/clients/:clientId/assignments/:assignmentId/complete", async (req, res) => {
+router.post("/clients/:clientId/assignments/:assignmentId/complete", requireClientOwnership(), async (req, res) => {
   try {
     const { assignmentId } = CompleteAssignmentParams.parse({
       clientId: Number(req.params.clientId),

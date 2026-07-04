@@ -10,10 +10,11 @@ import {
   UpdateCallLogBody,
   DeleteCallLogParams,
 } from "@workspace/api-zod";
+import { requireClientOwnership, requireCoachOnly } from "../middlewares/auth";
 
 const router = Router();
 
-router.get("/clients/:clientId/call-logs", async (req, res) => {
+router.get("/clients/:clientId/call-logs", requireClientOwnership(), requireCoachOnly, async (req, res) => {
   try {
     const { clientId } = ListCallLogsParams.parse({ clientId: Number(req.params.clientId) });
     const logs = await db.select().from(callLogsTable)
@@ -26,7 +27,7 @@ router.get("/clients/:clientId/call-logs", async (req, res) => {
   }
 });
 
-router.post("/clients/:clientId/call-logs", async (req, res) => {
+router.post("/clients/:clientId/call-logs", requireClientOwnership(), requireCoachOnly, async (req, res) => {
   try {
     const { clientId } = CreateCallLogParams.parse({ clientId: Number(req.params.clientId) });
     const body = CreateCallLogBody.parse(req.body);
@@ -44,7 +45,7 @@ router.post("/clients/:clientId/call-logs", async (req, res) => {
   }
 });
 
-router.patch("/clients/:clientId/call-logs/:callId", async (req, res) => {
+router.patch("/clients/:clientId/call-logs/:callId", requireClientOwnership(), requireCoachOnly, async (req, res) => {
   try {
     const { clientId, callId } = UpdateCallLogParams.parse({ clientId: Number(req.params.clientId), callId: Number(req.params.callId) });
     const body = UpdateCallLogBody.parse(req.body);
@@ -61,7 +62,7 @@ router.patch("/clients/:clientId/call-logs/:callId", async (req, res) => {
   }
 });
 
-router.delete("/clients/:clientId/call-logs/:callId", async (req, res) => {
+router.delete("/clients/:clientId/call-logs/:callId", requireClientOwnership(), requireCoachOnly, async (req, res) => {
   try {
     const { clientId, callId } = DeleteCallLogParams.parse({ clientId: Number(req.params.clientId), callId: Number(req.params.callId) });
     await db.delete(callLogsTable).where(and(eq(callLogsTable.id, callId), eq(callLogsTable.clientId, clientId)));

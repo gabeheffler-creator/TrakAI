@@ -8,17 +8,26 @@ import {
   assignmentsTable,
   messagesTable,
 } from "@workspace/db";
-import { eq, count, desc, and, gte, isNotNull } from "drizzle-orm";
+import { eq, count, desc, and, gte, isNotNull, inArray } from "drizzle-orm";
 import { GetClientDashboardParams } from "@workspace/api-zod";
+import { requireCoachAuth, requireClientOwnership } from "../middlewares/auth";
 
 const router = Router();
 
-router.get("/dashboard/coach", async (req, res) => {
+router.get("/dashboard/coach", requireCoachAuth, async (req, res) => {
   try {
-    const clients = await db.select().from(clientsTable).orderBy(clientsTable.createdAt);
-    const [{ value: activePrograms }] = await db
-      .select({ value: count() })
-      .from(programAssignmentsTable);
+    const actor = req.actor;
+    const coachId = actor?.type === "coach" ? actor.coach.id : -1;
+    const clients = await db.select().from(clientsTable)
+      .where(eq(clientsTable.coachId, coachId))
+      .orderBy(clientsTable.createdAt);
+    const clientIds = clients.map(c => c.id);
+    const [{ value: activePrograms }] = clientIds.length > 0
+      ? await db
+          .select({ value: count() })
+          .from(programAssignmentsTable)
+          .where(inArray(programAssignmentsTable.clientId, clientIds))
+      : [{ value: 0 }];
 
     const clientSummaries = await Promise.all(clients.map(async (c) => {
       const [lastWorkout] = await db.select({ date: workoutLogsTable.createdAt })
@@ -47,13 +56,16 @@ router.get("/dashboard/coach", async (req, res) => {
       };
     }));
 
-    const recentActivity = await db.select({
-      createdAt: workoutLogsTable.createdAt,
-      clientId: workoutLogsTable.clientId,
-    })
-      .from(workoutLogsTable)
-      .orderBy(desc(workoutLogsTable.createdAt))
-      .limit(10);
+    const recentActivity = clientIds.length > 0
+      ? await db.select({
+          createdAt: workoutLogsTable.createdAt,
+          clientId: workoutLogsTable.clientId,
+        })
+          .from(workoutLogsTable)
+          .where(inArray(workoutLogsTable.clientId, clientIds))
+          .orderBy(desc(workoutLogsTable.createdAt))
+          .limit(10)
+      : [];
 
     const activity = await Promise.all(recentActivity.map(async (a) => {
       const [client] = await db.select({ name: clientsTable.name })
@@ -68,18 +80,24 @@ router.get("/dashboard/coach", async (req, res) => {
       };
     }));
 
-    const recentCompleted = await db.select({
-      id: assignmentsTable.id,
-      clientId: assignmentsTable.clientId,
-      title: assignmentsTable.title,
-      type: assignmentsTable.type,
-      completedAt: assignmentsTable.completedAt,
-      createdAt: assignmentsTable.createdAt,
-    })
-      .from(assignmentsTable)
-      .where(and(eq(assignmentsTable.status, "completed"), isNotNull(assignmentsTable.completedAt)))
-      .orderBy(desc(assignmentsTable.completedAt))
-      .limit(10);
+    const recentCompleted = clientIds.length > 0
+      ? await db.select({
+          id: assignmentsTable.id,
+          clientId: assignmentsTable.clientId,
+          title: assignmentsTable.title,
+          type: assignmentsTable.type,
+          completedAt: assignmentsTable.completedAt,
+          createdAt: assignmentsTable.createdAt,
+        })
+          .from(assignmentsTable)
+          .where(and(
+            eq(assignmentsTable.status, "completed"),
+            isNotNull(assignmentsTable.completedAt),
+            inArray(assignmentsTable.clientId, clientIds),
+          ))
+          .orderBy(desc(assignmentsTable.completedAt))
+          .limit(10)
+      : [];
 
     const completedTasks = await Promise.all(recentCompleted.map(async (a) => {
       const [client] = await db.select({ name: clientsTable.name })
@@ -108,7 +126,7 @@ router.get("/dashboard/coach", async (req, res) => {
   }
 });
 
-router.get("/dashboard/client/:clientId", async (req, res) => {
+router.get("/dashboard/client/:clientId", requireClientOwnership(), async (req, res) => {
   try {
     const { clientId } = GetClientDashboardParams.parse({ clientId: Number(req.params.clientId) });
 

@@ -35,6 +35,7 @@ import type {
   Exercise,
   ExerciseInput,
   HealthStatus,
+  InviteAcceptResult,
   InviteInfo,
   InviteLink,
   MarkReadInput,
@@ -667,6 +668,153 @@ export function useGetInvite<TData = Awaited<ReturnType<typeof getInvite>>, TErr
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetInviteQueryOptions(token,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getAcceptInviteUrl = (token: string,) => {
+
+
+
+
+  return `/api/invite/${token}/accept`
+}
+
+/**
+ * @summary Accept an invite as the currently signed-in Clerk user
+ */
+export const acceptInvite = async (token: string, options?: RequestInit): Promise<InviteAcceptResult> => {
+
+  return customFetch<InviteAcceptResult>(getAcceptInviteUrl(token),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getAcceptInviteMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acceptInvite>>, TError,{token: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof acceptInvite>>, TError,{token: string}, TContext> => {
+
+const mutationKey = ['acceptInvite'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof acceptInvite>>, {token: string}> = (props) => {
+          const {token} = props ?? {};
+
+          return  acceptInvite(token,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AcceptInviteMutationResult = NonNullable<Awaited<ReturnType<typeof acceptInvite>>>
+
+    export type AcceptInviteMutationError = ErrorType<void>
+
+    /**
+ * @summary Accept an invite as the currently signed-in Clerk user
+ */
+export const useAcceptInvite = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acceptInvite>>, TError,{token: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof acceptInvite>>,
+        TError,
+        {token: string},
+        TContext
+      > => {
+      return useMutation(getAcceptInviteMutationOptions(options));
+    }
+
+export const getGetMyClientUrl = () => {
+
+
+
+
+  return `/api/clients/me`
+}
+
+/**
+ * @summary Get the client record for the currently signed-in Clerk user
+ */
+export const getMyClient = async ( options?: RequestInit): Promise<Client> => {
+
+  return customFetch<Client>(getGetMyClientUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMyClientQueryKey = () => {
+    return [
+    `/api/clients/me`
+    ] as const;
+    }
+
+
+export const getGetMyClientQueryOptions = <TData = Awaited<ReturnType<typeof getMyClient>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMyClient>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMyClientQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMyClient>>> = ({ signal }) => getMyClient({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMyClient>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetMyClientQueryResult = NonNullable<Awaited<ReturnType<typeof getMyClient>>>
+export type GetMyClientQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get the client record for the currently signed-in Clerk user
+ */
+
+export function useGetMyClient<TData = Awaited<ReturnType<typeof getMyClient>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMyClient>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetMyClientQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

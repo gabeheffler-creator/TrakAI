@@ -52,6 +52,13 @@ export interface InviteLink {
 export interface InviteInfo {
   clientId: number;
   clientName: string;
+  clientEmail: string;
+}
+
+export interface InviteAcceptResult {
+  clientId: number;
+  clientName: string;
+  alreadyJoined: boolean;
 }
 
 export interface ActivityItem {

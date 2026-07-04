@@ -1,8 +1,10 @@
 import { Router } from "express";
+import { getAuth } from "@clerk/express";
 import { db } from "@workspace/db";
 import { exercisesTable } from "@workspace/db";
 import { CreateExerciseBody } from "@workspace/api-zod";
 import { eq, count } from "drizzle-orm";
+import { requireCoachAuth } from "../middlewares/auth";
 
 const router = Router();
 
@@ -45,8 +47,14 @@ async function seedMissingCategories() {
 
 void seedMissingCategories();
 
+// Shared global exercise catalog — readable by any signed-in user (coach or client).
 router.get("/exercises", async (req, res) => {
   try {
+    const auth = getAuth(req);
+    if (!auth.userId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
     const exercises = await db.select().from(exercisesTable).orderBy(exercisesTable.name);
     res.json(exercises.map(e => ({
       ...e,
@@ -58,7 +66,7 @@ router.get("/exercises", async (req, res) => {
   }
 });
 
-router.post("/exercises", async (req, res) => {
+router.post("/exercises", requireCoachAuth, async (req, res) => {
   try {
     const body = CreateExerciseBody.parse(req.body);
     const [exercise] = await db.insert(exercisesTable).values({

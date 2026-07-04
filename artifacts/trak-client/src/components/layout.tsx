@@ -4,6 +4,7 @@ import { Home, Dumbbell, Ruler, Moon, UtensilsCrossed, Camera, ClipboardList, Me
 import { cn } from "@/lib/utils";
 import { useClientId } from "@/hooks/use-client-id";
 import { TrakLogo } from "@/components/trak-logo";
+import { LogoutButton } from "@/App";
 import { useListMessages, getListMessagesQueryKey } from "@workspace/api-client-react";
 
 const navigation = [
@@ -99,6 +100,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <nav className="flex-1 px-3 space-y-1">
         <NavLinks unread={unreadCount} onNav={() => setDrawerOpen(false)} />
       </nav>
+      <div className="px-3 pt-2 border-t border-sidebar-border">
+        <LogoutButton className="w-full justify-start text-sidebar-foreground hover:text-sidebar-accent-foreground" />
+      </div>
     </div>
   );
 

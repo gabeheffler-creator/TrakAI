@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { messagesTable, pushSubscriptionsTable, clientsTable } from "@workspace/db";
-import { eq, isNull, and, sql, count, desc } from "drizzle-orm";
+import { eq, isNull, and, sql, count, desc, inArray } from "drizzle-orm";
 import webpush from "web-push";
 import {
   ListMessagesParams,
@@ -11,6 +11,8 @@ import {
   MarkMessagesReadBody,
   SavePushSubscriptionBody,
 } from "@workspace/api-zod";
+import { getAuth } from "@clerk/express";
+import { requireCoachAuth, requireClientOwnership } from "../middlewares/auth";
 
 if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
   webpush.setVapidDetails(
@@ -22,9 +24,11 @@ if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
 
 const router = Router();
 
-router.get("/coach/conversations", async (req, res) => {
+router.get("/coach/conversations", requireCoachAuth, async (req, res) => {
   try {
-    const clients = await db.select().from(clientsTable).orderBy(clientsTable.name);
+    const actor = req.actor;
+    const coachId = actor?.type === "coach" ? actor.coach.id : -1;
+    const clients = await db.select().from(clientsTable).where(eq(clientsTable.coachId, coachId)).orderBy(clientsTable.name);
 
     const conversations = await Promise.all(clients.map(async (c) => {
       const [lastMsg] = await db.select()
@@ -61,7 +65,7 @@ router.get("/coach/conversations", async (req, res) => {
   }
 });
 
-router.get("/clients/:clientId/messages", async (req, res) => {
+router.get("/clients/:clientId/messages", requireClientOwnership(), async (req, res) => {
   try {
     const { clientId } = ListMessagesParams.parse({ clientId: Number(req.params.clientId) });
     const rows = await db.select().from(messagesTable)
@@ -78,7 +82,7 @@ router.get("/clients/:clientId/messages", async (req, res) => {
   }
 });
 
-router.post("/clients/:clientId/messages", async (req, res) => {
+router.post("/clients/:clientId/messages", requireClientOwnership(), async (req, res) => {
   try {
     const { clientId } = SendMessageParams.parse({ clientId: Number(req.params.clientId) });
     const body = SendMessageBody.parse(req.body);
@@ -97,7 +101,7 @@ router.post("/clients/:clientId/messages", async (req, res) => {
   }
 });
 
-router.patch("/clients/:clientId/messages/read", async (req, res) => {
+router.patch("/clients/:clientId/messages/read", requireClientOwnership(), async (req, res) => {
   try {
     const { clientId } = MarkMessagesReadParams.parse({ clientId: Number(req.params.clientId) });
     const body = MarkMessagesReadBody.parse(req.body);
@@ -118,13 +122,19 @@ router.patch("/clients/:clientId/messages/read", async (req, res) => {
   }
 });
 
-router.get("/coach/unread-count", async (req, res) => {
+router.get("/coach/unread-count", requireCoachAuth, async (req, res) => {
   try {
-    const rows = await db
-      .select({ clientId: messagesTable.clientId, count: sql<string>`count(*)` })
-      .from(messagesTable)
-      .where(and(eq(messagesTable.sender, "client"), isNull(messagesTable.readAt)))
-      .groupBy(messagesTable.clientId);
+    const actor = req.actor;
+    const coachId = actor?.type === "coach" ? actor.coach.id : -1;
+    const coachClients = await db.select({ id: clientsTable.id }).from(clientsTable).where(eq(clientsTable.coachId, coachId));
+    const clientIds = coachClients.map(c => c.id);
+    const rows = clientIds.length > 0
+      ? await db
+          .select({ clientId: messagesTable.clientId, count: sql<string>`count(*)` })
+          .from(messagesTable)
+          .where(and(eq(messagesTable.sender, "client"), isNull(messagesTable.readAt), inArray(messagesTable.clientId, clientIds)))
+          .groupBy(messagesTable.clientId)
+      : [];
 
     const byClient: Record<string, number> = {};
     let total = 0;
@@ -142,6 +152,11 @@ router.get("/coach/unread-count", async (req, res) => {
 
 router.post("/push-subscriptions", async (req, res) => {
   try {
+    const auth = getAuth(req);
+    if (!auth.userId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
     const body = SavePushSubscriptionBody.parse(req.body);
     await db.insert(pushSubscriptionsTable).values({
       endpoint: body.endpoint,

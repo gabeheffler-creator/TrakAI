@@ -178,6 +178,48 @@ paths:
         "404":
           description: Invalid or expired token
 
+  /invite/{token}/accept:
+    post:
+      operationId: acceptInvite
+      tags: [invites]
+      summary: Accept an invite as the currently signed-in Clerk user
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Invite accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InviteAcceptResult"
+        "401":
+          description: Not signed in
+        "403":
+          description: Email mismatch or already claimed by another account
+        "404":
+          description: Invalid or expired token
+
+  /clients/me:
+    get:
+      operationId: getMyClient
+      tags: [clients]
+      summary: Get the client record for the currently signed-in Clerk user
+      responses:
+        "200":
+          description: Client
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Client"
+        "401":
+          description: Not signed in
+        "404":
+          description: No client account found for this user
+
   # ── Dashboard ─────────────────────────────────────────────────────────────
   /dashboard/coach:
     get:
@@ -1492,12 +1534,25 @@ components:
 
     InviteInfo:
       type: object
-      required: [clientId, clientName]
+      required: [clientId, clientName, clientEmail]
       properties:
         clientId:
           type: integer
         clientName:
           type: string
+        clientEmail:
+          type: string
+
+    InviteAcceptResult:
+      type: object
+      required: [clientId, clientName, alreadyJoined]
+      properties:
+        clientId:
+          type: integer
+        clientName:
+          type: string
+        alreadyJoined:
+          type: boolean
 
     # ── Dashboard ───────────────────────────────────────────────────────────
     CoachDashboard:

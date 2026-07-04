@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { nutritionGoalsTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
+import { requireClientOwnership } from "../middlewares/auth";
 
 const router = Router();
 
@@ -11,7 +12,7 @@ function toInt(v: unknown): number | null {
   return isNaN(n) ? null : Math.round(n);
 }
 
-router.get("/clients/:clientId/nutrition-goal", async (req, res) => {
+router.get("/clients/:clientId/nutrition-goal", requireClientOwnership(), async (req, res) => {
   try {
     const clientId = Number(req.params.clientId);
     if (isNaN(clientId)) { res.status(400).json({ error: "Invalid clientId" }); return; }
@@ -26,7 +27,7 @@ router.get("/clients/:clientId/nutrition-goal", async (req, res) => {
   }
 });
 
-router.post("/clients/:clientId/nutrition-goal", async (req, res) => {
+router.post("/clients/:clientId/nutrition-goal", requireClientOwnership(), async (req, res) => {
   try {
     const clientId = Number(req.params.clientId);
     if (isNaN(clientId)) { res.status(400).json({ error: "Invalid clientId" }); return; }
