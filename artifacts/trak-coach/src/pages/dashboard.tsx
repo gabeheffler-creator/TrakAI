@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useGetCoachDashboard } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, Dumbbell, ActivitySquare, AlertCircle, MessageSquare, Sparkles, X, CheckCircle2 } from "lucide-react";
+import { Users, Dumbbell, ActivitySquare, AlertCircle, MessageSquare, Sparkles, X, CheckCircle2, CalendarDays } from "lucide-react";
 import { Link } from "wouter";
 import { formatDistanceToNow, parseISO } from "date-fns";
 import { Badge } from "@/components/ui/badge";
@@ -122,9 +122,10 @@ export function Dashboard() {
                         e.stopPropagation();
                         setHeatmapClient({ id: client.clientId, name: client.name });
                       }}
-                      className="text-xs text-muted-foreground hover:text-primary hover:underline text-left w-fit"
+                      className="flex items-center gap-1 text-xs text-primary underline-offset-2 underline hover:text-primary/80 text-left w-fit mt-0.5"
                     >
-                      Last active: {client.lastWorkout ? formatDistanceToNow(parseISO(client.lastWorkout), { addSuffix: true }) : 'Never'}
+                      <CalendarDays className="w-3 h-3 flex-shrink-0" />
+                      {client.lastWorkout ? formatDistanceToNow(parseISO(client.lastWorkout), { addSuffix: true }) : 'No activity yet'}
                     </button>
                   </div>
                   <div className="flex space-x-3">
