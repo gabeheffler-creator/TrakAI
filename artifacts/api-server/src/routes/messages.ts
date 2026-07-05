@@ -180,6 +180,12 @@ async function sendPushForMessage(clientId: number, sender: string, content: str
   const [client] = await db.select().from(clientsTable).where(eq(clientsTable.id, clientId));
   const clientName = client?.name ?? "Client";
   const recipientRole = sender === "coach" ? "client" : "coach";
+
+  // Deactivated clients shouldn't receive push notifications, even if a coach
+  // still sends them a message (e.g. for record-keeping) after pausing access.
+  if (recipientRole === "client" && client?.status === "inactive") {
+    return;
+  }
   const subs = recipientRole === "client"
     ? await db.select().from(pushSubscriptionsTable).where(
         and(eq(pushSubscriptionsTable.role, "client"), eq(pushSubscriptionsTable.clientId, clientId))
