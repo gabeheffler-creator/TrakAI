@@ -1,2 +1,3 @@
 - [Clerk dual-role identity resolution](clerk-shared-ownership-middleware.md) — a Clerk user can end up with both a coach row and a client row; resolve the *directly-requested* identity first, don't let coach lookup shadow it.
 - [Manual Clerk session testing via backend API](clerk-manual-session-testing.md) — when the runTest browser-testing tool is broken/looping, create real Clerk sessions via the backend SDK and curl the API directly to verify auth flows.
+- [Orval query-param codegen collision](orval-query-param-codegen-collision.md) — adding an `in: query` OpenAPI param can break api-zod's build with a duplicate-export error; drop the param or investigate orval naming config.

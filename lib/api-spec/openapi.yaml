@@ -166,6 +166,29 @@ paths:
         "404":
           description: Not found
 
+  /clients/{clientId}/activity-heatmap:
+    get:
+      operationId: getClientActivityHeatmap
+      tags: [clients]
+      summary: Get a calendar heatmap of days a client logged data (workouts, nutrition, sleep, measurements, or progress photos)
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Per-day activity counts for the trailing 365 days
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityHeatmapEntry"
+        "404":
+          description: Not found
+
   # ── Invite Links ──────────────────────────────────────────────────────────
   /clients/{clientId}/invite:
     post:
@@ -1562,6 +1585,16 @@ components:
         status:
           type: string
           enum: [active, inactive]
+
+    ActivityHeatmapEntry:
+      type: object
+      required: [date, count]
+      properties:
+        date:
+          type: string
+          format: date
+        count:
+          type: integer
 
     InviteLink:
       type: object

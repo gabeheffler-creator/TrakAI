@@ -5,6 +5,8 @@ import { Users, Dumbbell, ActivitySquare, AlertCircle, MessageSquare, Sparkles, 
 import { Link } from "wouter";
 import { formatDistanceToNow, parseISO } from "date-fns";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ActivityHeatmap } from "@/components/activity-heatmap";
 
 const AI_ALERT_KEY = "trak_ai_model_alert_v1_dismissed";
 
@@ -36,6 +38,7 @@ export function Dashboard() {
   const [aiAlertDismissed, setAiAlertDismissed] = useState(
     () => localStorage.getItem(AI_ALERT_KEY) === "true"
   );
+  const [heatmapClient, setHeatmapClient] = useState<{ id: number; name: string } | null>(null);
 
   const dismissAiAlert = () => {
     localStorage.setItem(AI_ALERT_KEY, "true");
@@ -111,9 +114,18 @@ export function Dashboard() {
                 >
                   <div className="flex flex-col">
                     <span className="font-semibold">{client.name}</span>
-                    <span className="text-xs text-muted-foreground">
+                    <button
+                      type="button"
+                      data-testid={`button-view-activity-${client.clientId}`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setHeatmapClient({ id: client.clientId, name: client.name });
+                      }}
+                      className="text-xs text-muted-foreground hover:text-primary hover:underline text-left w-fit"
+                    >
                       Last active: {client.lastWorkout ? formatDistanceToNow(parseISO(client.lastWorkout), { addSuffix: true }) : 'Never'}
-                    </span>
+                    </button>
                   </div>
                   <div className="flex space-x-3">
                     {client.assignmentsDue > 0 && (
@@ -204,6 +216,15 @@ export function Dashboard() {
           </CardContent>
         </Card>
       )}
+
+      <Dialog open={heatmapClient !== null} onOpenChange={(open) => !open && setHeatmapClient(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{heatmapClient?.name}'s activity</DialogTitle>
+          </DialogHeader>
+          {heatmapClient && <ActivityHeatmap clientId={heatmapClient.id} />}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

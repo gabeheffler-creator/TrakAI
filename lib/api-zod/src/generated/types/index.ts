@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './activityHeatmapEntry';
 export * from './activityItem';
 export * from './assignment';
 export * from './assignmentInput';

@@ -129,6 +129,20 @@ export const UpdateClientStatusResponse = zod.object({
 
 
 /**
+ * @summary Get a calendar heatmap of days a client logged data (workouts, nutrition, sleep, measurements, or progress photos)
+ */
+export const GetClientActivityHeatmapParams = zod.object({
+  "clientId": zod.coerce.number()
+})
+
+export const GetClientActivityHeatmapResponseItem = zod.object({
+  "date": zod.coerce.date(),
+  "count": zod.number()
+})
+export const GetClientActivityHeatmapResponse = zod.array(GetClientActivityHeatmapResponseItem)
+
+
+/**
  * @summary Generate or refresh an invite link for a client
  */
 export const GenerateInviteLinkParams = zod.object({

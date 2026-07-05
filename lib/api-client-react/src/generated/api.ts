@@ -20,6 +20,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  ActivityHeatmapEntry,
   Assignment,
   AssignmentInput,
   AssignmentUpdate,
@@ -605,6 +606,83 @@ export const useUpdateClientStatus = <TError = ErrorType<void>,
       > => {
       return useMutation(getUpdateClientStatusMutationOptions(options));
     }
+
+export const getGetClientActivityHeatmapUrl = (clientId: number,) => {
+
+
+
+
+  return `/api/clients/${clientId}/activity-heatmap`
+}
+
+/**
+ * @summary Get a calendar heatmap of days a client logged data (workouts, nutrition, sleep, measurements, or progress photos)
+ */
+export const getClientActivityHeatmap = async (clientId: number, options?: RequestInit): Promise<ActivityHeatmapEntry[]> => {
+
+  return customFetch<ActivityHeatmapEntry[]>(getGetClientActivityHeatmapUrl(clientId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetClientActivityHeatmapQueryKey = (clientId: number,) => {
+    return [
+    `/api/clients/${clientId}/activity-heatmap`
+    ] as const;
+    }
+
+
+export const getGetClientActivityHeatmapQueryOptions = <TData = Awaited<ReturnType<typeof getClientActivityHeatmap>>, TError = ErrorType<void>>(clientId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClientActivityHeatmap>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetClientActivityHeatmapQueryKey(clientId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getClientActivityHeatmap>>> = ({ signal }) => getClientActivityHeatmap(clientId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(clientId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getClientActivityHeatmap>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetClientActivityHeatmapQueryResult = NonNullable<Awaited<ReturnType<typeof getClientActivityHeatmap>>>
+export type GetClientActivityHeatmapQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get a calendar heatmap of days a client logged data (workouts, nutrition, sleep, measurements, or progress photos)
+ */
+
+export function useGetClientActivityHeatmap<TData = Awaited<ReturnType<typeof getClientActivityHeatmap>>, TError = ErrorType<void>>(
+ clientId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClientActivityHeatmap>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetClientActivityHeatmapQueryOptions(clientId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getGenerateInviteLinkUrl = (clientId: number,) => {
 

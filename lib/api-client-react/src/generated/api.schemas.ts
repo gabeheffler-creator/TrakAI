@@ -65,6 +65,11 @@ export interface ClientStatusUpdate {
   status: ClientStatusUpdateStatus;
 }
 
+export interface ActivityHeatmapEntry {
+  date: string;
+  count: number;
+}
+
 export interface InviteLink {
   token: string;
   url: string;

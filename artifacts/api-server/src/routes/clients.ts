@@ -1,8 +1,15 @@
 import { Router } from "express";
 import { getAuth } from "@clerk/express";
 import { db } from "@workspace/db";
-import { clientsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import {
+  clientsTable,
+  workoutLogsTable,
+  nutritionLogsTable,
+  sleepLogsTable,
+  measurementsTable,
+  progressPhotosTable,
+} from "@workspace/db";
+import { eq, sql } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import {
   CreateClientBody,
@@ -14,6 +21,7 @@ import {
   GetInviteParams,
   UpdateClientStatusBody,
   UpdateClientStatusParams,
+  GetClientActivityHeatmapParams,
 } from "@workspace/api-zod";
 import { requireCoachAuth, requireClientOwnership, requireCoachOnly, requireClientAuth, getUserEmail } from "../middlewares/auth";
 
@@ -115,6 +123,41 @@ router.patch("/clients/:clientId/status", requireClientOwnership(), requireCoach
   } catch (err) {
     req.log.error(err);
     res.status(400).json({ error: "Failed to update client status" });
+  }
+});
+
+// Calendar heatmap of days a client logged data (workouts, nutrition, sleep,
+// measurements, or progress photos) over the trailing 365 days.
+router.get("/clients/:clientId/activity-heatmap", requireClientOwnership(), async (req, res) => {
+  try {
+    const { clientId } = GetClientActivityHeatmapParams.parse({ clientId: Number(req.params.clientId) });
+    const since = new Date();
+    since.setDate(since.getDate() - 365);
+    const sinceStr = since.toISOString().split("T")[0];
+
+    const tables = [workoutLogsTable, nutritionLogsTable, sleepLogsTable, measurementsTable, progressPhotosTable];
+    const perTableCounts = await Promise.all(tables.map((table) =>
+      db.select({ date: table.date, count: sql<number>`count(*)`.mapWith(Number) })
+        .from(table)
+        .where(sql`${table.clientId} = ${clientId} and ${table.date} >= ${sinceStr}`)
+        .groupBy(table.date)
+    ));
+
+    const totals = new Map<string, number>();
+    for (const rows of perTableCounts) {
+      for (const row of rows) {
+        totals.set(row.date, (totals.get(row.date) ?? 0) + row.count);
+      }
+    }
+
+    const entries = Array.from(totals.entries())
+      .map(([date, count]) => ({ date, count }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    res.json(entries);
+  } catch (err) {
+    req.log.error(err);
+    res.status(500).json({ error: "Failed to get client activity heatmap" });
   }
 });
 
