@@ -113,6 +113,21 @@ export interface CoachDashboard {
   clientSummaries?: ClientSummary[];
 }
 
+export interface ProgramNutritionGoal {
+  id: number;
+  phaseId: number;
+  /** @nullable */
+  dayId: number | null;
+  /** @nullable */
+  calories?: number | null;
+  /** @nullable */
+  protein?: number | null;
+  /** @nullable */
+  carbs?: number | null;
+  /** @nullable */
+  fat?: number | null;
+}
+
 export interface ProgramExerciseDetail {
   id: number;
   exerciseId: number;
@@ -137,6 +152,7 @@ export interface ProgramDayDetail {
   notes?: string | null;
   /** @nullable */
   phaseId?: number | null;
+  nutritionGoalOverride?: ProgramNutritionGoal;
   exercises: ProgramExerciseDetail[];
 }
 
@@ -146,6 +162,7 @@ export interface ProgramPhaseDetail {
   order: number;
   durationWeeks: number;
   daysPerWeek?: number | null;
+  nutritionGoal?: ProgramNutritionGoal;
   days: ProgramDayDetail[];
 }
 
@@ -321,6 +338,13 @@ export interface ProgramPhaseUpdate {
      */
   daysPerWeek?: number | null;
   order?: number;
+}
+
+export interface ProgramNutritionGoalInput {
+  calories?: number | null;
+  protein?: number | null;
+  carbs?: number | null;
+  fat?: number | null;
 }
 
 export interface ProgramDay {

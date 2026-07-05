@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ProgramDayDetail } from './programDayDetail';
+import type { ProgramNutritionGoal } from './programNutritionGoal';
 
 export interface ProgramPhaseDetail {
   id: number;
@@ -13,5 +14,6 @@ export interface ProgramPhaseDetail {
   order: number;
   durationWeeks: number;
   daysPerWeek?: number | null;
+  nutritionGoal?: ProgramNutritionGoal;
   days: ProgramDayDetail[];
 }

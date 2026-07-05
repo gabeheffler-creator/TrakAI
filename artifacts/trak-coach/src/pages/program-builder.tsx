@@ -10,6 +10,9 @@ import {
   useAddExerciseToDay,
   useDeleteProgramExercise,
   useListExercises,
+  useSetPhaseNutritionGoal,
+  useSetDayNutritionGoal,
+  useDeleteDayNutritionGoal,
   getGetProgramQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -24,7 +27,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, ArrowLeft, GripVertical, Layers, Pencil } from "lucide-react";
+import { Plus, Trash2, ArrowLeft, GripVertical, Layers, Pencil, Apple, LayoutGrid, List } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 const WEEK_OPTIONS = [1, 2, 3, 4, 5, 6, 8, 10, 12, 16];
@@ -40,7 +43,14 @@ const daySchema = z.object({
   dayNumber: z.coerce.number().min(1),
   name: z.string().min(1),
   notes: z.string().optional(),
-  phaseId: z.coerce.number().optional(),
+  phaseId: z.coerce.number().min(1, "A phase is required"),
+});
+
+const nutritionGoalSchema = z.object({
+  calories: z.coerce.number().min(0).optional(),
+  protein: z.coerce.number().min(0).optional(),
+  carbs: z.coerce.number().min(0).optional(),
+  fat: z.coerce.number().min(0).optional(),
 });
 
 const SET_TYPES = [
@@ -119,6 +129,10 @@ export function ProgramBuilder() {
   const [dayDialogOpen, setDayDialogOpen] = useState(false);
   const [exDialogOpen, setExDialogOpen] = useState(false);
   const [dayDialogPhaseId, setDayDialogPhaseId] = useState<number | undefined>(undefined);
+  const [phasesViewMode, setPhasesViewMode] = useState<"list" | "grid">("list");
+  const [nutritionTarget, setNutritionTarget] = useState<
+    { type: "phase"; phaseId: number } | { type: "day"; phaseId: number; dayId: number } | null
+  >(null);
 
   const { data: program, isLoading } = useGetProgram(programId, {
     query: { enabled: !!programId, queryKey: getGetProgramQueryKey(programId) },
@@ -131,6 +145,9 @@ export function ProgramBuilder() {
   const deleteDay = useDeleteProgramDay();
   const addExercise = useAddExerciseToDay();
   const deleteExercise = useDeleteProgramExercise();
+  const setPhaseNutritionGoal = useSetPhaseNutritionGoal();
+  const setDayNutritionGoal = useSetDayNutritionGoal();
+  const deleteDayNutritionGoal = useDeleteDayNutritionGoal();
 
   const phaseForm = useForm<z.infer<typeof phaseSchema>>({
     resolver: zodResolver(phaseSchema),
@@ -143,6 +160,10 @@ export function ProgramBuilder() {
   const dayForm = useForm<z.infer<typeof daySchema>>({
     resolver: zodResolver(daySchema),
     defaultValues: { dayNumber: 1, name: "", notes: "", phaseId: undefined },
+  });
+  const nutritionForm = useForm<z.infer<typeof nutritionGoalSchema>>({
+    resolver: zodResolver(nutritionGoalSchema),
+    defaultValues: { calories: undefined, protein: undefined, carbs: undefined, fat: undefined },
   });
   const exForm = useForm<z.infer<typeof exerciseSchema>>({
     resolver: zodResolver(exerciseSchema),
@@ -207,7 +228,7 @@ export function ProgramBuilder() {
     });
   };
 
-  const openAddDay = (phaseId?: number) => {
+  const openAddDay = (phaseId: number) => {
     setDayDialogPhaseId(phaseId);
     dayForm.reset({ dayNumber: (program?.days.length ?? 0) + 1, name: "", notes: "", phaseId });
     setDayDialogOpen(true);
@@ -215,8 +236,11 @@ export function ProgramBuilder() {
 
   const handleCreateDay = (values: z.infer<typeof daySchema>) => {
     createDay.mutate(
-      { programId, data: { dayNumber: values.dayNumber, name: values.name, notes: values.notes || undefined, phaseId: values.phaseId || undefined } },
-      { onSuccess: () => { invalidate(); setDayDialogOpen(false); dayForm.reset(); } }
+      { programId, data: { dayNumber: values.dayNumber, name: values.name, notes: values.notes || undefined, phaseId: values.phaseId } },
+      {
+        onSuccess: () => { invalidate(); setDayDialogOpen(false); dayForm.reset(); },
+        onError: () => toast({ title: "Failed to create day", variant: "destructive" }),
+      }
     );
   };
 
@@ -242,6 +266,53 @@ export function ProgramBuilder() {
     deleteExercise.mutate({ programId, dayId, peId }, { onSuccess: invalidate });
   };
 
+  const openPhaseNutritionGoal = (ph: { id: number; nutritionGoal?: { calories?: number | null; protein?: number | null; carbs?: number | null; fat?: number | null } }) => {
+    nutritionForm.reset({
+      calories: ph.nutritionGoal?.calories ?? undefined,
+      protein: ph.nutritionGoal?.protein ?? undefined,
+      carbs: ph.nutritionGoal?.carbs ?? undefined,
+      fat: ph.nutritionGoal?.fat ?? undefined,
+    });
+    setNutritionTarget({ type: "phase", phaseId: ph.id });
+  };
+
+  const openDayNutritionOverride = (phaseId: number, d: { id: number; nutritionGoalOverride?: { calories?: number | null; protein?: number | null; carbs?: number | null; fat?: number | null } }) => {
+    nutritionForm.reset({
+      calories: d.nutritionGoalOverride?.calories ?? undefined,
+      protein: d.nutritionGoalOverride?.protein ?? undefined,
+      carbs: d.nutritionGoalOverride?.carbs ?? undefined,
+      fat: d.nutritionGoalOverride?.fat ?? undefined,
+    });
+    setNutritionTarget({ type: "day", phaseId, dayId: d.id });
+  };
+
+  const handleSaveNutritionGoal = (values: z.infer<typeof nutritionGoalSchema>) => {
+    if (!nutritionTarget) return;
+    const data = {
+      calories: values.calories ?? null,
+      protein: values.protein ?? null,
+      carbs: values.carbs ?? null,
+      fat: values.fat ?? null,
+    };
+    const onSuccess = () => { invalidate(); setNutritionTarget(null); };
+    const onError = () => toast({ title: "Failed to save nutrition goal", variant: "destructive" });
+    if (nutritionTarget.type === "phase") {
+      setPhaseNutritionGoal.mutate({ programId, phaseId: nutritionTarget.phaseId, data }, { onSuccess, onError });
+    } else {
+      setDayNutritionGoal.mutate(
+        { programId, phaseId: nutritionTarget.phaseId, dayId: nutritionTarget.dayId, data },
+        { onSuccess, onError }
+      );
+    }
+  };
+
+  const handleClearDayOverride = (phaseId: number, dayId: number) => {
+    deleteDayNutritionGoal.mutate({ programId, phaseId, dayId }, {
+      onSuccess: invalidate,
+      onError: () => toast({ title: "Failed to clear override", variant: "destructive" }),
+    });
+  };
+
   if (isLoading) return <div className="p-8 text-muted-foreground">Loading...</div>;
   if (!program) return <div className="p-8 text-muted-foreground">Program not found.</div>;
 
@@ -253,20 +324,39 @@ export function ProgramBuilder() {
     <div
       key={d.id}
       data-testid={`day-${d.id}`}
-      className={`flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer transition-colors group ${selectedDayId === d.id ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+      className={`flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer transition-colors group ${
+        phasesViewMode === "grid" ? "flex-col items-stretch border border-border" : ""
+      } ${selectedDayId === d.id ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
       onClick={() => setSelectedDayId(d.id)}
     >
-      <GripVertical className="w-4 h-4 opacity-40 flex-shrink-0" />
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate">Day {d.dayNumber}: {d.name}</p>
+      <div className="flex items-center gap-2 w-full">
+        <GripVertical className="w-4 h-4 opacity-40 flex-shrink-0" />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium truncate">Day {d.dayNumber}: {d.name}</p>
+          {d.nutritionGoalOverride && (
+            <p className={`text-[10px] truncate ${selectedDayId === d.id ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+              {d.nutritionGoalOverride.calories ? `${d.nutritionGoalOverride.calories} cal` : "custom"} override
+            </p>
+          )}
+        </div>
+        {d.phaseId && (
+          <button
+            onClick={(e) => { e.stopPropagation(); openDayNutritionOverride(d.phaseId!, d); }}
+            className={`opacity-0 group-hover:opacity-100 ${selectedDayId === d.id ? "text-primary-foreground/70 hover:text-primary-foreground" : "text-muted-foreground hover:text-foreground"} transition-opacity`}
+            title="Set nutrition override"
+            data-testid={`button-nutrition-day-${d.id}`}
+          >
+            <Apple className="w-3.5 h-3.5" />
+          </button>
+        )}
+        <button
+          onClick={(e) => { e.stopPropagation(); handleDeleteDay(d.id); }}
+          className={`opacity-0 group-hover:opacity-100 ${selectedDayId === d.id ? "text-primary-foreground/70 hover:text-primary-foreground" : "text-muted-foreground hover:text-destructive"} transition-opacity`}
+          data-testid={`button-delete-day-${d.id}`}
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
       </div>
-      <button
-        onClick={(e) => { e.stopPropagation(); handleDeleteDay(d.id); }}
-        className={`opacity-0 group-hover:opacity-100 ${selectedDayId === d.id ? "text-primary-foreground/70 hover:text-primary-foreground" : "text-muted-foreground hover:text-destructive"} transition-opacity`}
-        data-testid={`button-delete-day-${d.id}`}
-      >
-        <Trash2 className="w-3.5 h-3.5" />
-      </button>
     </div>
   );
 
@@ -348,10 +438,16 @@ export function ProgramBuilder() {
                 </DialogContent>
               </Dialog>
 
-              {/* Add Day */}
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openAddDay(undefined)} data-testid="button-add-day">
-                <Plus className="w-4 h-4" />
-              </Button>
+              {/* Grid/List view toggle */}
+              <Select value={phasesViewMode} onValueChange={v => setPhasesViewMode(v as "list" | "grid")}>
+                <SelectTrigger className="h-7 w-[86px] text-xs" data-testid="select-phases-view-mode">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="list"><span className="flex items-center gap-1.5"><List className="w-3.5 h-3.5" /> List</span></SelectItem>
+                  <SelectItem value="grid"><span className="flex items-center gap-1.5"><LayoutGrid className="w-3.5 h-3.5" /> Grid</span></SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </CardHeader>
 
@@ -366,8 +462,21 @@ export function ProgramBuilder() {
                     {ph.daysPerWeek && (
                       <Badge variant="secondary" className="text-xs px-1.5 py-0 flex-shrink-0">{ph.daysPerWeek}×/wk</Badge>
                     )}
+                    {ph.nutritionGoal && (
+                      <Badge variant="secondary" className="text-xs px-1.5 py-0 flex-shrink-0 gap-1">
+                        <Apple className="w-2.5 h-2.5" /> {ph.nutritionGoal.calories ?? "set"}
+                      </Badge>
+                    )}
                   </div>
                   <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => openPhaseNutritionGoal(ph)}
+                      className="p-0.5 rounded text-muted-foreground hover:text-foreground"
+                      title="Set nutrition goal"
+                      data-testid={`button-nutrition-phase-${ph.id}`}
+                    >
+                      <Apple className="w-3 h-3" />
+                    </button>
                     <button
                       onClick={() => openEditPhase(ph)}
                       className="p-0.5 rounded text-muted-foreground hover:text-foreground"
@@ -379,6 +488,7 @@ export function ProgramBuilder() {
                       onClick={() => openAddDay(ph.id)}
                       className="p-0.5 rounded text-muted-foreground hover:text-foreground"
                       title="Add day to phase"
+                      data-testid={`button-add-day-phase-${ph.id}`}
                     >
                       <Plus className="w-3 h-3" />
                     </button>
@@ -394,22 +504,26 @@ export function ProgramBuilder() {
                 {ph.days.length === 0 && (
                   <p className="text-muted-foreground text-xs text-center py-2 pl-6">No days yet</p>
                 )}
-                {ph.days.map(d => <DayRow key={d.id} d={d} />)}
+                <div className={phasesViewMode === "grid" ? "grid grid-cols-2 gap-1.5" : "space-y-1"}>
+                  {ph.days.map(d => <DayRow key={d.id} d={d} />)}
+                </div>
               </div>
             ))}
 
             {unphasedDays.length > 0 && (
               <div className={hasPhases ? "mt-2" : ""}>
-                {hasPhases && (
-                  <p className="text-xs text-muted-foreground px-2 mb-1 font-medium uppercase tracking-wide">Unassigned</p>
-                )}
-                {unphasedDays.map(d => <DayRow key={d.id} d={d} />)}
+                <p className="text-xs text-muted-foreground px-2 mb-1 font-medium uppercase tracking-wide">
+                  Unassigned (legacy)
+                </p>
+                <div className={phasesViewMode === "grid" ? "grid grid-cols-2 gap-1.5" : "space-y-1"}>
+                  {unphasedDays.map(d => <DayRow key={d.id} d={d} />)}
+                </div>
               </div>
             )}
 
-            {program.days.length === 0 && program.phases.length === 0 && (
+            {program.phases.length === 0 && (
               <p className="text-muted-foreground text-xs text-center py-4">
-                Add a phase or day to get started
+                Add a phase first — days must belong to a phase
               </p>
             )}
           </CardContent>
@@ -655,31 +769,86 @@ export function ProgramBuilder() {
               <FormField control={dayForm.control} name="name" render={({ field }) => (
                 <FormItem><FormLabel>Name</FormLabel><FormControl><Input {...field} placeholder="e.g. Push Day, Legs" /></FormControl><FormMessage /></FormItem>
               )} />
-              {program.phases.length > 0 && (
-                <FormField control={dayForm.control} name="phaseId" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Phase</FormLabel>
-                    <Select
-                      onValueChange={v => field.onChange(v === "none" ? undefined : Number(v))}
-                      value={field.value ? String(field.value) : "none"}
-                    >
-                      <FormControl><SelectTrigger><SelectValue placeholder="No phase" /></SelectTrigger></FormControl>
-                      <SelectContent>
-                        <SelectItem value="none">No phase</SelectItem>
-                        {program.phases.map(ph => (
-                          <SelectItem key={ph.id} value={String(ph.id)}>
-                            {ph.name} ({ph.durationWeeks}w{ph.daysPerWeek ? ` · ${ph.daysPerWeek}×/wk` : ""})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </FormItem>
-                )} />
-              )}
+              <FormField control={dayForm.control} name="phaseId" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Phase</FormLabel>
+                  <Select
+                    onValueChange={v => field.onChange(Number(v))}
+                    value={field.value ? String(field.value) : ""}
+                  >
+                    <FormControl><SelectTrigger><SelectValue placeholder="Select a phase" /></SelectTrigger></FormControl>
+                    <SelectContent>
+                      {program.phases.map(ph => (
+                        <SelectItem key={ph.id} value={String(ph.id)}>
+                          {ph.name} ({ph.durationWeeks}w{ph.daysPerWeek ? ` · ${ph.daysPerWeek}×/wk` : ""})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )} />
               <FormField control={dayForm.control} name="notes" render={({ field }) => (
                 <FormItem><FormLabel>Notes</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
               )} />
               <Button type="submit" className="w-full" disabled={createDay.isPending}>Add Day</Button>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Nutrition Goal Dialog (phase default or day override) */}
+      <Dialog open={nutritionTarget !== null} onOpenChange={open => { if (!open) setNutritionTarget(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {nutritionTarget?.type === "phase" ? "Phase Nutrition Goal" : "Day Nutrition Override"}
+            </DialogTitle>
+          </DialogHeader>
+          <Form {...nutritionForm}>
+            <form onSubmit={nutritionForm.handleSubmit(handleSaveNutritionGoal)} className="space-y-4">
+              <p className="text-xs text-muted-foreground">
+                {nutritionTarget?.type === "phase"
+                  ? "Sets the default daily nutrition goal for the entire phase. Leave a field blank to skip it."
+                  : "Overrides the phase default for this specific day only. Leave a field blank to skip it."}
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <FormField control={nutritionForm.control} name="calories" render={({ field }) => (
+                  <FormItem><FormLabel>Calories</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ""} placeholder="e.g. 2200" /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={nutritionForm.control} name="protein" render={({ field }) => (
+                  <FormItem><FormLabel>Protein (g)</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
+                )} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <FormField control={nutritionForm.control} name="carbs" render={({ field }) => (
+                  <FormItem><FormLabel>Carbs (g)</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={nutritionForm.control} name="fat" render={({ field }) => (
+                  <FormItem><FormLabel>Fat (g)</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
+                )} />
+              </div>
+              <div className="flex gap-2">
+                {nutritionTarget?.type === "day" && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1"
+                    disabled={deleteDayNutritionGoal.isPending}
+                    onClick={() => {
+                      if (nutritionTarget.type === "day") {
+                        handleClearDayOverride(nutritionTarget.phaseId, nutritionTarget.dayId);
+                        setNutritionTarget(null);
+                      }
+                    }}
+                  >
+                    Revert to phase default
+                  </Button>
+                )}
+                <Button type="submit" className="flex-1" disabled={setPhaseNutritionGoal.isPending || setDayNutritionGoal.isPending}>
+                  Save
+                </Button>
+              </div>
             </form>
           </Form>
         </DialogContent>

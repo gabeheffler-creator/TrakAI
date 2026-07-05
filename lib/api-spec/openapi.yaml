@@ -499,6 +499,94 @@ paths:
         "204":
           description: Deleted
 
+  /programs/{programId}/phases/{phaseId}/nutrition-goal:
+    put:
+      operationId: setPhaseNutritionGoal
+      tags: [workouts]
+      summary: Set (upsert) a phase-level nutrition goal
+      parameters:
+        - name: programId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: phaseId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProgramNutritionGoalInput"
+      responses:
+        "200":
+          description: Upserted phase nutrition goal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgramNutritionGoal"
+
+  /programs/{programId}/phases/{phaseId}/days/{dayId}/nutrition-goal:
+    put:
+      operationId: setDayNutritionGoal
+      tags: [workouts]
+      summary: Set (upsert) a day-level nutrition goal override
+      parameters:
+        - name: programId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: phaseId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: dayId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProgramNutritionGoalInput"
+      responses:
+        "200":
+          description: Upserted day nutrition goal override
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgramNutritionGoal"
+    delete:
+      operationId: deleteDayNutritionGoal
+      tags: [workouts]
+      summary: Remove a day-level nutrition goal override (reverts to phase default)
+      parameters:
+        - name: programId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: phaseId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: dayId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
   /programs/{programId}/days:
     post:
       operationId: createProgramDay
@@ -1848,10 +1936,47 @@ components:
         daysPerWeek:
           type: integer
           nullable: true
+        nutritionGoal:
+          $ref: "#/components/schemas/ProgramNutritionGoal"
         days:
           type: array
           items:
             $ref: "#/components/schemas/ProgramDayDetail"
+
+    ProgramNutritionGoal:
+      type: object
+      required: [id, phaseId, dayId]
+      properties:
+        id:
+          type: integer
+        phaseId:
+          type: integer
+        dayId:
+          type: ["integer", "null"]
+        calories:
+          type: ["integer", "null"]
+        protein:
+          type: ["integer", "null"]
+        carbs:
+          type: ["integer", "null"]
+        fat:
+          type: ["integer", "null"]
+
+    ProgramNutritionGoalInput:
+      type: object
+      properties:
+        calories:
+          type: integer
+          nullable: true
+        protein:
+          type: integer
+          nullable: true
+        carbs:
+          type: integer
+          nullable: true
+        fat:
+          type: integer
+          nullable: true
 
     ProgramDetail:
       type: object
@@ -1934,6 +2059,8 @@ components:
           type: ["string", "null"]
         phaseId:
           type: ["integer", "null"]
+        nutritionGoalOverride:
+          $ref: "#/components/schemas/ProgramNutritionGoal"
         exercises:
           type: array
           items:

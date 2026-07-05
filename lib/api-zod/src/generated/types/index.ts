@@ -61,6 +61,8 @@ export * from './programExerciseDetail';
 export * from './programExerciseInput';
 export * from './programExerciseUpdate';
 export * from './programInput';
+export * from './programNutritionGoal';
+export * from './programNutritionGoalInput';
 export * from './programPhase';
 export * from './programPhaseDetail';
 export * from './programPhaseInput';

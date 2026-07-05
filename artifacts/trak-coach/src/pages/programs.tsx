@@ -14,11 +14,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, ChevronRight, Dumbbell, Pencil } from "lucide-react";
+import { Plus, Trash2, ChevronRight, Dumbbell, Pencil, LayoutGrid, List } from "lucide-react";
 
 const programSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -39,6 +40,7 @@ export function Programs() {
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
+  const [viewMode, setViewMode] = useState<"list" | "grid">("grid");
 
   const form = useForm<ProgramFormValues>({
     resolver: zodResolver(programSchema),
@@ -102,9 +104,20 @@ export function Programs() {
           <h1 className="text-3xl font-bold tracking-tight">Programs</h1>
           <p className="text-muted-foreground mt-1">Build and manage workout programs</p>
         </div>
-        <Button data-testid="button-create-program" onClick={() => { form.reset(); setSheetOpen(true); }}>
-          <Plus className="w-4 h-4 mr-2" /> New Program
-        </Button>
+        <div className="flex items-center gap-2">
+          <Select value={viewMode} onValueChange={v => setViewMode(v as "list" | "grid")}>
+            <SelectTrigger className="h-9 w-[100px]" data-testid="select-programs-view-mode">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="list"><span className="flex items-center gap-1.5"><List className="w-3.5 h-3.5" /> List</span></SelectItem>
+              <SelectItem value="grid"><span className="flex items-center gap-1.5"><LayoutGrid className="w-3.5 h-3.5" /> Grid</span></SelectItem>
+            </SelectContent>
+          </Select>
+          <Button data-testid="button-create-program" onClick={() => { form.reset(); setSheetOpen(true); }}>
+            <Plus className="w-4 h-4 mr-2" /> New Program
+          </Button>
+        </div>
       </div>
 
       {/* Create Sheet */}
@@ -166,13 +179,46 @@ export function Programs() {
         </div>
       )}
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className={viewMode === "grid" ? "grid gap-4 md:grid-cols-2 lg:grid-cols-3" : "space-y-2"}>
         {programs?.map(p => (
           <Link key={p.id} href={`/programs/${p.id}`} data-testid={`card-program-${p.id}`}>
             <Card className="hover:shadow-md transition-shadow cursor-pointer group">
-              <CardHeader className="pb-2">
-                <div className="flex items-start justify-between">
-                  <CardTitle className="text-base">{p.name}</CardTitle>
+              {viewMode === "grid" ? (
+                <>
+                  <CardHeader className="pb-2">
+                    <div className="flex items-start justify-between">
+                      <CardTitle className="text-base">{p.name}</CardTitle>
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={(e) => handleEdit(p, e)}
+                          className="text-muted-foreground hover:text-primary p-1 transition-colors"
+                          data-testid={`button-edit-program-${p.id}`}
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={(e) => handleDelete(p.id, e)}
+                          className="text-muted-foreground hover:text-destructive p-1 transition-colors"
+                          data-testid={`button-delete-program-${p.id}`}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                        <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {p.description && <p className="text-sm text-muted-foreground">{p.description}</p>}
+                    {p.durationWeeks && <p className="text-xs text-muted-foreground mt-2">{p.durationWeeks} weeks</p>}
+                  </CardContent>
+                </>
+              ) : (
+                <CardContent className="py-3 flex items-center justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium truncate">{p.name}</p>
+                    {p.description && <p className="text-sm text-muted-foreground truncate">{p.description}</p>}
+                  </div>
+                  {p.durationWeeks && <p className="text-xs text-muted-foreground whitespace-nowrap">{p.durationWeeks} weeks</p>}
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={(e) => handleEdit(p, e)}
@@ -190,12 +236,8 @@ export function Programs() {
                     </button>
                     <ChevronRight className="w-4 h-4 text-muted-foreground" />
                   </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {p.description && <p className="text-sm text-muted-foreground">{p.description}</p>}
-                {p.durationWeeks && <p className="text-xs text-muted-foreground mt-2">{p.durationWeeks} weeks</p>}
-              </CardContent>
+                </CardContent>
+              )}
             </Card>
           </Link>
         ))}

@@ -253,12 +253,30 @@ export const GetClientDashboardResponse = zod.object({
   "order": zod.number(),
   "durationWeeks": zod.number(),
   "daysPerWeek": zod.number().nullish(),
+  "nutritionGoal": zod.object({
+  "id": zod.number(),
+  "phaseId": zod.number(),
+  "dayId": zod.number().nullable(),
+  "calories": zod.number().nullish(),
+  "protein": zod.number().nullish(),
+  "carbs": zod.number().nullish(),
+  "fat": zod.number().nullish()
+}).optional(),
   "days": zod.array(zod.object({
   "id": zod.number(),
   "dayNumber": zod.number(),
   "name": zod.string(),
   "notes": zod.string().nullish(),
   "phaseId": zod.number().nullish(),
+  "nutritionGoalOverride": zod.object({
+  "id": zod.number(),
+  "phaseId": zod.number(),
+  "dayId": zod.number().nullable(),
+  "calories": zod.number().nullish(),
+  "protein": zod.number().nullish(),
+  "carbs": zod.number().nullish(),
+  "fat": zod.number().nullish()
+}).optional(),
   "exercises": zod.array(zod.object({
   "id": zod.number(),
   "exerciseId": zod.number(),
@@ -279,6 +297,15 @@ export const GetClientDashboardResponse = zod.object({
   "name": zod.string(),
   "notes": zod.string().nullish(),
   "phaseId": zod.number().nullish(),
+  "nutritionGoalOverride": zod.object({
+  "id": zod.number(),
+  "phaseId": zod.number(),
+  "dayId": zod.number().nullable(),
+  "calories": zod.number().nullish(),
+  "protein": zod.number().nullish(),
+  "carbs": zod.number().nullish(),
+  "fat": zod.number().nullish()
+}).optional(),
   "exercises": zod.array(zod.object({
   "id": zod.number(),
   "exerciseId": zod.number(),
@@ -407,12 +434,30 @@ export const GetProgramResponse = zod.object({
   "order": zod.number(),
   "durationWeeks": zod.number(),
   "daysPerWeek": zod.number().nullish(),
+  "nutritionGoal": zod.object({
+  "id": zod.number(),
+  "phaseId": zod.number(),
+  "dayId": zod.number().nullable(),
+  "calories": zod.number().nullish(),
+  "protein": zod.number().nullish(),
+  "carbs": zod.number().nullish(),
+  "fat": zod.number().nullish()
+}).optional(),
   "days": zod.array(zod.object({
   "id": zod.number(),
   "dayNumber": zod.number(),
   "name": zod.string(),
   "notes": zod.string().nullish(),
   "phaseId": zod.number().nullish(),
+  "nutritionGoalOverride": zod.object({
+  "id": zod.number(),
+  "phaseId": zod.number(),
+  "dayId": zod.number().nullable(),
+  "calories": zod.number().nullish(),
+  "protein": zod.number().nullish(),
+  "carbs": zod.number().nullish(),
+  "fat": zod.number().nullish()
+}).optional(),
   "exercises": zod.array(zod.object({
   "id": zod.number(),
   "exerciseId": zod.number(),
@@ -433,6 +478,15 @@ export const GetProgramResponse = zod.object({
   "name": zod.string(),
   "notes": zod.string().nullish(),
   "phaseId": zod.number().nullish(),
+  "nutritionGoalOverride": zod.object({
+  "id": zod.number(),
+  "phaseId": zod.number(),
+  "dayId": zod.number().nullable(),
+  "calories": zod.number().nullish(),
+  "protein": zod.number().nullish(),
+  "carbs": zod.number().nullish(),
+  "fat": zod.number().nullish()
+}).optional(),
   "exercises": zod.array(zod.object({
   "id": zod.number(),
   "exerciseId": zod.number(),
@@ -536,6 +590,69 @@ export const UpdateProgramPhaseResponse = zod.object({
 export const DeleteProgramPhaseParams = zod.object({
   "programId": zod.coerce.number(),
   "phaseId": zod.coerce.number()
+})
+
+
+/**
+ * @summary Set (upsert) a phase-level nutrition goal
+ */
+export const SetPhaseNutritionGoalParams = zod.object({
+  "programId": zod.coerce.number(),
+  "phaseId": zod.coerce.number()
+})
+
+export const SetPhaseNutritionGoalBody = zod.object({
+  "calories": zod.number().nullish(),
+  "protein": zod.number().nullish(),
+  "carbs": zod.number().nullish(),
+  "fat": zod.number().nullish()
+})
+
+export const SetPhaseNutritionGoalResponse = zod.object({
+  "id": zod.number(),
+  "phaseId": zod.number(),
+  "dayId": zod.number().nullable(),
+  "calories": zod.number().nullish(),
+  "protein": zod.number().nullish(),
+  "carbs": zod.number().nullish(),
+  "fat": zod.number().nullish()
+})
+
+
+/**
+ * @summary Set (upsert) a day-level nutrition goal override
+ */
+export const SetDayNutritionGoalParams = zod.object({
+  "programId": zod.coerce.number(),
+  "phaseId": zod.coerce.number(),
+  "dayId": zod.coerce.number()
+})
+
+export const SetDayNutritionGoalBody = zod.object({
+  "calories": zod.number().nullish(),
+  "protein": zod.number().nullish(),
+  "carbs": zod.number().nullish(),
+  "fat": zod.number().nullish()
+})
+
+export const SetDayNutritionGoalResponse = zod.object({
+  "id": zod.number(),
+  "phaseId": zod.number(),
+  "dayId": zod.number().nullable(),
+  "calories": zod.number().nullish(),
+  "protein": zod.number().nullish(),
+  "carbs": zod.number().nullish(),
+  "fat": zod.number().nullish()
+})
+
+
+/**
+ * @summary Remove a day-level nutrition goal override (reverts to phase default)
+ */
+export const DeleteDayNutritionGoalParams = zod.object({
+  "programId": zod.coerce.number(),
+  "phaseId": zod.coerce.number(),
+  "dayId": zod.coerce.number()
 })
 
 

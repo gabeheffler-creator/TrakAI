@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ProgramExerciseDetail } from './programExerciseDetail';
+import type { ProgramNutritionGoal } from './programNutritionGoal';
 
 export interface ProgramDayDetail {
   id: number;
@@ -15,5 +16,6 @@ export interface ProgramDayDetail {
   notes?: string | null;
   /** @nullable */
   phaseId?: number | null;
+  nutritionGoalOverride?: ProgramNutritionGoal;
   exercises: ProgramExerciseDetail[];
 }

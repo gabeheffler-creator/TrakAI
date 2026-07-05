@@ -59,6 +59,8 @@ import type {
   ProgramExerciseInput,
   ProgramExerciseUpdate,
   ProgramInput,
+  ProgramNutritionGoal,
+  ProgramNutritionGoalInput,
   ProgramPhase,
   ProgramPhaseInput,
   ProgramPhaseUpdate,
@@ -1863,6 +1865,230 @@ export const useDeleteProgramPhase = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getDeleteProgramPhaseMutationOptions(options));
+    }
+
+export const getSetPhaseNutritionGoalUrl = (programId: number,
+    phaseId: number,) => {
+
+
+
+
+  return `/api/programs/${programId}/phases/${phaseId}/nutrition-goal`
+}
+
+/**
+ * @summary Set (upsert) a phase-level nutrition goal
+ */
+export const setPhaseNutritionGoal = async (programId: number,
+    phaseId: number,
+    programNutritionGoalInput: ProgramNutritionGoalInput, options?: RequestInit): Promise<ProgramNutritionGoal> => {
+
+  return customFetch<ProgramNutritionGoal>(getSetPhaseNutritionGoalUrl(programId,phaseId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      programNutritionGoalInput,)
+  }
+);}
+
+
+
+
+export const getSetPhaseNutritionGoalMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setPhaseNutritionGoal>>, TError,{programId: number;phaseId: number;data: BodyType<ProgramNutritionGoalInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setPhaseNutritionGoal>>, TError,{programId: number;phaseId: number;data: BodyType<ProgramNutritionGoalInput>}, TContext> => {
+
+const mutationKey = ['setPhaseNutritionGoal'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setPhaseNutritionGoal>>, {programId: number;phaseId: number;data: BodyType<ProgramNutritionGoalInput>}> = (props) => {
+          const {programId,phaseId,data} = props ?? {};
+
+          return  setPhaseNutritionGoal(programId,phaseId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetPhaseNutritionGoalMutationResult = NonNullable<Awaited<ReturnType<typeof setPhaseNutritionGoal>>>
+    export type SetPhaseNutritionGoalMutationBody = BodyType<ProgramNutritionGoalInput>
+    export type SetPhaseNutritionGoalMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Set (upsert) a phase-level nutrition goal
+ */
+export const useSetPhaseNutritionGoal = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setPhaseNutritionGoal>>, TError,{programId: number;phaseId: number;data: BodyType<ProgramNutritionGoalInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof setPhaseNutritionGoal>>,
+        TError,
+        {programId: number;phaseId: number;data: BodyType<ProgramNutritionGoalInput>},
+        TContext
+      > => {
+      return useMutation(getSetPhaseNutritionGoalMutationOptions(options));
+    }
+
+export const getSetDayNutritionGoalUrl = (programId: number,
+    phaseId: number,
+    dayId: number,) => {
+
+
+
+
+  return `/api/programs/${programId}/phases/${phaseId}/days/${dayId}/nutrition-goal`
+}
+
+/**
+ * @summary Set (upsert) a day-level nutrition goal override
+ */
+export const setDayNutritionGoal = async (programId: number,
+    phaseId: number,
+    dayId: number,
+    programNutritionGoalInput: ProgramNutritionGoalInput, options?: RequestInit): Promise<ProgramNutritionGoal> => {
+
+  return customFetch<ProgramNutritionGoal>(getSetDayNutritionGoalUrl(programId,phaseId,dayId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      programNutritionGoalInput,)
+  }
+);}
+
+
+
+
+export const getSetDayNutritionGoalMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setDayNutritionGoal>>, TError,{programId: number;phaseId: number;dayId: number;data: BodyType<ProgramNutritionGoalInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setDayNutritionGoal>>, TError,{programId: number;phaseId: number;dayId: number;data: BodyType<ProgramNutritionGoalInput>}, TContext> => {
+
+const mutationKey = ['setDayNutritionGoal'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setDayNutritionGoal>>, {programId: number;phaseId: number;dayId: number;data: BodyType<ProgramNutritionGoalInput>}> = (props) => {
+          const {programId,phaseId,dayId,data} = props ?? {};
+
+          return  setDayNutritionGoal(programId,phaseId,dayId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetDayNutritionGoalMutationResult = NonNullable<Awaited<ReturnType<typeof setDayNutritionGoal>>>
+    export type SetDayNutritionGoalMutationBody = BodyType<ProgramNutritionGoalInput>
+    export type SetDayNutritionGoalMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Set (upsert) a day-level nutrition goal override
+ */
+export const useSetDayNutritionGoal = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setDayNutritionGoal>>, TError,{programId: number;phaseId: number;dayId: number;data: BodyType<ProgramNutritionGoalInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof setDayNutritionGoal>>,
+        TError,
+        {programId: number;phaseId: number;dayId: number;data: BodyType<ProgramNutritionGoalInput>},
+        TContext
+      > => {
+      return useMutation(getSetDayNutritionGoalMutationOptions(options));
+    }
+
+export const getDeleteDayNutritionGoalUrl = (programId: number,
+    phaseId: number,
+    dayId: number,) => {
+
+
+
+
+  return `/api/programs/${programId}/phases/${phaseId}/days/${dayId}/nutrition-goal`
+}
+
+/**
+ * @summary Remove a day-level nutrition goal override (reverts to phase default)
+ */
+export const deleteDayNutritionGoal = async (programId: number,
+    phaseId: number,
+    dayId: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteDayNutritionGoalUrl(programId,phaseId,dayId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteDayNutritionGoalMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteDayNutritionGoal>>, TError,{programId: number;phaseId: number;dayId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteDayNutritionGoal>>, TError,{programId: number;phaseId: number;dayId: number}, TContext> => {
+
+const mutationKey = ['deleteDayNutritionGoal'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteDayNutritionGoal>>, {programId: number;phaseId: number;dayId: number}> = (props) => {
+          const {programId,phaseId,dayId} = props ?? {};
+
+          return  deleteDayNutritionGoal(programId,phaseId,dayId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteDayNutritionGoalMutationResult = NonNullable<Awaited<ReturnType<typeof deleteDayNutritionGoal>>>
+
+    export type DeleteDayNutritionGoalMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Remove a day-level nutrition goal override (reverts to phase default)
+ */
+export const useDeleteDayNutritionGoal = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteDayNutritionGoal>>, TError,{programId: number;phaseId: number;dayId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteDayNutritionGoal>>,
+        TError,
+        {programId: number;phaseId: number;dayId: number},
+        TContext
+      > => {
+      return useMutation(getDeleteDayNutritionGoalMutationOptions(options));
     }
 
 export const getCreateProgramDayUrl = (programId: number,) => {
