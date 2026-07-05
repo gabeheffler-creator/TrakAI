@@ -7,6 +7,7 @@ import {
   useListProgramTemplates,
   useInstantiateProgramTemplate,
   getListProgramsQueryKey,
+  getListProgramTemplatesQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
@@ -47,7 +48,6 @@ export function Programs() {
   const createProgram = useCreateProgram();
   const deleteProgram = useDeleteProgram();
   const updateProgram = useUpdateProgram();
-  const { data: templates, isLoading: templatesLoading } = useListProgramTemplates();
   const instantiateTemplate = useInstantiateProgramTemplate();
   const qc = useQueryClient();
   const { toast } = useToast();
@@ -57,6 +57,16 @@ export function Programs() {
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
   const [viewMode, setViewMode] = useState<"list" | "grid">("grid");
   const [templatesOpen, setTemplatesOpen] = useState(false);
+
+  const {
+    data: templates,
+    isLoading: templatesLoading,
+    isError: templatesError,
+    refetch: refetchTemplates,
+    isFetching: templatesFetching,
+  } = useListProgramTemplates({
+    query: { enabled: templatesOpen, queryKey: getListProgramTemplatesQueryKey() },
+  });
 
   const form = useForm<ProgramFormValues>({
     resolver: zodResolver(programSchema),
@@ -165,8 +175,27 @@ export function Programs() {
             </DialogDescription>
           </DialogHeader>
           {templatesLoading && <p className="text-muted-foreground text-sm py-4">Loading templates...</p>}
+          {templatesError && (
+            <div className="flex flex-col items-center gap-3 py-8 text-center">
+              <p className="text-sm text-muted-foreground">
+                Couldn't load templates. This is usually temporary.
+              </p>
+              <Button
+                size="sm"
+                variant="outline"
+                data-testid="button-retry-templates"
+                disabled={templatesFetching}
+                onClick={() => refetchTemplates()}
+              >
+                {templatesFetching ? "Retrying…" : "Try again"}
+              </Button>
+            </div>
+          )}
+          {!templatesLoading && !templatesError && templates?.length === 0 && (
+            <p className="text-muted-foreground text-sm py-4">No templates available.</p>
+          )}
           <div className="grid gap-3 sm:grid-cols-2 py-2">
-            {templates?.map(t => (
+            {!templatesError && templates?.map(t => (
               <Card key={t.key} data-testid={`card-template-${t.key}`}>
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
