@@ -619,10 +619,17 @@ export function ProgramBuilder() {
                       <FormField control={exForm.control} name="equipment" render={({ field }) => (
                         <FormItem>
                           <FormLabel>Equipment <span className="text-muted-foreground">(Optional)</span></FormLabel>
-                          <Select onValueChange={v => { field.onChange(v); if (v !== "Cable") exForm.setValue("grip", ""); }} value={field.value}>
+                          <Select
+                            value={field.value || "__none__"}
+                            onValueChange={v => {
+                              const val = v === "__none__" ? "" : v;
+                              field.onChange(val);
+                              if (val !== "Cable") exForm.setValue("grip", "");
+                            }}
+                          >
                             <FormControl><SelectTrigger><SelectValue placeholder="Select equipment" /></SelectTrigger></FormControl>
                             <SelectContent>
-                              <SelectItem value="">None</SelectItem>
+                              <SelectItem value="__none__">None</SelectItem>
                               {EQUIPMENT_TYPES.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}
                             </SelectContent>
                           </Select>
@@ -632,10 +639,13 @@ export function ProgramBuilder() {
                         <FormField control={exForm.control} name="grip" render={({ field }) => (
                           <FormItem>
                             <FormLabel>Cable Grip</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value}>
+                            <Select
+                              value={field.value || "__none__"}
+                              onValueChange={v => field.onChange(v === "__none__" ? "" : v)}
+                            >
                               <FormControl><SelectTrigger><SelectValue placeholder="Select grip" /></SelectTrigger></FormControl>
                               <SelectContent>
-                                <SelectItem value="">Not specified</SelectItem>
+                                <SelectItem value="__none__">Not specified</SelectItem>
                                 {CABLE_GRIPS.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
                               </SelectContent>
                             </Select>
