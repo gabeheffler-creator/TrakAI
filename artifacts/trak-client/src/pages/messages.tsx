@@ -19,6 +19,7 @@ import Picker from "@emoji-mart/react";
 import data from "@emoji-mart/data";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
 import { cn } from "@/lib/utils";
+import { QueryErrorState } from "@/components/query-error-state";
 
 const EMOJI_RE = /^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F|\u200d|\s)+$/u;
 function isEmojiOnly(text: string) {
@@ -41,7 +42,7 @@ export function MessagesPage() {
   const [showPicker, setShowPicker] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
 
-  const { data: messages, isLoading } = useListMessages(clientId!, {
+  const { data: messages, isLoading, isError, refetch, isFetching } = useListMessages(clientId!, {
     query: {
       enabled: !!clientId,
       queryKey: getListMessagesQueryKey(clientId!),
@@ -125,7 +126,15 @@ export function MessagesPage() {
         {isLoading && (
           <p className="text-muted-foreground text-sm text-center py-8">Loading…</p>
         )}
-        {!isLoading && (messages?.length ?? 0) === 0 && (
+        {isError && (
+          <QueryErrorState
+            message="Couldn't load messages. This is usually temporary."
+            onRetry={() => refetch()}
+            isRetrying={isFetching}
+            testId="button-retry-messages"
+          />
+        )}
+        {!isLoading && !isError && (messages?.length ?? 0) === 0 && (
           <div className="flex flex-col items-center justify-center h-full gap-3">
             <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
               <MessageCircle className="w-7 h-7 text-primary" />
@@ -136,7 +145,7 @@ export function MessagesPage() {
             </div>
           </div>
         )}
-        {messages?.map((m, i) => {
+        {!isError && messages?.map((m, i) => {
           const isClient = m.sender === "client";
           const prev = messages[i - 1];
           const showTime =

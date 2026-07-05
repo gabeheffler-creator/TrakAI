@@ -26,6 +26,7 @@ import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { startOfWeek, format, parseISO } from "date-fns";
+import { QueryErrorState } from "@/components/query-error-state";
 
 type ChartData = { date: string; [key: string]: number | string | null };
 
@@ -439,17 +440,32 @@ export function ProgressPage() {
   const { clientId } = useClientId();
   const { units, weightLabel, lengthLabel } = useUnitSystem();
 
-  const { data: measurements } = useListMeasurements(clientId!, {
+  const { data: measurements, isError: measurementsError, refetch: refetchMeasurements, isFetching: measurementsFetching } = useListMeasurements(clientId!, {
     query: { enabled: !!clientId, queryKey: getListMeasurementsQueryKey(clientId!) },
   });
-  const { data: workoutLogs } = useListWorkoutLogs(clientId!, {
+  const { data: workoutLogs, isError: workoutLogsError, refetch: refetchWorkoutLogs, isFetching: workoutLogsFetching } = useListWorkoutLogs(clientId!, {
     query: { enabled: !!clientId, queryKey: getListWorkoutLogsQueryKey(clientId!) },
   });
-  const { data: sleepLogs } = useListSleepLogs(clientId!, {
+  const { data: sleepLogs, isError: sleepLogsError, refetch: refetchSleepLogs, isFetching: sleepLogsFetching } = useListSleepLogs(clientId!, {
     query: { enabled: !!clientId, queryKey: getListSleepLogsQueryKey(clientId!) },
   });
 
   if (!clientId) return <div className="p-4 text-muted-foreground">Please join via an invite link first.</div>;
+
+  const isError = measurementsError || workoutLogsError || sleepLogsError;
+  if (isError) {
+    return (
+      <div className="max-w-2xl mx-auto space-y-4">
+        <h1 className="text-2xl font-bold">Progress</h1>
+        <QueryErrorState
+          message="Couldn't load your progress data. This is usually temporary."
+          onRetry={() => { refetchMeasurements(); refetchWorkoutLogs(); refetchSleepLogs(); }}
+          isRetrying={measurementsFetching || workoutLogsFetching || sleepLogsFetching}
+          testId="button-retry-progress"
+        />
+      </div>
+    );
+  }
 
   const MEASUREMENT_CHARTS = getMeasurementCharts(weightLabel, lengthLabel);
 

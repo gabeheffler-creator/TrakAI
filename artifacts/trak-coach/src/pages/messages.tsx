@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { Send, ArrowLeft } from "lucide-react";
 import { formatDistanceToNow, parseISO } from "date-fns";
+import { QueryErrorState } from "@/components/query-error-state";
 
 interface Conversation {
   clientId: number;
@@ -39,7 +40,7 @@ function ConversationPanel({ clientId }: { clientId: number }) {
   const qc = useQueryClient();
   const [input, setInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
-  const { data: messages, isLoading } = useListMessages(clientId, {
+  const { data: messages, isLoading, isError, refetch, isFetching } = useListMessages(clientId, {
     query: { queryKey: getListMessagesQueryKey(clientId), refetchInterval: 4000 },
   });
   const sendMessage = useSendMessage();
@@ -74,7 +75,15 @@ function ConversationPanel({ clientId }: { clientId: number }) {
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
         {isLoading && <p className="text-sm text-muted-foreground text-center">Loading…</p>}
-        {messages?.map(m => (
+        {isError && (
+          <QueryErrorState
+            message="Couldn't load messages. This is usually temporary."
+            onRetry={() => refetch()}
+            isRetrying={isFetching}
+            testId="button-retry-messages"
+          />
+        )}
+        {!isError && messages?.map(m => (
           <div key={m.id} className={cn("flex", m.sender === "coach" ? "justify-end" : "justify-start")}>
             <div className={cn("max-w-[75%] px-4 py-2 rounded-2xl text-sm", m.sender === "coach" ? "bg-primary text-primary-foreground rounded-br-sm" : "bg-muted text-foreground rounded-bl-sm")}>
               <p className="leading-relaxed">{m.content}</p>
@@ -84,7 +93,7 @@ function ConversationPanel({ clientId }: { clientId: number }) {
             </div>
           </div>
         ))}
-        {messages?.length === 0 && !isLoading && (
+        {messages?.length === 0 && !isLoading && !isError && (
           <p className="text-sm text-muted-foreground text-center py-8">No messages yet. Start the conversation!</p>
         )}
         <div ref={bottomRef} />
@@ -122,7 +131,7 @@ export function Messages() {
   const [, navigate] = useLocation();
   const activeClientId = params.clientId ? Number(params.clientId) : null;
 
-  const { data: conversations, isLoading } = useConversations();
+  const { data: conversations, isLoading, isError, refetch, isFetching } = useConversations();
 
   return (
     <div className="-m-4 md:-m-8 h-[calc(100vh-3.5rem)] sm:h-screen flex overflow-hidden border-t border-border relative">
@@ -132,8 +141,16 @@ export function Messages() {
         </div>
         <div className="flex-1 overflow-y-auto p-3 space-y-2">
           {isLoading && <div className="px-1 py-8 text-center text-sm text-muted-foreground">Loading…</div>}
-          {!isLoading && conversations?.length === 0 && <div className="px-1 py-8 text-center text-sm text-muted-foreground">No clients yet</div>}
-          {conversations?.map(conv => {
+          {isError && (
+            <QueryErrorState
+              message="Couldn't load conversations. This is usually temporary."
+              onRetry={() => refetch()}
+              isRetrying={isFetching}
+              testId="button-retry-conversations"
+            />
+          )}
+          {!isLoading && !isError && conversations?.length === 0 && <div className="px-1 py-8 text-center text-sm text-muted-foreground">No clients yet</div>}
+          {!isError && conversations?.map(conv => {
             const isActive = activeClientId === conv.clientId;
             return (
               <button

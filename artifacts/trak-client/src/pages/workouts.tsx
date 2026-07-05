@@ -7,6 +7,7 @@ import { Dumbbell, ChevronLeft, ChevronDown, ChevronUp, ChevronRight } from "luc
 import { Link, useLocation } from "wouter";
 import { useState } from "react";
 import { useUnitSystem } from "@/hooks/use-unit-system";
+import { QueryErrorState } from "@/components/query-error-state";
 
 function convertWeight(value: number, storedUnit: string, targetSystem: "imperial" | "metric"): { value: number; unit: string } {
   if (targetSystem === "metric" && storedUnit === "lbs") {
@@ -22,7 +23,7 @@ export function WorkoutsPage() {
   const { clientId } = useClientId();
   const { units: unitSystem } = useUnitSystem();
   const [, setLocation] = useLocation();
-  const { data: logs, isLoading } = useListWorkoutLogs(clientId!, {
+  const { data: logs, isLoading, isError, refetch, isFetching } = useListWorkoutLogs(clientId!, {
     query: { enabled: !!clientId, queryKey: getListWorkoutLogsQueryKey(clientId!) }
   });
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
@@ -44,7 +45,16 @@ export function WorkoutsPage() {
 
       {isLoading && <p className="text-muted-foreground">Loading...</p>}
 
-      {(logs?.length ?? 0) === 0 && !isLoading && (
+      {isError && (
+        <QueryErrorState
+          message="Couldn't load workout history. This is usually temporary."
+          onRetry={() => refetch()}
+          isRetrying={isFetching}
+          testId="button-retry-workouts"
+        />
+      )}
+
+      {(logs?.length ?? 0) === 0 && !isLoading && !isError && (
         <div className="text-center py-12 text-muted-foreground">
           <Dumbbell className="w-10 h-10 mx-auto mb-3 opacity-20" />
           <p>No workouts logged yet. Start your first one!</p>
@@ -52,7 +62,7 @@ export function WorkoutsPage() {
       )}
 
       <div className="space-y-3">
-        {logs?.slice().reverse().map(log => {
+        {!isError && logs?.slice().reverse().map(log => {
           const isOpen = expanded[log.id] ?? false;
           // Group sets by exercise
           const sets = (log as unknown as { sets?: { exerciseName: string; setNumber: number; reps: number; weight: number | null; weightUnit: string | null }[] }).sets ?? [];

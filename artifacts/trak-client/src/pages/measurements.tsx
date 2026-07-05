@@ -19,6 +19,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { Plus, Trash2 } from "lucide-react";
+import { QueryErrorState } from "@/components/query-error-state";
 
 const measurementSchema = z.object({
   date: z.string().min(1),
@@ -44,7 +45,7 @@ export function MeasurementsPage() {
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  const { data: measurements, isLoading } = useListMeasurements(clientId!, {
+  const { data: measurements, isLoading, isError, refetch, isFetching } = useListMeasurements(clientId!, {
     query: { enabled: !!clientId, queryKey: getListMeasurementsQueryKey(clientId!) }
   });
   const logMeasurement = useLogMeasurement();
@@ -166,12 +167,20 @@ export function MeasurementsPage() {
       )}
 
       {isLoading && <p className="text-muted-foreground">Loading...</p>}
-      {(measurements?.length ?? 0) === 0 && !isLoading && (
+      {isError && (
+        <QueryErrorState
+          message="Couldn't load measurements. This is usually temporary."
+          onRetry={() => refetch()}
+          isRetrying={isFetching}
+          testId="button-retry-measurements"
+        />
+      )}
+      {(measurements?.length ?? 0) === 0 && !isLoading && !isError && (
         <p className="text-muted-foreground text-sm text-center py-8">No measurements logged yet.</p>
       )}
 
       <div className="space-y-3">
-        {measurements?.slice().reverse().map(m => {
+        {!isError && measurements?.slice().reverse().map(m => {
           const wl = m.unit === "metric" ? "kg" : "lbs";
           const ll = m.unit === "metric" ? "cm" : "in";
           const cols: { label: string; value: number | null | undefined; unit: string }[] = [

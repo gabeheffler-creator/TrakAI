@@ -16,6 +16,7 @@ import { useUnitSystem } from "@/hooks/use-unit-system";
 import { ChevronLeft, Pencil, Check, X, Dumbbell, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { SetLog, SetLogInputWeightUnit } from "@workspace/api-client-react";
+import { QueryErrorState } from "@/components/query-error-state";
 
 function convertWeight(
   value: number,
@@ -160,7 +161,7 @@ export function WorkoutLogDetailPage() {
   const { units: unitSystem } = useUnitSystem();
   const qc = useQueryClient();
 
-  const { data: log, isLoading, refetch } = useGetWorkoutLog(clientId!, logIdNum, {
+  const { data: log, isLoading, isError, isFetching, refetch } = useGetWorkoutLog(clientId!, logIdNum, {
     query: {
       enabled: !!clientId && !!logIdNum,
       queryKey: getGetWorkoutLogQueryKey(clientId!, logIdNum),
@@ -180,6 +181,18 @@ export function WorkoutLogDetailPage() {
         <Loader2 className="w-4 h-4 animate-spin" />
         <span>Loading…</span>
       </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <QueryErrorState
+        message="Couldn't load this workout. This is usually temporary."
+        onRetry={() => refetch()}
+        isRetrying={isFetching}
+        testId="button-retry-workout-log"
+        className="p-8"
+      />
     );
   }
 

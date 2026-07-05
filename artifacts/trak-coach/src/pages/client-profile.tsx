@@ -62,6 +62,7 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 import { Copy, Send, Plus, CheckCircle, Circle, Trash2, ArrowLeft, ChevronDown, ChevronRight, Dumbbell, Pencil, X, Check, Phone, StickyNote, Clock, Video, Target } from "lucide-react";
 import { Link as WLink } from "wouter";
 import { format, parseISO } from "date-fns";
+import { QueryErrorState } from "@/components/query-error-state";
 import { VideoCall } from "@/components/video-call";
 
 // ── Vertical drum / scroll picker ────────────────────────────
@@ -531,7 +532,7 @@ export function ClientProfile() {
     } catch { toast({ title: "Failed to save goal", variant: "destructive" }); }
   };
 
-  const { data: client } = useGetClient(clientId, { query: { enabled: !!clientId, queryKey: getGetClientQueryKey(clientId) } });
+  const { data: client, isError: clientError, refetch: refetchClient, isFetching: clientFetching } = useGetClient(clientId, { query: { enabled: !!clientId, queryKey: getGetClientQueryKey(clientId) } });
   const { data: dashboard } = useGetClientDashboard(clientId, { query: { enabled: !!clientId, queryKey: getGetClientDashboardQueryKey(clientId) } });
   const { data: workoutLogs } = useListWorkoutLogs(clientId, { query: { enabled: !!clientId, queryKey: getListWorkoutLogsQueryKey(clientId) } });
   const { data: measurements } = useListMeasurements(clientId, { query: { enabled: !!clientId, queryKey: ["measurements", clientId] } });
@@ -673,6 +674,18 @@ export function ClientProfile() {
       },
     });
   };
+
+  if (clientError) {
+    return (
+      <QueryErrorState
+        message="Couldn't load this client. This is usually temporary."
+        onRetry={() => refetchClient()}
+        isRetrying={clientFetching}
+        testId="button-retry-client"
+        className="p-8"
+      />
+    );
+  }
 
   if (!client) return <div className="p-8 text-muted-foreground">Loading client...</div>;
 

@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Camera, Plus, Minus, Loader2, Pencil, Check, ChevronDown, ChevronUp, UtensilsCrossed, Trash2, Target, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { QueryErrorState } from "@/components/query-error-state";
 
 interface NutritionGoals {
   calories: number;
@@ -254,7 +255,7 @@ export function NutritionPage() {
   const [showPastLogs, setShowPastLogs] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
-  const { data: logs, isLoading } = useListNutritionLogs(clientId!, {
+  const { data: logs, isLoading, isError, refetch, isFetching } = useListNutritionLogs(clientId!, {
     query: { enabled: !!clientId, queryKey: getListNutritionLogsQueryKey(clientId!) }
   });
   const createNutritionLog = useCreateNutritionLog();
@@ -439,6 +440,15 @@ export function NutritionPage() {
         <h1 className="text-2xl font-bold">Nutrition</h1>
         <p className="text-sm text-muted-foreground mt-0.5">Upload your MFP screenshots for today</p>
       </div>
+
+      {isError && (
+        <QueryErrorState
+          message="Couldn't load your nutrition logs. Totals below may be incomplete."
+          onRetry={() => refetch()}
+          isRetrying={isFetching}
+          testId="button-retry-nutrition"
+        />
+      )}
 
       {/* ── Today's Summary ───────────────────── */}
       <div className="rounded-2xl border border-border bg-card p-4 space-y-3">

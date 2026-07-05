@@ -29,6 +29,7 @@ import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Trash2, ArrowLeft, GripVertical, Layers, Pencil, Apple, LayoutGrid, List } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { QueryErrorState } from "@/components/query-error-state";
 
 const WEEK_OPTIONS = [1, 2, 3, 4, 5, 6, 8, 10, 12, 16];
 const DAYS_PER_WEEK_OPTIONS = [1, 2, 3, 4, 5, 6, 7];
@@ -134,7 +135,7 @@ export function ProgramBuilder() {
     { type: "phase"; phaseId: number } | { type: "day"; phaseId: number; dayId: number } | null
   >(null);
 
-  const { data: program, isLoading } = useGetProgram(programId, {
+  const { data: program, isLoading, isError, refetch, isFetching } = useGetProgram(programId, {
     query: { enabled: !!programId, queryKey: getGetProgramQueryKey(programId) },
   });
   const { data: exercises } = useListExercises();
@@ -314,6 +315,17 @@ export function ProgramBuilder() {
   };
 
   if (isLoading) return <div className="p-8 text-muted-foreground">Loading...</div>;
+  if (isError) {
+    return (
+      <QueryErrorState
+        message="Couldn't load this program. This is usually temporary."
+        onRetry={() => refetch()}
+        isRetrying={isFetching}
+        testId="button-retry-program"
+        className="p-8"
+      />
+    );
+  }
   if (!program) return <div className="p-8 text-muted-foreground">Program not found.</div>;
 
   const selectedDay = program.days.find(d => d.id === selectedDayId);

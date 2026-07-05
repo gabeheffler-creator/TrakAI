@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Trash2, Upload, Camera, UtensilsCrossed } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { QueryErrorState } from "@/components/query-error-state";
 
 function UploadDialog({
   title,
@@ -84,10 +85,10 @@ export function PhotosPage() {
   const qc = useQueryClient();
   const { toast } = useToast();
 
-  const { data: photos, isLoading: photosLoading } = useListProgressPhotos(clientId!, {
+  const { data: photos, isLoading: photosLoading, isError: photosError, refetch: refetchPhotos, isFetching: photosFetching } = useListProgressPhotos(clientId!, {
     query: { enabled: !!clientId, queryKey: getListProgressPhotosQueryKey(clientId!) }
   });
-  const { data: nutritionLogs, isLoading: nutritionLoading } = useListNutritionLogs(clientId!, {
+  const { data: nutritionLogs, isLoading: nutritionLoading, isError: nutritionError, refetch: refetchNutrition, isFetching: nutritionFetching } = useListNutritionLogs(clientId!, {
     query: { enabled: !!clientId, queryKey: getListNutritionLogsQueryKey(clientId!) }
   });
 
@@ -139,7 +140,16 @@ export function PhotosPage() {
 
         {nutritionLoading && <p className="text-muted-foreground text-sm">Loading…</p>}
 
-        {!nutritionLoading && mfpPhotos.length === 0 && (
+        {nutritionError && (
+          <QueryErrorState
+            message="Couldn't load MFP photos. This is usually temporary."
+            onRetry={() => refetchNutrition()}
+            isRetrying={nutritionFetching}
+            testId="button-retry-mfp-photos"
+          />
+        )}
+
+        {!nutritionLoading && !nutritionError && mfpPhotos.length === 0 && (
           <div className="text-center py-10 text-muted-foreground border border-dashed border-border rounded-2xl">
             <UtensilsCrossed className="w-8 h-8 mx-auto mb-2 opacity-20" />
             <p className="text-sm">No MFP screenshots yet. Upload from the Nutrition tab.</p>
@@ -147,7 +157,7 @@ export function PhotosPage() {
         )}
 
         <div className="grid grid-cols-2 gap-3">
-          {mfpPhotos.slice().reverse().map(n => (
+          {!nutritionError && mfpPhotos.slice().reverse().map(n => (
             <Card key={n.id} className="overflow-hidden">
               <div className="relative">
                 <img src={n.imageUrl} alt="MFP" className="w-full aspect-square object-cover" />
@@ -190,7 +200,16 @@ export function PhotosPage() {
 
         {photosLoading && <p className="text-muted-foreground text-sm">Loading…</p>}
 
-        {!photosLoading && (photos?.length ?? 0) === 0 && (
+        {photosError && (
+          <QueryErrorState
+            message="Couldn't load progress photos. This is usually temporary."
+            onRetry={() => refetchPhotos()}
+            isRetrying={photosFetching}
+            testId="button-retry-progress-photos"
+          />
+        )}
+
+        {!photosLoading && !photosError && (photos?.length ?? 0) === 0 && (
           <div className="text-center py-10 text-muted-foreground border border-dashed border-border rounded-2xl">
             <Camera className="w-8 h-8 mx-auto mb-2 opacity-20" />
             <p className="text-sm">No progress photos yet. Start documenting your journey!</p>
@@ -198,7 +217,7 @@ export function PhotosPage() {
         )}
 
         <div className="grid grid-cols-2 gap-3">
-          {photos?.slice().reverse().map(p => (
+          {!photosError && photos?.slice().reverse().map(p => (
             <Card key={p.id} className="overflow-hidden">
               <div className="relative">
                 <img src={p.imageUrl} alt="Progress" className="w-full aspect-[3/4] object-cover" />

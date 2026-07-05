@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CheckCircle, Circle, ClipboardList } from "lucide-react";
+import { QueryErrorState } from "@/components/query-error-state";
 
 const typeColors: Record<string, string> = {
   task: "bg-blue-100 text-blue-800",
@@ -22,7 +23,7 @@ const typeColors: Record<string, string> = {
 export function AssignmentsPage() {
   const { clientId } = useClientId();
   const qc = useQueryClient();
-  const { data: assignments, isLoading } = useListAssignments(clientId!, {
+  const { data: assignments, isLoading, isError, refetch, isFetching } = useListAssignments(clientId!, {
     query: { enabled: !!clientId, queryKey: getListAssignmentsQueryKey(clientId!) }
   });
   const completeAssignment = useCompleteAssignment();
@@ -52,13 +53,21 @@ export function AssignmentsPage() {
 
         <TabsContent value="pending" className="mt-4 space-y-3">
           {isLoading && <p className="text-muted-foreground">Loading...</p>}
-          {pending.length === 0 && !isLoading && (
+          {isError && (
+            <QueryErrorState
+              message="Couldn't load assignments. This is usually temporary."
+              onRetry={() => refetch()}
+              isRetrying={isFetching}
+              testId="button-retry-assignments"
+            />
+          )}
+          {pending.length === 0 && !isLoading && !isError && (
             <div className="text-center py-10 text-muted-foreground">
               <ClipboardList className="w-10 h-10 mx-auto mb-3 opacity-20" />
               <p>All caught up! No pending assignments.</p>
             </div>
           )}
-          {pending.map(a => (
+          {!isError && pending.map(a => (
             <Card key={a.id} className="overflow-hidden" data-testid={`card-assignment-${a.id}`}>
               <CardContent className="pt-4 pb-4 flex items-start gap-3">
                 <button

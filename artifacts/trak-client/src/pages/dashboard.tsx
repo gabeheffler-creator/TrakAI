@@ -9,13 +9,14 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 import { Link } from "wouter";
 import { Dumbbell, ClipboardList, TrendingUp, ChevronRight, Video } from "lucide-react";
 import { format, parseISO } from "date-fns";
+import { QueryErrorState } from "@/components/query-error-state";
 
 export function Dashboard() {
   const { clientId } = useClientId();
   const { units, weightLabel } = useUnitSystem();
   const [videoCallOpen, setVideoCallOpen] = useState(false);
   const callActive = useVideoCallStatus(clientId);
-  const { data: dashboard, isLoading } = useGetClientDashboard(clientId!, {
+  const { data: dashboard, isLoading, isError, refetch, isFetching } = useGetClientDashboard(clientId!, {
     query: { enabled: !!clientId, queryKey: getGetClientDashboardQueryKey(clientId!) }
   });
 
@@ -31,6 +32,18 @@ export function Dashboard() {
   }
 
   if (isLoading) return <div className="p-4 text-muted-foreground">Loading...</div>;
+
+  if (isError) {
+    return (
+      <QueryErrorState
+        message="Couldn't load your dashboard. This is usually temporary."
+        onRetry={() => refetch()}
+        isRetrying={isFetching}
+        testId="button-retry-dashboard"
+        className="p-8"
+      />
+    );
+  }
 
   const client = dashboard?.client;
 

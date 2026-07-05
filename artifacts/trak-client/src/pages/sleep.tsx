@@ -18,6 +18,7 @@ import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Trash2, Moon } from "lucide-react";
+import { QueryErrorState } from "@/components/query-error-state";
 
 const sleepSchema = z.object({
   date: z.string().min(1),
@@ -52,7 +53,7 @@ export function SleepPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [timeframe, setTimeframe] = useState<Timeframe>("30d");
 
-  const { data: logs, isLoading } = useListSleepLogs(clientId!, {
+  const { data: logs, isLoading, isError, refetch, isFetching } = useListSleepLogs(clientId!, {
     query: { enabled: !!clientId, queryKey: getListSleepLogsQueryKey(clientId!) }
   });
   const logSleep = useLogSleep();
@@ -182,12 +183,20 @@ export function SleepPage() {
       )}
 
       {isLoading && <p className="text-muted-foreground">Loading...</p>}
-      {sortedFiltered.length === 0 && !isLoading && (
+      {isError && (
+        <QueryErrorState
+          message="Couldn't load sleep logs. This is usually temporary."
+          onRetry={() => refetch()}
+          isRetrying={isFetching}
+          testId="button-retry-sleep"
+        />
+      )}
+      {sortedFiltered.length === 0 && !isLoading && !isError && (
         <p className="text-muted-foreground text-sm text-center py-8">No sleep logged for this period.</p>
       )}
 
       <div className="space-y-2">
-        {sortedFiltered.map(s => (
+        {!isError && sortedFiltered.map(s => (
           <Card key={s.id} data-testid={`card-sleep-${s.id}`}>
             <CardContent className="pt-3 pb-3 flex items-center justify-between">
               <div className="flex items-center gap-3">

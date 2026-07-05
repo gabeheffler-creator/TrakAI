@@ -3,6 +3,7 @@ import { useListExercises } from "@workspace/api-client-react";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Search } from "lucide-react";
+import { QueryErrorState } from "@/components/query-error-state";
 
 const GROUP_ORDER: Record<string, number> = {
   "Chest": 1, "Back": 2, "Shoulders": 3, "Biceps": 4, "Triceps": 5, "Traps": 6,
@@ -13,7 +14,7 @@ function groupOrder(g: string) { return GROUP_ORDER[g] ?? 50; }
 
 export function ExercisesPage() {
   const [search, setSearch] = useState("");
-  const { data: exercises, isLoading } = useListExercises();
+  const { data: exercises, isLoading, isError, refetch, isFetching } = useListExercises();
 
   const filtered = useMemo(() => {
     if (!exercises) return [];
@@ -51,7 +52,16 @@ export function ExercisesPage() {
 
       {isLoading && <p className="text-muted-foreground text-sm">Loading...</p>}
 
-      {Object.entries(grouped).sort(([a], [b]) => groupOrder(a) - groupOrder(b)).map(([group, exs]) => (
+      {isError && (
+        <QueryErrorState
+          message="Couldn't load exercises. This is usually temporary."
+          onRetry={() => refetch()}
+          isRetrying={isFetching}
+          testId="button-retry-exercises"
+        />
+      )}
+
+      {!isError && Object.entries(grouped).sort(([a], [b]) => groupOrder(a) - groupOrder(b)).map(([group, exs]) => (
         <div key={group}>
           <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">{group}</h2>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -69,7 +79,7 @@ export function ExercisesPage() {
         </div>
       ))}
 
-      {filtered.length === 0 && !isLoading && (
+      {filtered.length === 0 && !isLoading && !isError && (
         <p className="text-muted-foreground text-sm text-center py-8">No exercises match your search.</p>
       )}
     </div>

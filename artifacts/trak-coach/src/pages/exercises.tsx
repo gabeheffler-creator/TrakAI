@@ -12,6 +12,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Search } from "lucide-react";
+import { QueryErrorState } from "@/components/query-error-state";
 
 const exerciseSchema = z.object({
   name: z.string().min(1),
@@ -32,7 +33,7 @@ const GROUP_ORDER: Record<string, number> = {
 function groupOrder(g: string) { return GROUP_ORDER[g] ?? 50; }
 
 export function Exercises() {
-  const { data: exercises, isLoading } = useListExercises();
+  const { data: exercises, isLoading, isError, refetch, isFetching } = useListExercises();
   const createExercise = useCreateExercise();
   const qc = useQueryClient();
   const { toast } = useToast();
@@ -127,7 +128,16 @@ export function Exercises() {
 
       {isLoading && <p className="text-muted-foreground">Loading...</p>}
 
-      {grouped && Object.entries(grouped).sort(([a], [b]) => groupOrder(a) - groupOrder(b)).map(([group, exs]) => (
+      {isError && (
+        <QueryErrorState
+          message="Couldn't load exercises. This is usually temporary."
+          onRetry={() => refetch()}
+          isRetrying={isFetching}
+          testId="button-retry-exercises"
+        />
+      )}
+
+      {!isError && grouped && Object.entries(grouped).sort(([a], [b]) => groupOrder(a) - groupOrder(b)).map(([group, exs]) => (
         <div key={group}>
           <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">{group}</h2>
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
@@ -143,7 +153,7 @@ export function Exercises() {
         </div>
       ))}
 
-      {filtered?.length === 0 && !isLoading && (
+      {filtered?.length === 0 && !isLoading && !isError && (
         <p className="text-muted-foreground text-sm text-center py-8">No exercises match your search.</p>
       )}
     </div>

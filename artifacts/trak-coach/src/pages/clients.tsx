@@ -25,6 +25,7 @@ import { Plus, Search, UserX, UserCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 import { format } from "date-fns";
+import { QueryErrorState } from "@/components/query-error-state";
 
 const clientSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -116,7 +117,7 @@ function ClientCard({ client }: { client: Client }) {
 }
 
 export function ClientList() {
-  const { data: clients, isLoading } = useListClients();
+  const { data: clients, isLoading, isError, refetch, isFetching } = useListClients();
   const [search, setSearch] = useState("");
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const { toast } = useToast();
@@ -210,6 +211,13 @@ export function ClientList() {
 
       {isLoading ? (
         <div className="p-8 text-center">Loading clients...</div>
+      ) : isError ? (
+        <QueryErrorState
+          message="Couldn't load your clients. This is usually temporary."
+          onRetry={() => refetch()}
+          isRetrying={isFetching}
+          testId="button-retry-clients"
+        />
       ) : (
         <div className="space-y-8">
           <div className="space-y-4">

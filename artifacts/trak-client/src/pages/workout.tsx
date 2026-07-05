@@ -24,6 +24,7 @@ import { CheckCircle, ChevronRight, Dumbbell, X, Trophy, ArrowRight, RefreshCw, 
 import { useLocation, Link } from "wouter";
 import { cn } from "@/lib/utils";
 import type { Exercise } from "@workspace/api-client-react";
+import { QueryErrorState } from "@/components/query-error-state";
 
 type Mode = "select" | "checkin" | "overview" | "active" | "upload" | "done" | "early-exit-done";
 
@@ -417,10 +418,10 @@ export function WorkoutPage() {
   const [sleep, setSleep] = useState("");
   const [energy, setEnergy] = useState<number | null>(null);
 
-  const { data: assignment } = useGetClientProgramAssignment(clientId!, {
+  const { data: assignment, isError: assignmentError, refetch: refetchAssignment, isFetching: assignmentFetching } = useGetClientProgramAssignment(clientId!, {
     query: { enabled: !!clientId, queryKey: getGetClientProgramAssignmentQueryKey(clientId!) }
   });
-  const { data: program } = useGetProgram(assignment?.programId ?? 0, {
+  const { data: program, isError: programError, refetch: refetchProgram, isFetching: programFetching } = useGetProgram(assignment?.programId ?? 0, {
     query: { enabled: !!assignment?.programId, queryKey: getGetProgramQueryKey(assignment?.programId ?? 0) }
   });
   const { data: allExercises } = useListExercises({ query: { enabled: mode === "active" && swapModal, queryKey: getListExercisesQueryKey() } });
@@ -792,6 +793,23 @@ export function WorkoutPage() {
         <Link href="/enter-code">
           <Button className="w-full h-12 font-bold">Enter access code</Button>
         </Link>
+      </div>
+    );
+  }
+
+  if ((assignmentError || programError) && mode === "select") {
+    return (
+      <div className="max-w-lg mx-auto space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold">Workout</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Ready when you are</p>
+        </div>
+        <QueryErrorState
+          message="Couldn't load your program. This is usually temporary."
+          onRetry={() => { refetchAssignment(); if (assignment?.programId) refetchProgram(); }}
+          isRetrying={assignmentFetching || programFetching}
+          testId="button-retry-workout-program"
+        />
       </div>
     );
   }

@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { Trophy, TrendingUp, Dumbbell } from "lucide-react";
 import { format, parseISO, startOfWeek } from "date-fns";
+import { QueryErrorState } from "@/components/query-error-state";
 
 interface SetEntry {
   exerciseName: string;
@@ -24,7 +25,7 @@ interface WorkoutLogWithSets {
 
 export function StatsPage() {
   const { clientId } = useClientId();
-  const { data: logs, isLoading } = useListWorkoutLogs(clientId!, {
+  const { data: logs, isLoading, isError, refetch, isFetching } = useListWorkoutLogs(clientId!, {
     query: { enabled: !!clientId, queryKey: getListWorkoutLogsQueryKey(clientId!) }
   });
 
@@ -90,6 +91,20 @@ export function StatsPage() {
       <div className="max-w-2xl mx-auto space-y-4">
         <h1 className="text-2xl font-bold">Stats</h1>
         <p className="text-muted-foreground">Loading…</p>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="max-w-2xl mx-auto space-y-4">
+        <h1 className="text-2xl font-bold">Stats</h1>
+        <QueryErrorState
+          message="Couldn't load your stats. This is usually temporary."
+          onRetry={() => refetch()}
+          isRetrying={isFetching}
+          testId="button-retry-stats"
+        />
       </div>
     );
   }
