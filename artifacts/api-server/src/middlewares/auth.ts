@@ -56,10 +56,13 @@ async function getOrCreateCoach(clerkUserId: string, email: string, name: string
   const [created] = await db.insert(coachesTable).values({ clerkUserId, email, name }).returning();
 
   // New coaches start with the pre-built program templates already in their
-  // Programs list, fully editable, instead of an empty state.
-  instantiateAllProgramTemplatesForCoach(created.id).catch((err) => {
+  // Programs list, fully editable, instead of an empty state. This is awaited
+  // so the very first request after signup already sees the programs.
+  try {
+    await instantiateAllProgramTemplatesForCoach(created.id);
+  } catch (err) {
     logger.error({ err, coachId: created.id }, "Failed to auto-populate program templates for new coach");
-  });
+  }
 
   return created;
 }
