@@ -803,29 +803,6 @@ export const AssignProgramBody = zod.object({
 
 
 /**
- * @summary List pre-built program templates a coach can start from
- */
-export const ListProgramTemplatesResponseItem = zod.object({
-  "key": zod.string(),
-  "name": zod.string(),
-  "description": zod.string(),
-  "focus": zod.string(),
-  "durationWeeks": zod.number(),
-  "phaseCount": zod.number(),
-  "daysPerWeek": zod.number()
-})
-export const ListProgramTemplatesResponse = zod.array(ListProgramTemplatesResponseItem)
-
-
-/**
- * @summary Create a new editable program for the coach from a pre-built template
- */
-export const InstantiateProgramTemplateParams = zod.object({
-  "key": zod.coerce.string()
-})
-
-
-/**
  * @summary List workout logs for a client
  */
 export const ListWorkoutLogsParams = zod.object({

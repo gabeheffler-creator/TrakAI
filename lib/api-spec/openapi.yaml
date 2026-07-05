@@ -793,43 +793,6 @@ paths:
               schema:
                 $ref: "#/components/schemas/ProgramAssignment"
 
-  # ── Program Templates ─────────────────────────────────────────────────────
-  /program-templates:
-    get:
-      operationId: listProgramTemplates
-      tags: [workouts]
-      summary: List pre-built program templates a coach can start from
-      responses:
-        "200":
-          description: Program templates
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/ProgramTemplateSummary"
-
-  /program-templates/{key}/instantiate:
-    post:
-      operationId: instantiateProgramTemplate
-      tags: [workouts]
-      summary: Create a new editable program for the coach from a pre-built template
-      parameters:
-        - name: key
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "201":
-          description: Program created from template
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ProgramTemplateInstantiateResult"
-        "404":
-          description: Template not found
-
   # ── Workout Logs ──────────────────────────────────────────────────────────
   /clients/{clientId}/workout-logs:
     get:
@@ -2219,33 +2182,6 @@ components:
         endDate:
           type: string
           format: date
-
-    # ── Program Templates ────────────────────────────────────────────────────
-    ProgramTemplateSummary:
-      type: object
-      required: [key, name, description, focus, durationWeeks, phaseCount, daysPerWeek]
-      properties:
-        key:
-          type: string
-        name:
-          type: string
-        description:
-          type: string
-        focus:
-          type: string
-        durationWeeks:
-          type: integer
-        phaseCount:
-          type: integer
-        daysPerWeek:
-          type: integer
-
-    ProgramTemplateInstantiateResult:
-      type: object
-      required: [programId]
-      properties:
-        programId:
-          type: integer
 
     # ── Workout Logs ────────────────────────────────────────────────────────
     WorkoutLog:

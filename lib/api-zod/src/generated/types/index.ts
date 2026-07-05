@@ -67,8 +67,6 @@ export * from './programPhase';
 export * from './programPhaseDetail';
 export * from './programPhaseInput';
 export * from './programPhaseUpdate';
-export * from './programTemplateInstantiateResult';
-export * from './programTemplateSummary';
 export * from './programUpdate';
 export * from './progressPhoto';
 export * from './progressPhotoInput';

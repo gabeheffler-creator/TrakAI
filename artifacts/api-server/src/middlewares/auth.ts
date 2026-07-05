@@ -3,6 +3,8 @@ import { getAuth } from "@clerk/express";
 import { db, coachesTable, clientsTable, type Coach, type Client } from "@workspace/db";
 import { eq, isNull, and } from "drizzle-orm";
 import { clerkClient } from "../lib/clerkClient";
+import { instantiateAllProgramTemplatesForCoach } from "../services/program_templates";
+import { logger } from "../lib/logger";
 
 /**
  * Session token claims don't include email by default on this Clerk instance,
@@ -52,6 +54,13 @@ async function getOrCreateCoach(clerkUserId: string, email: string, name: string
   }
 
   const [created] = await db.insert(coachesTable).values({ clerkUserId, email, name }).returning();
+
+  // New coaches start with the pre-built program templates already in their
+  // Programs list, fully editable, instead of an empty state.
+  instantiateAllProgramTemplatesForCoach(created.id).catch((err) => {
+    logger.error({ err, coachId: created.id }, "Failed to auto-populate program templates for new coach");
+  });
+
   return created;
 }
 
