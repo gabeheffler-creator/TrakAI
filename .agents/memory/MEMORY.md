@@ -3,3 +3,4 @@
 - [Orval query-param codegen collision](orval-query-param-codegen-collision.md) — adding an `in: query` OpenAPI param can break api-zod's build with a duplicate-export error; drop the param or investigate orval naming config.
 - [Orval nullable-object codegen bug](orval-openapi-gotchas.md) — top-level `nullable: true` on an object schema breaks orval TS codegen (`interface {...} | null` syntax error); use optional/omitted fields instead.
 - [Program-based nutrition goal resolution](program-nutrition-goal-resolution.md) — pattern for resolving a client's active daily nutrition goal from a phased program (phase default + optional day override), with legacy per-client fallback.
+- [Pre-built program templates](program-templates.md) — 5 coach-pickable program templates are static data cloned into a real editable program, not a separate DB table

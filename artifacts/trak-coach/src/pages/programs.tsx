@@ -4,22 +4,34 @@ import {
   useCreateProgram,
   useDeleteProgram,
   useUpdateProgram,
+  useListProgramTemplates,
+  useInstantiateProgramTemplate,
   getListProgramsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, ChevronRight, Dumbbell, Pencil, LayoutGrid, List } from "lucide-react";
+import { Plus, Trash2, ChevronRight, Dumbbell, Pencil, LayoutGrid, List, Sparkles, Calendar, Layers } from "lucide-react";
+
+const TEMPLATE_FOCUS_ICONS: Record<string, string> = {
+  Strength: "🏋️",
+  Hypertrophy: "💪",
+  "Functional Training": "🤸",
+  Symmetry: "⚖️",
+  "Athletic Performance": "⚡",
+};
 
 const programSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -35,12 +47,16 @@ export function Programs() {
   const createProgram = useCreateProgram();
   const deleteProgram = useDeleteProgram();
   const updateProgram = useUpdateProgram();
+  const { data: templates, isLoading: templatesLoading } = useListProgramTemplates();
+  const instantiateTemplate = useInstantiateProgramTemplate();
   const qc = useQueryClient();
   const { toast } = useToast();
+  const [, navigate] = useLocation();
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
   const [viewMode, setViewMode] = useState<"list" | "grid">("grid");
+  const [templatesOpen, setTemplatesOpen] = useState(false);
 
   const form = useForm<ProgramFormValues>({
     resolver: zodResolver(programSchema),
@@ -86,6 +102,18 @@ export function Programs() {
     });
   };
 
+  const handleUseTemplate = (key: string) => {
+    instantiateTemplate.mutate({ key }, {
+      onSuccess: (result) => {
+        qc.invalidateQueries({ queryKey: getListProgramsQueryKey() });
+        setTemplatesOpen(false);
+        toast({ title: "Program created from template" });
+        navigate(`/programs/${result.programId}`);
+      },
+      onError: () => toast({ title: "Failed to create program from template", variant: "destructive" }),
+    });
+  };
+
   const handleEdit = (p: EditTarget, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -114,11 +142,63 @@ export function Programs() {
               <SelectItem value="grid"><span className="flex items-center gap-1.5"><LayoutGrid className="w-3.5 h-3.5" /> Grid</span></SelectItem>
             </SelectContent>
           </Select>
+          <Button
+            variant="outline"
+            data-testid="button-browse-templates"
+            onClick={() => setTemplatesOpen(true)}
+          >
+            <Sparkles className="w-4 h-4 mr-2" /> Browse Templates
+          </Button>
           <Button data-testid="button-create-program" onClick={() => { form.reset(); setSheetOpen(true); }}>
             <Plus className="w-4 h-4 mr-2" /> New Program
           </Button>
         </div>
       </div>
+
+      {/* Program Templates Dialog */}
+      <Dialog open={templatesOpen} onOpenChange={setTemplatesOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Pre-Built Programs</DialogTitle>
+            <DialogDescription>
+              Start from a ready-made program with phases and workouts already filled in. You can fully edit it after assigning it.
+            </DialogDescription>
+          </DialogHeader>
+          {templatesLoading && <p className="text-muted-foreground text-sm py-4">Loading templates...</p>}
+          <div className="grid gap-3 sm:grid-cols-2 py-2">
+            {templates?.map(t => (
+              <Card key={t.key} data-testid={`card-template-${t.key}`}>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <span aria-hidden="true">{TEMPLATE_FOCUS_ICONS[t.focus] ?? "🏆"}</span>
+                      {t.name}
+                    </CardTitle>
+                    <Badge variant="secondary">{t.focus}</Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <p className="text-sm text-muted-foreground">{t.description}</p>
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> {t.durationWeeks} weeks</span>
+                    <span className="flex items-center gap-1"><Layers className="w-3.5 h-3.5" /> {t.phaseCount} phases</span>
+                    <span className="flex items-center gap-1"><Dumbbell className="w-3.5 h-3.5" /> {t.daysPerWeek}x/week</span>
+                  </div>
+                  <Button
+                    size="sm"
+                    className="w-full"
+                    data-testid={`button-use-template-${t.key}`}
+                    disabled={instantiateTemplate.isPending}
+                    onClick={() => handleUseTemplate(t.key)}
+                  >
+                    {instantiateTemplate.isPending ? "Creating…" : "Use This Template"}
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Create Sheet */}
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>

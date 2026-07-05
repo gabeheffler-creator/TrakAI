@@ -429,6 +429,20 @@ export interface ProgramAssignmentInput {
   endDate?: string;
 }
 
+export interface ProgramTemplateSummary {
+  key: string;
+  name: string;
+  description: string;
+  focus: string;
+  durationWeeks: number;
+  phaseCount: number;
+  daysPerWeek: number;
+}
+
+export interface ProgramTemplateInstantiateResult {
+  programId: number;
+}
+
 export interface WorkoutLogInput {
   programDayId?: number;
   date: string;
