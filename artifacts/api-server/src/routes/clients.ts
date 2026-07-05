@@ -24,8 +24,25 @@ import {
   GetClientActivityHeatmapParams,
 } from "@workspace/api-zod";
 import { requireCoachAuth, requireClientOwnership, requireCoachOnly, requireClientAuth, getUserEmail } from "../middlewares/auth";
+import { sendGmail } from "../lib/mail";
 
 const router = Router();
+
+function statusChangeEmailHtml(clientName: string, status: "active" | "inactive") {
+  const isActive = status === "active";
+  const heading = isActive ? "Your TrakAI access has been restored" : "Your TrakAI access is paused";
+  const message = isActive
+    ? `Hi ${clientName}, good news — your coach has restored your access to TrakAI. You can sign back in and pick up right where you left off.`
+    : `Hi ${clientName}, your coach has paused your access to TrakAI. You won't be able to sign in while your account is paused. If you have questions, please contact your coach.`;
+
+  return `
+    <div style="font-family: sans-serif; max-width: 520px; margin: 0 auto; padding: 32px 24px;">
+      <h2 style="font-size: 22px; font-weight: 700; margin: 0 0 8px;">${heading}</h2>
+      <p style="color: #555; margin: 0 0 24px;">${message}</p>
+      <p style="color: #999; font-size: 12px; margin-top: 32px;">If you didn't expect this email, please contact your coach.</p>
+    </div>
+  `;
+}
 
 // List clients (coach's own roster only)
 router.get("/clients", requireCoachAuth, async (req, res) => {
@@ -120,6 +137,25 @@ router.patch("/clients/:clientId/status", requireClientOwnership(), requireCoach
       .returning();
     if (!client) { res.status(404).json({ error: "Client not found" }); return; }
     res.json({ ...client, createdAt: client.createdAt.toISOString() });
+
+    if (client.email) {
+      const subject = status === "active"
+        ? "Your TrakAI access has been restored"
+        : "Your TrakAI access is paused";
+      sendGmail({
+        to: client.email,
+        subject,
+        html: statusChangeEmailHtml(client.name, status),
+      }).then((result) => {
+        if (!result.ok) {
+          req.log.error({ status: result.status, body: result.body, clientId }, "Gmail status-change API error");
+        } else {
+          req.log.info({ clientId, status }, "Client status-change email sent");
+        }
+      }).catch((err) => {
+        req.log.error({ err, clientId }, "Failed to send client status-change email");
+      });
+    }
   } catch (err) {
     req.log.error(err);
     res.status(400).json({ error: "Failed to update client status" });
