@@ -299,31 +299,6 @@ paths:
         "404":
           description: Invalid or expired token
 
-  /invite/{token}/accept:
-    post:
-      operationId: acceptInvite
-      tags: [invites]
-      summary: Accept an invite (deprecated — not used in demo mode)
-      parameters:
-        - name: token
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: Invite accepted
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/InviteAcceptResult"
-        "401":
-          description: Not signed in
-        "403":
-          description: Email mismatch or already claimed by another account
-        "404":
-          description: Invalid or expired token
-
   /clients/me:
     get:
       operationId: getMyClient

@@ -212,20 +212,6 @@ export const GetInviteResponse = zod.object({
 
 
 /**
- * @summary Accept an invite (deprecated — not used in demo mode)
- */
-export const AcceptInviteParams = zod.object({
-  "token": zod.coerce.string()
-})
-
-export const AcceptInviteResponse = zod.object({
-  "clientId": zod.number(),
-  "clientName": zod.string(),
-  "alreadyJoined": zod.boolean()
-})
-
-
-/**
  * @summary Get the client record for the currently authenticated client
  */
 export const GetMyClientResponse = zod.object({

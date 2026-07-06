@@ -38,7 +38,6 @@ import type {
   Exercise,
   ExerciseInput,
   HealthStatus,
-  InviteAcceptResult,
   InviteInfo,
   InviteLink,
   LoginInput,
@@ -1124,76 +1123,6 @@ export function useGetInvite<TData = Awaited<ReturnType<typeof getInvite>>, TErr
 
 
 
-
-export const getAcceptInviteUrl = (token: string,) => {
-
-
-
-
-  return `/api/invite/${token}/accept`
-}
-
-/**
- * @summary Accept an invite (deprecated — not used in demo mode)
- */
-export const acceptInvite = async (token: string, options?: RequestInit): Promise<InviteAcceptResult> => {
-
-  return customFetch<InviteAcceptResult>(getAcceptInviteUrl(token),
-  {
-    ...options,
-    method: 'POST'
-
-
-  }
-);}
-
-
-
-
-export const getAcceptInviteMutationOptions = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acceptInvite>>, TError,{token: string}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof acceptInvite>>, TError,{token: string}, TContext> => {
-
-const mutationKey = ['acceptInvite'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof acceptInvite>>, {token: string}> = (props) => {
-          const {token} = props ?? {};
-
-          return  acceptInvite(token,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type AcceptInviteMutationResult = NonNullable<Awaited<ReturnType<typeof acceptInvite>>>
-
-    export type AcceptInviteMutationError = ErrorType<void>
-
-    /**
- * @summary Accept an invite (deprecated — not used in demo mode)
- */
-export const useAcceptInvite = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acceptInvite>>, TError,{token: string}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof acceptInvite>>,
-        TError,
-        {token: string},
-        TContext
-      > => {
-      return useMutation(getAcceptInviteMutationOptions(options));
-    }
 
 export const getGetMyClientUrl = () => {
 
