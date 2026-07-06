@@ -1,5 +1,4 @@
 import { Router } from "express";
-import { getAuth } from "@clerk/express";
 import { db } from "@workspace/db";
 import { exercisesTable } from "@workspace/db";
 import { CreateExerciseBody } from "@workspace/api-zod";
@@ -50,8 +49,7 @@ void seedMissingCategories();
 // Shared global exercise catalog — readable by any signed-in user (coach or client).
 router.get("/exercises", async (req, res) => {
   try {
-    const auth = getAuth(req);
-    if (!auth.userId) {
+    if (!req.session?.coachId && !req.session?.clientId) {
       res.status(401).json({ error: "Unauthorized" });
       return;
     }

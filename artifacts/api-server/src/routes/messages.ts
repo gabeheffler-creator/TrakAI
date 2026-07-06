@@ -11,7 +11,6 @@ import {
   MarkMessagesReadBody,
   SavePushSubscriptionBody,
 } from "@workspace/api-zod";
-import { getAuth } from "@clerk/express";
 import { requireCoachAuth, requireClientOwnership } from "../middlewares/auth";
 
 if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
@@ -152,8 +151,7 @@ router.get("/coach/unread-count", requireCoachAuth, async (req, res) => {
 
 router.post("/push-subscriptions", async (req, res) => {
   try {
-    const auth = getAuth(req);
-    if (!auth.userId) {
+    if (!req.session?.coachId && !req.session?.clientId) {
       res.status(401).json({ error: "Unauthorized" });
       return;
     }

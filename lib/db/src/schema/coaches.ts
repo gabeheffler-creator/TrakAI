@@ -5,6 +5,8 @@ import { z } from "zod/v4";
 export const coachesTable = pgTable("coaches", {
   id: serial("id").primaryKey(),
   clerkUserId: text("clerk_user_id").unique(),
+  username: text("username").unique(),
+  passwordHash: text("password_hash"),
   name: text("name").notNull(),
   email: text("email").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

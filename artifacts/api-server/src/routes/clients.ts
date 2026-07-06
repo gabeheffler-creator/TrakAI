@@ -1,5 +1,4 @@
 import { Router } from "express";
-import { getAuth } from "@clerk/express";
 import { db } from "@workspace/db";
 import {
   clientsTable,
@@ -23,7 +22,7 @@ import {
   UpdateClientStatusParams,
   GetClientActivityHeatmapParams,
 } from "@workspace/api-zod";
-import { requireCoachAuth, requireClientOwnership, requireCoachOnly, requireClientAuth, getUserEmail } from "../middlewares/auth";
+import { requireCoachAuth, requireClientOwnership, requireCoachOnly, requireClientAuth } from "../middlewares/auth";
 import { sendGmail } from "../lib/mail";
 
 const router = Router();
@@ -240,42 +239,5 @@ router.get("/invite/:token", async (req, res) => {
   }
 });
 
-// Accept invite — requires the caller to already be signed in via Clerk with
-// the SAME email as the invited client. Links the Clerk account to the client
-// row and marks the token as used.
-router.post("/invite/:token/accept", async (req, res) => {
-  try {
-    const auth = getAuth(req);
-    if (!auth.userId) {
-      res.status(401).json({ error: "Unauthorized" });
-      return;
-    }
-    const { token } = GetInviteParams.parse({ token: req.params.token });
-    const [client] = await db.select().from(clientsTable).where(eq(clientsTable.inviteToken, token));
-    if (!client) { res.status(404).json({ error: "Invalid or expired token" }); return; }
-
-    const email = await getUserEmail(auth.userId);
-
-    if (client.clerkUserId && client.clerkUserId !== auth.userId) {
-      res.status(403).json({ error: "This invite has already been claimed by another account" });
-      return;
-    }
-
-    if (!client.clerkUserId) {
-      if (!email || email.toLowerCase() !== client.email.toLowerCase()) {
-        res.status(403).json({ error: "Sign in with the email address this invite was sent to" });
-        return;
-      }
-      await db.update(clientsTable)
-        .set({ clerkUserId: auth.userId, inviteTokenUsed: true, updatedAt: new Date() })
-        .where(eq(clientsTable.id, client.id));
-    }
-
-    res.json({ clientId: client.id, clientName: client.name, alreadyJoined: client.inviteTokenUsed });
-  } catch (err) {
-    req.log.error(err);
-    res.status(500).json({ error: "Failed to accept invite" });
-  }
-});
 
 export default router;

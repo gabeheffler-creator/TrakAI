@@ -7,6 +7,8 @@ export const clientsTable = pgTable("clients", {
   id: serial("id").primaryKey(),
   coachId: integer("coach_id").notNull().references(() => coachesTable.id, { onDelete: "cascade" }),
   clerkUserId: text("clerk_user_id").unique(),
+  username: text("username").unique(),
+  passwordHash: text("password_hash"),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
   phone: text("phone"),

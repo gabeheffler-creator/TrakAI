@@ -1,30 +1,25 @@
-import { useAuth, useClerk } from "@clerk/react";
+import { useAuth } from "@/contexts/AuthContext";
 import { useGetMyClient, getGetMyClientQueryKey } from "@workspace/api-client-react";
 import type { ApiError } from "@workspace/api-client-react";
 
 export function useClientId() {
-  const { isSignedIn } = useAuth();
-  const { signOut } = useClerk();
+  const { user, loading, logout } = useAuth();
 
   const { data: client, isLoading, error } = useGetMyClient({
     query: {
-      enabled: !!isSignedIn,
+      enabled: !!user && !loading,
       queryKey: getGetMyClientQueryKey(),
       retry: false,
     },
   });
-
-  const clearClientId = () => {
-    void signOut();
-  };
 
   const apiError = error as ApiError<{ code?: string }> | null;
   const isDeactivated = apiError?.status === 403 && apiError.data?.code === "CLIENT_DEACTIVATED";
 
   return {
     clientId: client?.id ?? null,
-    isLoading: !!isSignedIn && isLoading,
+    isLoading: loading || (!!user && isLoading),
     isDeactivated,
-    clearClientId,
+    clearClientId: logout,
   };
 }
