@@ -8,6 +8,8 @@ servers:
   - url: /api
     description: Base API path
 tags:
+  - name: auth
+    description: Session-based authentication
   - name: health
     description: Health operations
   - name: clients
@@ -34,6 +36,73 @@ tags:
     description: Dashboard aggregates
 
 paths:
+  # ── Auth ──────────────────────────────────────────────────────────────────
+  /auth/coach/login:
+    post:
+      operationId: coachLogin
+      tags: [auth]
+      summary: Sign in as a coach with username and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResult"
+        "401":
+          description: Invalid credentials
+
+  /auth/client/login:
+    post:
+      operationId: clientLogin
+      tags: [auth]
+      summary: Sign in as a client with username and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResult"
+        "401":
+          description: Invalid credentials
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Destroy the current session
+      responses:
+        "200":
+          description: Logged out
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get the currently authenticated user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+        "401":
+          description: Not authenticated
+
   /healthz:
     get:
       operationId: healthCheck
@@ -234,7 +303,7 @@ paths:
     post:
       operationId: acceptInvite
       tags: [invites]
-      summary: Accept an invite as the currently signed-in Clerk user
+      summary: Accept an invite (deprecated — not used in demo mode)
       parameters:
         - name: token
           in: path
@@ -259,7 +328,7 @@ paths:
     get:
       operationId: getMyClient
       tags: [clients]
-      summary: Get the client record for the currently signed-in Clerk user
+      summary: Get the client record for the currently authenticated client
       responses:
         "200":
           description: Client
@@ -1603,6 +1672,41 @@ paths:
 
 components:
   schemas:
+    LoginInput:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+
+    LoginResult:
+      type: object
+      required: [ok, role, id, name]
+      properties:
+        ok:
+          type: boolean
+        role:
+          type: string
+          enum: [coach, client]
+        id:
+          type: integer
+        name:
+          type: string
+
+    AuthUser:
+      type: object
+      required: [role, id, name]
+      properties:
+        role:
+          type: string
+          enum: [coach, client]
+        id:
+          type: integer
+        name:
+          type: string
+
     HealthStatus:
       type: object
       required: [status]

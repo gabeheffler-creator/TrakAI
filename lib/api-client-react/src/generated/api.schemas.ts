@@ -5,6 +5,40 @@
  * Trak fitness coaching platform API
  * OpenAPI spec version: 0.1.0
  */
+export interface LoginInput {
+  username: string;
+  password: string;
+}
+
+export type LoginResultRole = typeof LoginResultRole[keyof typeof LoginResultRole];
+
+
+export const LoginResultRole = {
+  coach: 'coach',
+  client: 'client',
+} as const;
+
+export interface LoginResult {
+  ok: boolean;
+  role: LoginResultRole;
+  id: number;
+  name: string;
+}
+
+export type AuthUserRole = typeof AuthUserRole[keyof typeof AuthUserRole];
+
+
+export const AuthUserRole = {
+  coach: 'coach',
+  client: 'client',
+} as const;
+
+export interface AuthUser {
+  role: AuthUserRole;
+  id: number;
+  name: string;
+}
+
 export interface HealthStatus {
   status: string;
 }

@@ -25,7 +25,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     fetch("/api/auth/me", { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
-        setUser(data ? { id: data.id, name: data.name, role: data.role } : null);
+        if (data && data.role === "coach") {
+          setUser({ id: data.id, name: data.name, role: "coach" });
+        } else {
+          setUser(null);
+        }
       })
       .catch(() => setUser(null))
       .finally(() => setLoading(false));

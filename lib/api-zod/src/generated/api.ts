@@ -9,6 +9,48 @@ import * as zod from 'zod';
 
 
 /**
+ * @summary Sign in as a coach with username and password
+ */
+export const CoachLoginBody = zod.object({
+  "username": zod.string(),
+  "password": zod.string()
+})
+
+export const CoachLoginResponse = zod.object({
+  "ok": zod.boolean(),
+  "role": zod.enum(['coach', 'client']),
+  "id": zod.number(),
+  "name": zod.string()
+})
+
+
+/**
+ * @summary Sign in as a client with username and password
+ */
+export const ClientLoginBody = zod.object({
+  "username": zod.string(),
+  "password": zod.string()
+})
+
+export const ClientLoginResponse = zod.object({
+  "ok": zod.boolean(),
+  "role": zod.enum(['coach', 'client']),
+  "id": zod.number(),
+  "name": zod.string()
+})
+
+
+/**
+ * @summary Get the currently authenticated user
+ */
+export const GetMeResponse = zod.object({
+  "role": zod.enum(['coach', 'client']),
+  "id": zod.number(),
+  "name": zod.string()
+})
+
+
+/**
  * @summary Health check
  */
 export const HealthCheckResponse = zod.object({
@@ -170,7 +212,7 @@ export const GetInviteResponse = zod.object({
 
 
 /**
- * @summary Accept an invite as the currently signed-in Clerk user
+ * @summary Accept an invite (deprecated — not used in demo mode)
  */
 export const AcceptInviteParams = zod.object({
   "token": zod.coerce.string()
@@ -184,7 +226,7 @@ export const AcceptInviteResponse = zod.object({
 
 
 /**
- * @summary Get the client record for the currently signed-in Clerk user
+ * @summary Get the client record for the currently authenticated client
  */
 export const GetMyClientResponse = zod.object({
   "id": zod.number(),

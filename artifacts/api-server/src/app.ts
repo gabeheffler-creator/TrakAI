@@ -38,7 +38,7 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(
   session({
     name: "trak_session",
-    secret: process.env.SESSION_SECRET ?? "dev-fallback-secret-change-in-prod",
+    secret: process.env.SESSION_SECRET ?? crypto.randomUUID(),
     resave: false,
     saveUninitialized: false,
     cookie: {
