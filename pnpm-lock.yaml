@@ -182,6 +182,9 @@ importers:
       '@workspace/integrations-openai-ai-server':
         specifier: workspace:*
         version: link:../../lib/integrations-openai-ai-server
+      '@workspace/program-utils':
+        specifier: workspace:*
+        version: link:../../lib/program-utils
       bcryptjs:
         specifier: ^3.0.3
         version: 3.0.3
@@ -1471,11 +1474,27 @@ importers:
         specifier: 'catalog:'
         version: 25.6.2
 
+  lib/program-utils:
+    dependencies:
+      '@workspace/db':
+        specifier: workspace:*
+        version: link:../db
+      drizzle-orm:
+        specifier: 'catalog:'
+        version: 0.45.2(@types/pg@8.20.0)(pg@8.20.0)
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.6.2
+
   scripts:
     dependencies:
       '@workspace/db':
         specifier: workspace:*
         version: link:../lib/db
+      '@workspace/program-utils':
+        specifier: workspace:*
+        version: link:../lib/program-utils
       drizzle-orm:
         specifier: 'catalog:'
         version: 0.45.2(@types/pg@8.20.0)(pg@8.20.0)
