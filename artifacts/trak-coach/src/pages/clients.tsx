@@ -64,6 +64,7 @@ function ClientListRow({ client, onStatusChange }: { client: Client; onStatusCha
           <p className="text-xs text-muted-foreground truncate">{client.email}</p>
         </div>
         {client.goal && <p className="text-xs text-muted-foreground hidden sm:block truncate max-w-[200px]">{client.goal}</p>}
+        {client.programName && <p className="text-xs text-muted-foreground hidden md:block truncate max-w-[160px]"><span className="font-medium">Program:</span> {client.programName}</p>}
         <span className={cn("text-xs px-2 py-0.5 rounded-full shrink-0", isActive ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-muted text-muted-foreground")}>
           {isActive ? "Active" : "Inactive"}
         </span>
@@ -137,6 +138,11 @@ function ClientCard({ client }: { client: Client }) {
         <CardContent className="space-y-2 pb-2">
           <div className="text-sm text-muted-foreground truncate">{client.email}</div>
           {client.goal && <div className="text-sm font-medium truncate">{client.goal}</div>}
+          {client.programName && (
+            <div className="text-xs text-muted-foreground truncate">
+              <span className="font-medium">Program:</span> {client.programName}
+            </div>
+          )}
           <div className="text-xs text-muted-foreground mt-4">
             Joined {format(new Date(client.createdAt), "MMM d, yyyy")}
           </div>

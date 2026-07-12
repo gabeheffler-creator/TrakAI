@@ -487,6 +487,7 @@ export function ClientProfile() {
   const [programDialogOpen, setProgramDialogOpen] = useState(false);
   const [clientGoalEditOpen, setClientGoalEditOpen] = useState(false);
   const [clientGoalValue, setClientGoalValue] = useState("");
+  const [clientGoalTargetDate, setClientGoalTargetDate] = useState("");
   const [nutritionGoal, setNutritionGoal] = useState<Record<string, number | null> | null>(null);
   const [goalDialogOpen, setGoalDialogOpen] = useState(false);
   const [goalInputs, setGoalInputs] = useState({ calories: "", protein: "", carbs: "", fat: "" });
@@ -755,19 +756,36 @@ export function ClientProfile() {
       )}
 
       <Card>
-        <CardContent className="pt-4 pb-4 flex items-center justify-between gap-3">
+        <CardContent className="pt-4 pb-4 flex items-start justify-between gap-3">
           {client.goal ? (
-            <p className="text-sm"><span className="font-medium">Goal: </span>{client.goal}</p>
+            <div className="min-w-0">
+              <p className="text-sm"><span className="font-medium">Goal: </span>{client.goal}</p>
+              {client.goalTargetDate && (
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Due {format(new Date(client.goalTargetDate), "MMM d, yyyy")}
+                </p>
+              )}
+            </div>
           ) : (
             <p className="text-sm text-muted-foreground italic">No goal set</p>
           )}
-          <button
-            onClick={() => { setClientGoalValue(client.goal ?? ""); setClientGoalEditOpen(true); }}
-            className="shrink-0 text-muted-foreground hover:text-primary transition-colors"
-            title="Edit goal"
-          >
-            <Pencil className="w-3.5 h-3.5" />
-          </button>
+          {client.goal ? (
+            <button
+              onClick={() => { setClientGoalValue(client.goal ?? ""); setClientGoalTargetDate(client.goalTargetDate ?? ""); setClientGoalEditOpen(true); }}
+              className="shrink-0 text-muted-foreground hover:text-primary transition-colors"
+              title="Edit goal"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+          ) : (
+            <button
+              onClick={() => { setClientGoalValue(""); setClientGoalTargetDate(""); setClientGoalEditOpen(true); }}
+              className="shrink-0 flex items-center gap-1 text-xs text-primary hover:underline transition-colors"
+              title="Add goal"
+            >
+              <Plus className="w-3.5 h-3.5" /> Add goal
+            </button>
+          )}
         </CardContent>
       </Card>
 
@@ -776,33 +794,42 @@ export function ClientProfile() {
           <DialogHeader>
             <DialogTitle>{client.goal ? "Edit Goal" : "Add Goal"}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+          <form
+            className="space-y-4"
+            onSubmit={e => {
+              e.preventDefault();
+              updateClientMutation.mutate(
+                { clientId, data: { goal: clientGoalValue || null, goalTargetDate: clientGoalTargetDate || null } },
+                {
+                  onSuccess: () => {
+                    qc.invalidateQueries({ queryKey: getGetClientQueryKey(clientId) });
+                    setClientGoalEditOpen(false);
+                    toast({ title: "Goal updated" });
+                  },
+                  onError: () => toast({ title: "Failed to update goal", variant: "destructive" }),
+                }
+              );
+            }}
+          >
             <Input
               value={clientGoalValue}
               onChange={e => setClientGoalValue(e.target.value)}
               placeholder="e.g. Lose 15 lbs, build strength"
-              onKeyDown={e => { if (e.key === "Enter") e.currentTarget.form?.requestSubmit(); }}
+              autoFocus
             />
-            <Button
-              className="w-full"
-              disabled={updateClientMutation.isPending}
-              onClick={() => {
-                updateClientMutation.mutate(
-                  { clientId, data: { goal: clientGoalValue } },
-                  {
-                    onSuccess: () => {
-                      qc.invalidateQueries({ queryKey: getGetClientQueryKey(clientId) });
-                      setClientGoalEditOpen(false);
-                      toast({ title: "Goal updated" });
-                    },
-                    onError: () => toast({ title: "Failed to update goal", variant: "destructive" }),
-                  }
-                );
-              }}
-            >
+            <div>
+              <label className="text-sm font-medium">Target date <span className="text-muted-foreground font-normal">(optional)</span></label>
+              <Input
+                type="date"
+                value={clientGoalTargetDate}
+                onChange={e => setClientGoalTargetDate(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+            <Button type="submit" className="w-full" disabled={updateClientMutation.isPending}>
               {updateClientMutation.isPending ? "Saving…" : "Save"}
             </Button>
-          </div>
+          </form>
         </DialogContent>
       </Dialog>
 
@@ -842,7 +869,7 @@ export function ClientProfile() {
             </Card>
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Pending</CardTitle></CardHeader>
-              <CardContent><p className="text-3xl font-bold">{dashboard?.pendingAssignments ?? 0}</p><p className="text-xs text-muted-foreground">assignments</p></CardContent>
+              <CardContent><p className="text-3xl font-bold">{dashboard?.pendingAssignments ?? 0}</p><p className="text-xs text-muted-foreground">tasks</p></CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Current Program</CardTitle></CardHeader>

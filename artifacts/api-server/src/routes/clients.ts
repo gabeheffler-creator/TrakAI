@@ -7,6 +7,8 @@ import {
   sleepLogsTable,
   measurementsTable,
   progressPhotosTable,
+  programAssignmentsTable,
+  programsTable,
 } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { randomBytes } from "crypto";
@@ -48,12 +50,31 @@ router.get("/clients", requireCoachAuth, async (req, res) => {
   try {
     const actor = req.actor;
     const coach = actor?.type === "coach" ? actor.coach : null;
-    const clients = await db.select().from(clientsTable)
+    const rows = await db
+      .select({
+        id: clientsTable.id,
+        coachId: clientsTable.coachId,
+        name: clientsTable.name,
+        email: clientsTable.email,
+        phone: clientsTable.phone,
+        goal: clientsTable.goal,
+        goalTargetDate: clientsTable.goalTargetDate,
+        notes: clientsTable.notes,
+        inviteToken: clientsTable.inviteToken,
+        inviteTokenUsed: clientsTable.inviteTokenUsed,
+        status: clientsTable.status,
+        createdAt: clientsTable.createdAt,
+        updatedAt: clientsTable.updatedAt,
+        programName: programsTable.name,
+      })
+      .from(clientsTable)
+      .leftJoin(programAssignmentsTable, eq(programAssignmentsTable.clientId, clientsTable.id))
+      .leftJoin(programsTable, eq(programsTable.id, programAssignmentsTable.programId))
       .where(eq(clientsTable.coachId, coach!.id))
       .orderBy(clientsTable.createdAt);
-    res.json(clients.map(c => ({
-      ...c,
-      createdAt: c.createdAt.toISOString(),
+    res.json(rows.map(r => ({
+      ...r,
+      createdAt: r.createdAt.toISOString(),
     })));
   } catch (err) {
     req.log.error(err);

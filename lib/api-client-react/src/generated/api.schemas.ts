@@ -60,11 +60,15 @@ export interface Client {
   /** @nullable */
   goal?: string | null;
   /** @nullable */
+  goalTargetDate?: string | null;
+  /** @nullable */
   notes?: string | null;
   /** @nullable */
   inviteToken?: string | null;
   status?: ClientStatus;
   createdAt: string;
+  /** @nullable */
+  programName?: string | null;
 }
 
 export interface ClientInput {
@@ -83,6 +87,8 @@ export interface ClientUpdate {
   phone?: string | null;
   /** @nullable */
   goal?: string | null;
+  /** @nullable */
+  goalTargetDate?: string | null;
   /** @nullable */
   notes?: string | null;
 }

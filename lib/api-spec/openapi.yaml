@@ -1727,6 +1727,8 @@ components:
           type: ["string", "null"]
         goal:
           type: ["string", "null"]
+        goalTargetDate:
+          type: ["string", "null"]
         notes:
           type: ["string", "null"]
         inviteToken:
@@ -1737,6 +1739,8 @@ components:
         createdAt:
           type: string
           format: date-time
+        programName:
+          type: ["string", "null"]
 
     ClientInput:
       type: object
@@ -1764,6 +1768,8 @@ components:
         phone:
           type: ["string", "null"]
         goal:
+          type: ["string", "null"]
+        goalTargetDate:
           type: ["string", "null"]
         notes:
           type: ["string", "null"]

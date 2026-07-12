@@ -16,9 +16,13 @@ export interface Client {
   /** @nullable */
   goal?: string | null;
   /** @nullable */
+  goalTargetDate?: string | null;
+  /** @nullable */
   notes?: string | null;
   /** @nullable */
   inviteToken?: string | null;
   status?: ClientStatus;
   createdAt: Date;
+  /** @nullable */
+  programName?: string | null;
 }

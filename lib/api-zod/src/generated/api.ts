@@ -67,10 +67,12 @@ export const ListClientsResponseItem = zod.object({
   "email": zod.string(),
   "phone": zod.string().nullish(),
   "goal": zod.string().nullish(),
+  "goalTargetDate": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "inviteToken": zod.string().nullish(),
   "status": zod.enum(['active', 'inactive']).optional(),
-  "createdAt": zod.coerce.date()
+  "createdAt": zod.coerce.date(),
+  "programName": zod.string().nullish()
 })
 export const ListClientsResponse = zod.array(ListClientsResponseItem)
 
@@ -103,10 +105,12 @@ export const GetClientResponse = zod.object({
   "email": zod.string(),
   "phone": zod.string().nullish(),
   "goal": zod.string().nullish(),
+  "goalTargetDate": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "inviteToken": zod.string().nullish(),
   "status": zod.enum(['active', 'inactive']).optional(),
-  "createdAt": zod.coerce.date()
+  "createdAt": zod.coerce.date(),
+  "programName": zod.string().nullish()
 })
 
 
@@ -122,6 +126,7 @@ export const UpdateClientBody = zod.object({
   "email": zod.string().optional(),
   "phone": zod.string().nullish(),
   "goal": zod.string().nullish(),
+  "goalTargetDate": zod.string().nullish(),
   "notes": zod.string().nullish()
 })
 
@@ -131,10 +136,12 @@ export const UpdateClientResponse = zod.object({
   "email": zod.string(),
   "phone": zod.string().nullish(),
   "goal": zod.string().nullish(),
+  "goalTargetDate": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "inviteToken": zod.string().nullish(),
   "status": zod.enum(['active', 'inactive']).optional(),
-  "createdAt": zod.coerce.date()
+  "createdAt": zod.coerce.date(),
+  "programName": zod.string().nullish()
 })
 
 
@@ -163,10 +170,12 @@ export const UpdateClientStatusResponse = zod.object({
   "email": zod.string(),
   "phone": zod.string().nullish(),
   "goal": zod.string().nullish(),
+  "goalTargetDate": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "inviteToken": zod.string().nullish(),
   "status": zod.enum(['active', 'inactive']).optional(),
-  "createdAt": zod.coerce.date()
+  "createdAt": zod.coerce.date(),
+  "programName": zod.string().nullish()
 })
 
 
@@ -220,10 +229,12 @@ export const GetMyClientResponse = zod.object({
   "email": zod.string(),
   "phone": zod.string().nullish(),
   "goal": zod.string().nullish(),
+  "goalTargetDate": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "inviteToken": zod.string().nullish(),
   "status": zod.enum(['active', 'inactive']).optional(),
-  "createdAt": zod.coerce.date()
+  "createdAt": zod.coerce.date(),
+  "programName": zod.string().nullish()
 })
 
 
@@ -265,10 +276,12 @@ export const GetClientDashboardResponse = zod.object({
   "email": zod.string(),
   "phone": zod.string().nullish(),
   "goal": zod.string().nullish(),
+  "goalTargetDate": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "inviteToken": zod.string().nullish(),
   "status": zod.enum(['active', 'inactive']).optional(),
-  "createdAt": zod.coerce.date()
+  "createdAt": zod.coerce.date(),
+  "programName": zod.string().nullish()
 }),
   "currentProgram": zod.object({
   "id": zod.number(),

@@ -14,5 +14,7 @@ export interface ClientUpdate {
   /** @nullable */
   goal?: string | null;
   /** @nullable */
+  goalTargetDate?: string | null;
+  /** @nullable */
   notes?: string | null;
 }

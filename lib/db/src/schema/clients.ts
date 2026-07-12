@@ -13,6 +13,7 @@ export const clientsTable = pgTable("clients", {
   email: text("email").notNull().unique(),
   phone: text("phone"),
   goal: text("goal"),
+  goalTargetDate: text("goal_target_date"),
   notes: text("notes"),
   inviteToken: text("invite_token"),
   inviteTokenUsed: boolean("invite_token_used").notNull().default(false),
