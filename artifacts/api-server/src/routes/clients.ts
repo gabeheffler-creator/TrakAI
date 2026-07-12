@@ -226,30 +226,38 @@ router.post("/clients/:clientId/goals", requireClientOwnership(), requireCoachOn
     const { clientId } = GetClientParams.parse({ clientId: Number(req.params.clientId) });
     const body = CreateClientGoalBody.parse(req.body);
 
-    const [existing] = await db.select().from(clientsTable).where(eq(clientsTable.id, clientId));
-    if (!existing) { res.status(404).json({ error: "Client not found" }); return; }
+    const updated = await db.transaction(async (tx) => {
+      const [existing] = await tx.select().from(clientsTable).where(eq(clientsTable.id, clientId));
+      if (!existing) throw Object.assign(new Error("Client not found"), { notFound: true });
 
-    if (existing.goal) {
-      await db.insert(clientGoalHistoryTable).values({
-        clientId,
-        goal: existing.goal,
-        goalTargetDate: existing.goalTargetDate ?? null,
-      });
-    }
+      if (existing.goal) {
+        await tx.insert(clientGoalHistoryTable).values({
+          clientId,
+          goal: existing.goal,
+          goalTargetDate: existing.goalTargetDate ?? null,
+        });
+      }
 
-    const [updated] = await db.update(clientsTable)
-      .set({ goal: body.goal, goalTargetDate: body.goalTargetDate ?? null, updatedAt: new Date() })
-      .where(eq(clientsTable.id, clientId))
-      .returning();
+      const [client] = await tx.update(clientsTable)
+        .set({ goal: body.goal, goalTargetDate: body.goalTargetDate ?? null, updatedAt: new Date() })
+        .where(eq(clientsTable.id, clientId))
+        .returning();
+      return client;
+    });
+
     res.json({ ...updated, createdAt: updated.createdAt.toISOString() });
-  } catch (err) {
-    req.log.error(err);
-    res.status(400).json({ error: "Failed to create goal" });
+  } catch (err: unknown) {
+    if (err instanceof Error && (err as { notFound?: boolean }).notFound) {
+      res.status(404).json({ error: "Client not found" });
+    } else {
+      req.log.error(err);
+      res.status(400).json({ error: "Failed to create goal" });
+    }
   }
 });
 
-// List archived goals for a client, newest first
-router.get("/clients/:clientId/goals/history", requireClientOwnership(), async (req, res) => {
+// List archived goals for a client, newest first (coach only)
+router.get("/clients/:clientId/goals/history", requireClientOwnership(), requireCoachOnly, async (req, res) => {
   try {
     const { clientId } = ListClientGoalHistoryParams.parse({ clientId: Number(req.params.clientId) });
     const history = await db.select().from(clientGoalHistoryTable)
