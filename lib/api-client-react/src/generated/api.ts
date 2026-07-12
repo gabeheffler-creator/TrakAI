@@ -2903,6 +2903,76 @@ export const useAssignProgram = <TError = ErrorType<unknown>,
       return useMutation(getAssignProgramMutationOptions(options));
     }
 
+export const getSyncProgramFromTemplateUrl = (clientId: number,) => {
+
+
+
+
+  return `/api/clients/${clientId}/program-assignment/sync-template`
+}
+
+/**
+ * @summary Replace the client's program with a fresh copy of its source template
+ */
+export const syncProgramFromTemplate = async (clientId: number, options?: RequestInit): Promise<ProgramAssignment> => {
+
+  return customFetch<ProgramAssignment>(getSyncProgramFromTemplateUrl(clientId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getSyncProgramFromTemplateMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncProgramFromTemplate>>, TError,{clientId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof syncProgramFromTemplate>>, TError,{clientId: number}, TContext> => {
+
+const mutationKey = ['syncProgramFromTemplate'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof syncProgramFromTemplate>>, {clientId: number}> = (props) => {
+          const {clientId} = props ?? {};
+
+          return  syncProgramFromTemplate(clientId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SyncProgramFromTemplateMutationResult = NonNullable<Awaited<ReturnType<typeof syncProgramFromTemplate>>>
+
+    export type SyncProgramFromTemplateMutationError = ErrorType<void>
+
+    /**
+ * @summary Replace the client's program with a fresh copy of its source template
+ */
+export const useSyncProgramFromTemplate = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncProgramFromTemplate>>, TError,{clientId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof syncProgramFromTemplate>>,
+        TError,
+        {clientId: number},
+        TContext
+      > => {
+      return useMutation(getSyncProgramFromTemplateMutationOptions(options));
+    }
+
 export const getListWorkoutLogsUrl = (clientId: number,) => {
 
 

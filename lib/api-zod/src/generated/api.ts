@@ -839,6 +839,23 @@ export const AssignProgramBody = zod.object({
 
 
 /**
+ * @summary Replace the client's program with a fresh copy of its source template
+ */
+export const SyncProgramFromTemplateParams = zod.object({
+  "clientId": zod.coerce.number()
+})
+
+export const SyncProgramFromTemplateResponse = zod.object({
+  "id": zod.number(),
+  "clientId": zod.number(),
+  "programId": zod.number(),
+  "programName": zod.string(),
+  "startDate": zod.coerce.date(),
+  "endDate": zod.coerce.date().nullish()
+})
+
+
+/**
  * @summary List workout logs for a client
  */
 export const ListWorkoutLogsParams = zod.object({

@@ -35,6 +35,7 @@ import {
   GetClientProgramAssignmentParams,
   AssignProgramParams,
   AssignProgramBody,
+  SyncProgramFromTemplateParams,
   SetPhaseNutritionGoalParams,
   SetPhaseNutritionGoalBody,
   SetDayNutritionGoalParams,
@@ -554,6 +555,60 @@ router.post("/clients/:clientId/program-assignment", requireClientOwnership(), r
   } catch (err) {
     req.log.error(err);
     res.status(400).json({ error: "Failed to assign program" });
+  }
+});
+
+class RouteError extends Error {
+  constructor(readonly statusCode: number, message: string) { super(message); }
+}
+
+router.post("/clients/:clientId/program-assignment/sync-template", requireClientOwnership(), requireCoachOnly, async (req, res) => {
+  try {
+    const { clientId } = SyncProgramFromTemplateParams.parse({ clientId: Number(req.params.clientId) });
+
+    const newAssignment = await db.transaction(async (tx) => {
+      const [currentAssignment] = await tx
+        .select()
+        .from(programAssignmentsTable)
+        .where(eq(programAssignmentsTable.clientId, clientId));
+
+      if (!currentAssignment) throw new RouteError(404, "No active program assignment");
+
+      const [currentProgram] = await tx
+        .select()
+        .from(programsTable)
+        .where(eq(programsTable.id, currentAssignment.programId));
+
+      if (!currentProgram?.sourceTemplateId) throw new RouteError(400, "Assigned program has no source template");
+
+      if (!(await programBelongsToCoach(currentProgram.sourceTemplateId, coachIdOf(req)))) {
+        throw new RouteError(404, "Source template not found");
+      }
+
+      await tx.delete(programAssignmentsTable).where(eq(programAssignmentsTable.id, currentAssignment.id));
+      if (currentProgram.clientId === clientId) {
+        await tx.delete(programsTable).where(eq(programsTable.id, currentProgram.id));
+      }
+
+      const clonedProgramId = await cloneProgram(tx, currentProgram.sourceTemplateId, coachIdOf(req), clientId);
+      const [inserted] = await tx.insert(programAssignmentsTable).values({
+        clientId,
+        programId: clonedProgramId,
+        startDate: currentAssignment.startDate,
+        endDate: currentAssignment.endDate,
+      }).returning();
+
+      return inserted;
+    });
+
+    res.json(newAssignment);
+  } catch (err) {
+    if (err instanceof RouteError) {
+      res.status(err.statusCode).json({ error: err.message });
+      return;
+    }
+    req.log.error(err);
+    res.status(500).json({ error: "Failed to sync program from template" });
   }
 });
 

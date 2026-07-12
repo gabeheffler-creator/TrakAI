@@ -19,6 +19,7 @@ import {
   useGetProgram,
   useListPrograms,
   useAssignProgram,
+  useSyncProgramFromTemplate,
   useListExercises,
   useAddExerciseToDay,
   useUpdateProgramExercise,
@@ -52,6 +53,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
@@ -554,6 +556,7 @@ export function ClientProfile() {
   const updateAssignment = useUpdateAssignment();
 
   const assignProgram = useAssignProgram();
+  const syncFromTemplate = useSyncProgramFromTemplate();
   const createNote = useCreateCoachNote();
   const updateNote = useUpdateCoachNote();
   const deleteNote = useDeleteCoachNote();
@@ -670,9 +673,21 @@ export function ClientProfile() {
     assignProgram.mutate({ clientId, data: { programId: values.programId, startDate: values.startDate } }, {
       onSuccess: () => {
         qc.invalidateQueries({ queryKey: getGetClientProgramAssignmentQueryKey(clientId) });
+        qc.invalidateQueries({ queryKey: getGetProgramQueryKey(programAssignment?.programId ?? 0) });
         setProgramDialogOpen(false);
         toast({ title: "Program assigned" });
       },
+    });
+  };
+
+  const handleSyncFromTemplate = () => {
+    syncFromTemplate.mutate({ clientId }, {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: getGetClientProgramAssignmentQueryKey(clientId) });
+        qc.invalidateQueries({ queryKey: getGetProgramQueryKey(programAssignment?.programId ?? 0) });
+        toast({ title: "Program synced from template" });
+      },
+      onError: () => toast({ title: "Failed to sync program", variant: "destructive" }),
     });
   };
 
@@ -914,6 +929,27 @@ export function ClientProfile() {
                     </div>
                     <div className="flex gap-2 shrink-0">
                       <Button variant="outline" size="sm" onClick={() => setLocation(`/programs/${programAssignment!.programId}`)}>Edit Program</Button>
+                      {fullProgram?.sourceTemplateId && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="outline" size="sm" disabled={syncFromTemplate.isPending}>
+                              {syncFromTemplate.isPending ? "Syncing…" : "Sync from template"}
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Sync from template?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This will replace the client's current program with a fresh copy of the original template. Any edits made to the client's copy will be lost. Completed workout logs are preserved.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={handleSyncFromTemplate}>Sync</AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
                       <Dialog open={programDialogOpen} onOpenChange={setProgramDialogOpen}>
                       <DialogTrigger asChild>
                         <Button variant="outline" size="sm">Change</Button>
