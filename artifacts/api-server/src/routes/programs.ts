@@ -82,11 +82,13 @@ async function programExerciseBelongsToCoach(peId: number, coachId: number): Pro
 
 // ── Clone helper ─────────────────────────────────────────────────────────
 
-async function cloneProgram(sourceProgramId: number, coachId: number, clientId: number): Promise<number> {
-  const [source] = await db.select().from(programsTable).where(eq(programsTable.id, sourceProgramId));
+type DbOrTx = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+async function cloneProgram(dbtx: DbOrTx, sourceProgramId: number, coachId: number, clientId: number): Promise<number> {
+  const [source] = await dbtx.select().from(programsTable).where(eq(programsTable.id, sourceProgramId));
   if (!source) throw new Error(`Program ${sourceProgramId} not found`);
 
-  const [clone] = await db.insert(programsTable).values({
+  const [clone] = await dbtx.insert(programsTable).values({
     coachId,
     clientId,
     sourceTemplateId: sourceProgramId,
@@ -95,13 +97,13 @@ async function cloneProgram(sourceProgramId: number, coachId: number, clientId: 
     durationWeeks: source.durationWeeks,
   }).returning();
 
-  const sourcePhases = await db.select().from(programPhasesTable)
+  const sourcePhases = await dbtx.select().from(programPhasesTable)
     .where(eq(programPhasesTable.programId, sourceProgramId))
     .orderBy(asc(programPhasesTable.order));
 
   const phaseIdMap: Record<number, number> = {};
   for (const phase of sourcePhases) {
-    const [newPhase] = await db.insert(programPhasesTable).values({
+    const [newPhase] = await dbtx.insert(programPhasesTable).values({
       programId: clone.id,
       name: phase.name,
       order: phase.order,
@@ -112,17 +114,17 @@ async function cloneProgram(sourceProgramId: number, coachId: number, clientId: 
   }
 
   const sourceNutritionGoals = sourcePhases.length > 0
-    ? await db.select().from(programNutritionGoalsTable)
+    ? await dbtx.select().from(programNutritionGoalsTable)
         .where(inArray(programNutritionGoalsTable.phaseId, sourcePhases.map(p => p.id)))
     : [];
 
-  const sourceDays = await db.select().from(programDaysTable)
+  const sourceDays = await dbtx.select().from(programDaysTable)
     .where(eq(programDaysTable.programId, sourceProgramId))
     .orderBy(asc(programDaysTable.dayNumber));
 
   const dayIdMap: Record<number, number> = {};
   for (const day of sourceDays) {
-    const [newDay] = await db.insert(programDaysTable).values({
+    const [newDay] = await dbtx.insert(programDaysTable).values({
       programId: clone.id,
       phaseId: day.phaseId != null ? (phaseIdMap[day.phaseId] ?? null) : null,
       dayNumber: day.dayNumber,
@@ -133,7 +135,7 @@ async function cloneProgram(sourceProgramId: number, coachId: number, clientId: 
   }
 
   for (const goal of sourceNutritionGoals) {
-    await db.insert(programNutritionGoalsTable).values({
+    await dbtx.insert(programNutritionGoalsTable).values({
       phaseId: phaseIdMap[goal.phaseId],
       dayId: goal.dayId != null ? (dayIdMap[goal.dayId] ?? null) : null,
       calories: goal.calories,
@@ -144,14 +146,14 @@ async function cloneProgram(sourceProgramId: number, coachId: number, clientId: 
   }
 
   if (sourceDays.length > 0) {
-    const sourceExercises = await db.select().from(programExercisesTable)
+    const sourceExercises = await dbtx.select().from(programExercisesTable)
       .where(inArray(programExercisesTable.dayId, sourceDays.map(d => d.id)))
       .orderBy(asc(programExercisesTable.order));
 
     for (const ex of sourceExercises) {
       const newDayId = dayIdMap[ex.dayId];
       if (!newDayId) continue;
-      await db.insert(programExercisesTable).values({
+      await dbtx.insert(programExercisesTable).values({
         dayId: newDayId,
         exerciseId: ex.exerciseId,
         sets: ex.sets,
@@ -609,15 +611,34 @@ router.post("/clients/:clientId/program-assignment", requireClientOwnership(), r
     const body = AssignProgramBody.parse(req.body);
     const toDateStr = (d: Date | string) => d instanceof Date ? d.toISOString().split("T")[0] : d;
     if (!(await programBelongsToCoach(body.programId, coachIdOf(req)))) { res.status(404).json({ error: "Program not found" }); return; }
-    const clonedProgramId = await cloneProgram(body.programId, coachIdOf(req), clientId);
-    const [assignment] = await db.insert(programAssignmentsTable).values({
-      clientId,
-      programId: clonedProgramId,
-      startDate: toDateStr(body.startDate),
-      endDate: body.endDate != null ? toDateStr(body.endDate) : null,
-    }).returning();
-    const [program] = await db.select().from(programsTable).where(eq(programsTable.id, clonedProgramId));
-    res.status(201).json({ ...assignment, programName: program?.name ?? "" });
+
+    const result = await db.transaction(async (tx) => {
+      const [existingAssignment] = await tx
+        .select()
+        .from(programAssignmentsTable)
+        .where(eq(programAssignmentsTable.clientId, clientId));
+
+      if (existingAssignment) {
+        await tx.delete(programAssignmentsTable).where(eq(programAssignmentsTable.id, existingAssignment.id));
+        const [oldProgram] = await tx.select({ id: programsTable.id, clientId: programsTable.clientId })
+          .from(programsTable).where(eq(programsTable.id, existingAssignment.programId));
+        if (oldProgram?.clientId === clientId) {
+          await tx.delete(programsTable).where(eq(programsTable.id, oldProgram.id));
+        }
+      }
+
+      const clonedProgramId = await cloneProgram(tx, body.programId, coachIdOf(req), clientId);
+      const [assignment] = await tx.insert(programAssignmentsTable).values({
+        clientId,
+        programId: clonedProgramId,
+        startDate: toDateStr(body.startDate),
+        endDate: body.endDate != null ? toDateStr(body.endDate) : null,
+      }).returning();
+      const [program] = await tx.select().from(programsTable).where(eq(programsTable.id, clonedProgramId));
+      return { assignment, programName: program?.name ?? "" };
+    });
+
+    res.status(201).json({ ...result.assignment, programName: result.programName });
   } catch (err) {
     req.log.error(err);
     res.status(400).json({ error: "Failed to assign program" });
