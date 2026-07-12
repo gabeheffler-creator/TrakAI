@@ -59,7 +59,7 @@ export const programNutritionGoalsTable = pgTable("program_nutrition_goals", {
 
 export const programAssignmentsTable = pgTable("program_assignments", {
   id: serial("id").primaryKey(),
-  clientId: integer("client_id").notNull(),
+  clientId: integer("client_id").notNull().unique(),
   programId: integer("program_id").notNull().references(() => programsTable.id),
   startDate: text("start_date").notNull(),
   endDate: text("end_date"),

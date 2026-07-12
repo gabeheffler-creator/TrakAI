@@ -9,8 +9,10 @@ import {
   programAssignmentsTable,
   programNutritionGoalsTable,
   clientsTable,
+  pushSubscriptionsTable,
 } from "@workspace/db";
 import { eq, asc, and, isNull, inArray } from "drizzle-orm";
+import webpush from "web-push";
 import {
   CreateProgramBody,
   UpdateProgramBody,
@@ -44,6 +46,40 @@ import {
 } from "@workspace/api-zod";
 import { requireCoachAuth, requireClientOwnership, requireCoachOnly } from "../middlewares/auth";
 import { cloneProgram, type DbOrTx } from "../services/clone-program";
+
+if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(
+    process.env.VAPID_EMAIL ?? "mailto:admin@trakcoach.app",
+    process.env.VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY,
+  );
+}
+
+async function sendProgramUpdatePush(clientId: number, programName: string, log: any) {
+  if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) return;
+  const [client] = await db.select().from(clientsTable).where(eq(clientsTable.id, clientId));
+  if (!client || client.status === "inactive") return;
+  const subs = await db.select().from(pushSubscriptionsTable)
+    .where(and(eq(pushSubscriptionsTable.role, "client"), eq(pushSubscriptionsTable.clientId, clientId)));
+  const payload = JSON.stringify({
+    title: "Program updated",
+    body: `Your coach has updated your program: ${programName}`,
+    tag: `program-${clientId}`,
+    url: "/client/program",
+  });
+  for (const sub of subs) {
+    webpush.sendNotification(
+      { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+      payload,
+    ).catch((err: any) => {
+      if (err.statusCode === 410) {
+        db.delete(pushSubscriptionsTable).where(eq(pushSubscriptionsTable.endpoint, sub.endpoint)).catch(() => {});
+      } else {
+        log.warn({ err }, "Push send failed");
+      }
+    });
+  }
+}
 
 const router = Router();
 
@@ -552,6 +588,7 @@ router.post("/clients/:clientId/program-assignment", requireClientOwnership(), r
     });
 
     res.status(201).json({ ...result.assignment, programName: result.programName });
+    sendProgramUpdatePush(clientId, result.programName, req.log);
   } catch (err) {
     req.log.error(err);
     res.status(400).json({ error: "Failed to assign program" });
@@ -597,11 +634,13 @@ router.post("/clients/:clientId/program-assignment/sync-template", requireClient
         startDate: currentAssignment.startDate,
         endDate: currentAssignment.endDate,
       }).returning();
+      const [clonedProgram] = await tx.select().from(programsTable).where(eq(programsTable.id, clonedProgramId));
 
-      return inserted;
+      return { assignment: inserted, programName: clonedProgram?.name ?? "" };
     });
 
-    res.json(newAssignment);
+    res.json({ ...newAssignment.assignment, programName: newAssignment.programName });
+    sendProgramUpdatePush(clientId, newAssignment.programName, req.log);
   } catch (err) {
     if (err instanceof RouteError) {
       res.status(err.statusCode).json({ error: err.message });
