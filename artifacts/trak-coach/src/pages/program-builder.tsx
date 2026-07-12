@@ -407,25 +407,16 @@ export function ProgramBuilder() {
             {program.description && <p className="text-sm text-muted-foreground">{program.description}</p>}
           </div>
         </div>
-        {isTemplate && (
-          isEditing ? (
-            <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={() => setIsEditing(false)}>Cancel</Button>
-              <Button onClick={() => { setPropagateOpen(true); setSelectedSyncIds((assignedClients ?? []).map(c => c.clientId)); }}>
-                <Save className="w-4 h-4 mr-1.5" /> Save changes
-              </Button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={() => setLocation("/programs")}>Cancel</Button>
-              <Button variant="outline" onClick={() => setIsEditing(true)}>
-                <Pencil className="w-4 h-4 mr-1.5" /> Edit program
-              </Button>
-              <Button onClick={() => { setAssignOpen(true); setSelectedAssignIds([]); }}>
-                <Users className="w-4 h-4 mr-1.5" /> Assign program
-              </Button>
-            </div>
-          )
+        {isTemplate && !isEditing && (
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => setLocation("/programs")}>Cancel</Button>
+            <Button variant="outline" onClick={() => setIsEditing(true)}>
+              <Pencil className="w-4 h-4 mr-1.5" /> Edit program
+            </Button>
+            <Button onClick={() => { setAssignOpen(true); setSelectedAssignIds([]); }}>
+              <Users className="w-4 h-4 mr-1.5" /> Assign program
+            </Button>
+          </div>
         )}
       </div>
 
@@ -805,34 +796,52 @@ export function ProgramBuilder() {
               <p className="text-sm text-muted-foreground">No clients found.</p>
             ) : (
               <>
-                <div className="flex items-center gap-2 pb-1 border-b">
-                  <Checkbox
-                    id="assign-all"
-                    checked={selectedAssignIds.length === allClients.length}
-                    onCheckedChange={(checked) =>
-                      setSelectedAssignIds(checked ? allClients.map(c => c.id) : [])
-                    }
-                  />
-                  <label htmlFor="assign-all" className="text-sm font-medium cursor-pointer">
-                    Assign to all ({allClients.length})
-                  </label>
-                </div>
-                <div className="space-y-1 max-h-60 overflow-y-auto">
-                  {allClients.map(c => (
-                    <div key={c.id} className="flex items-center gap-2 py-1">
-                      <Checkbox
-                        id={`assign-client-${c.id}`}
-                        checked={selectedAssignIds.includes(c.id)}
-                        onCheckedChange={(checked) =>
-                          setSelectedAssignIds(prev =>
-                            checked ? [...prev, c.id] : prev.filter(id => id !== c.id)
-                          )
-                        }
-                      />
-                      <label htmlFor={`assign-client-${c.id}`} className="text-sm cursor-pointer flex-1">{c.name}</label>
-                    </div>
-                  ))}
-                </div>
+                {(() => {
+                  const assignedIds = new Set((assignedClients ?? []).map(c => c.clientId));
+                  const unassigned = allClients.filter(c => !assignedIds.has(c.id));
+                  return (
+                    <>
+                      <div className="flex items-center gap-2 pb-1 border-b">
+                        <Checkbox
+                          id="assign-all"
+                          checked={unassigned.length > 0 && unassigned.every(c => selectedAssignIds.includes(c.id))}
+                          disabled={unassigned.length === 0}
+                          onCheckedChange={(checked) =>
+                            setSelectedAssignIds(checked ? unassigned.map(c => c.id) : [])
+                          }
+                        />
+                        <label htmlFor="assign-all" className="text-sm font-medium cursor-pointer">
+                          Assign to all unassigned ({unassigned.length})
+                        </label>
+                      </div>
+                      <div className="space-y-1 max-h-60 overflow-y-auto">
+                        {allClients.map(c => {
+                          const alreadyAssigned = assignedIds.has(c.id);
+                          return (
+                            <div key={c.id} className="flex items-center gap-2 py-1">
+                              <Checkbox
+                                id={`assign-client-${c.id}`}
+                                checked={alreadyAssigned || selectedAssignIds.includes(c.id)}
+                                disabled={alreadyAssigned}
+                                onCheckedChange={(checked) =>
+                                  setSelectedAssignIds(prev =>
+                                    checked ? [...prev, c.id] : prev.filter(id => id !== c.id)
+                                  )
+                                }
+                              />
+                              <label htmlFor={`assign-client-${c.id}`} className={`text-sm flex-1 ${alreadyAssigned ? "text-muted-foreground" : "cursor-pointer"}`}>
+                                {c.name}
+                              </label>
+                              {alreadyAssigned && (
+                                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Assigned</Badge>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </>
+                  );
+                })()}
               </>
             )}
             <div className="flex gap-2 pt-2">
@@ -1117,6 +1126,17 @@ export function ProgramBuilder() {
           </Form>
         </DialogContent>
       </Dialog>
+
+      {/* Sticky edit-mode toolbar (template only) */}
+      {isTemplate && isEditing && (
+        <div className="sticky bottom-0 left-0 right-0 z-10 bg-background/95 backdrop-blur border-t border-border px-4 py-3 flex items-center justify-end gap-2 -mx-4 md:-mx-6">
+          <span className="text-sm text-muted-foreground mr-auto">Editing template</span>
+          <Button variant="outline" onClick={() => setIsEditing(false)}>Cancel</Button>
+          <Button onClick={() => { setPropagateOpen(true); setSelectedSyncIds((assignedClients ?? []).map(c => c.clientId)); }}>
+            <Save className="w-4 h-4 mr-1.5" /> Save changes
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

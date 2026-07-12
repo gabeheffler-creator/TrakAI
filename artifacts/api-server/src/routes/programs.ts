@@ -672,7 +672,7 @@ router.get("/programs/:programId/assigned-clients", requireCoachAuth, async (req
       })
       .from(programsTable)
       .innerJoin(clientsTable, eq(programsTable.clientId, clientsTable.id))
-      .innerJoin(programAssignmentsTable, eq(programAssignmentsTable.clientId, programsTable.clientId))
+      .innerJoin(programAssignmentsTable, eq(programAssignmentsTable.programId, programsTable.id))
       .where(eq(programsTable.sourceTemplateId, programId))
       .orderBy(asc(clientsTable.name));
     res.json(rows.map(r => ({
