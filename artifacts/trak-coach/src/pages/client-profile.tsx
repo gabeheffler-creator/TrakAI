@@ -34,6 +34,8 @@ import {
   useCreateCallLog,
   useDeleteCallLog,
   useGenerateInviteLink,
+  useCreateClientGoal,
+  useListClientGoalHistory,
   getGetWorkoutLogQueryKey,
   getGetClientQueryKey,
   getListAssignmentsQueryKey,
@@ -45,6 +47,7 @@ import {
   getListExercisesQueryKey,
   getListCoachNotesQueryKey,
   getListCallLogsQueryKey,
+  getListClientGoalHistoryQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -488,6 +491,9 @@ export function ClientProfile() {
   const [clientGoalEditOpen, setClientGoalEditOpen] = useState(false);
   const [clientGoalValue, setClientGoalValue] = useState("");
   const [clientGoalTargetDate, setClientGoalTargetDate] = useState("");
+  const [newGoalOpen, setNewGoalOpen] = useState(false);
+  const [newGoalValue, setNewGoalValue] = useState("");
+  const [newGoalTargetDate, setNewGoalTargetDate] = useState("");
   const [nutritionGoal, setNutritionGoal] = useState<Record<string, number | null> | null>(null);
   const [goalDialogOpen, setGoalDialogOpen] = useState(false);
   const [goalInputs, setGoalInputs] = useState({ calories: "", protein: "", carbs: "", fat: "" });
@@ -541,6 +547,7 @@ export function ClientProfile() {
 
   const { data: client, isError: clientError, refetch: refetchClient, isFetching: clientFetching } = useGetClient(clientId, { query: { enabled: !!clientId, queryKey: getGetClientQueryKey(clientId) } });
   const { data: dashboard } = useGetClientDashboard(clientId, { query: { enabled: !!clientId, queryKey: getGetClientDashboardQueryKey(clientId) } });
+  const { data: goalHistory } = useListClientGoalHistory(clientId, { query: { enabled: !!clientId, queryKey: getListClientGoalHistoryQueryKey(clientId) } });
   const { data: workoutLogs } = useListWorkoutLogs(clientId, { query: { enabled: !!clientId, queryKey: getListWorkoutLogsQueryKey(clientId) } });
   const { data: measurements } = useListMeasurements(clientId, { query: { enabled: !!clientId, queryKey: ["measurements", clientId] } });
   const { data: sleepLogs } = useListSleepLogs(clientId, { query: { enabled: !!clientId, queryKey: ["sleep", clientId] } });
@@ -558,6 +565,7 @@ export function ClientProfile() {
   const createAssignment = useCreateAssignment();
   const deleteAssignment = useDeleteAssignment();
   const updateClientMutation = useUpdateClient();
+  const createGoalMutation = useCreateClientGoal();
   const updateAssignment = useUpdateAssignment();
 
   const assignProgram = useAssignProgram();
@@ -756,7 +764,7 @@ export function ClientProfile() {
       )}
 
       <Card>
-        <CardContent className="pt-4 pb-4 flex items-start justify-between gap-3">
+        <CardContent className="pt-4 pb-4 space-y-3">
           {client.goal ? (
             <div className="min-w-0">
               <p className="text-sm"><span className="font-medium">Goal: </span>{client.goal}</p>
@@ -769,30 +777,50 @@ export function ClientProfile() {
           ) : (
             <p className="text-sm text-muted-foreground italic">No goal set</p>
           )}
-          {client.goal ? (
-            <button
-              onClick={() => { setClientGoalValue(client.goal ?? ""); setClientGoalTargetDate(client.goalTargetDate ?? ""); setClientGoalEditOpen(true); }}
-              className="shrink-0 text-muted-foreground hover:text-primary transition-colors"
-              title="Edit goal"
-            >
-              <Pencil className="w-3.5 h-3.5" />
-            </button>
-          ) : (
-            <button
-              onClick={() => { setClientGoalValue(""); setClientGoalTargetDate(""); setClientGoalEditOpen(true); }}
-              className="shrink-0 flex items-center gap-1 text-xs text-primary hover:underline transition-colors"
-              title="Add goal"
-            >
-              <Plus className="w-3.5 h-3.5" /> Add goal
-            </button>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            {client.goal ? (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { setClientGoalValue(client.goal ?? ""); setClientGoalTargetDate(client.goalTargetDate ?? ""); setClientGoalEditOpen(true); }}
+                >
+                  <Pencil className="w-3.5 h-3.5 mr-1.5" /> Change goal
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { setNewGoalValue(""); setNewGoalTargetDate(""); setNewGoalOpen(true); }}
+                >
+                  <Plus className="w-3.5 h-3.5 mr-1.5" /> New goal
+                </Button>
+              </>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { setNewGoalValue(""); setNewGoalTargetDate(""); setNewGoalOpen(true); }}
+              >
+                <Plus className="w-3.5 h-3.5 mr-1.5" /> New goal
+              </Button>
+            )}
+            {(goalHistory && goalHistory.length > 0) && (
+              <button
+                onClick={() => setLocation(`/clients/${clientId}/goal-history`)}
+                className="text-xs text-muted-foreground hover:text-primary underline transition-colors"
+              >
+                View goal history
+              </button>
+            )}
+          </div>
         </CardContent>
       </Card>
 
+      {/* Change goal dialog — edits current goal in place */}
       <Dialog open={clientGoalEditOpen} onOpenChange={setClientGoalEditOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{client.goal ? "Edit Goal" : "Add Goal"}</DialogTitle>
+            <DialogTitle>Change Goal</DialogTitle>
           </DialogHeader>
           <form
             className="space-y-4"
@@ -829,6 +857,66 @@ export function ClientProfile() {
             <Button type="submit" className="w-full" disabled={updateClientMutation.isPending}>
               {updateClientMutation.isPending ? "Saving…" : "Save"}
             </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* New goal dialog — archives current goal and sets a new one */}
+      <Dialog open={newGoalOpen} onOpenChange={setNewGoalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>New Goal</DialogTitle>
+          </DialogHeader>
+          <form
+            className="space-y-4"
+            onSubmit={e => {
+              e.preventDefault();
+              createGoalMutation.mutate(
+                { clientId, data: { goal: newGoalValue, goalTargetDate: newGoalTargetDate || null } },
+                {
+                  onSuccess: () => {
+                    qc.invalidateQueries({ queryKey: getGetClientQueryKey(clientId) });
+                    qc.invalidateQueries({ queryKey: getListClientGoalHistoryQueryKey(clientId) });
+                    setNewGoalOpen(false);
+                    toast({ title: "New goal created" });
+                  },
+                  onError: () => toast({ title: "Failed to create goal", variant: "destructive" }),
+                }
+              );
+            }}
+          >
+            <Input
+              value={newGoalValue}
+              onChange={e => setNewGoalValue(e.target.value)}
+              placeholder="e.g. Run a 5K under 30 minutes"
+              autoFocus
+            />
+            <div>
+              <label className="text-sm font-medium">Target date <span className="text-muted-foreground font-normal">(optional)</span></label>
+              <Input
+                type="date"
+                value={newGoalTargetDate}
+                onChange={e => setNewGoalTargetDate(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1"
+                onClick={() => setNewGoalOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                className="flex-1"
+                disabled={createGoalMutation.isPending || !newGoalValue.trim()}
+              >
+                {createGoalMutation.isPending ? "Creating…" : "Create new goal"}
+              </Button>
+            </div>
           </form>
         </DialogContent>
       </Dialog>

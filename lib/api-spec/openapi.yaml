@@ -258,6 +258,57 @@ paths:
         "404":
           description: Not found
 
+  # ── Client Goals ──────────────────────────────────────────────────────────
+  /clients/{clientId}/goals:
+    post:
+      operationId: createClientGoal
+      tags: [clients]
+      summary: Create a new goal, archiving the current one to history
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClientGoalInput"
+      responses:
+        "200":
+          description: Updated client
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Client"
+        "404":
+          description: Not found
+
+  /clients/{clientId}/goals/history:
+    get:
+      operationId: listClientGoalHistory
+      tags: [clients]
+      summary: List archived goals for a client, newest first
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Archived goals
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ClientGoalHistory"
+        "404":
+          description: Not found
+
   # ── Invite Links ──────────────────────────────────────────────────────────
   /clients/{clientId}/invite:
     post:
@@ -1781,6 +1832,32 @@ components:
         status:
           type: string
           enum: [active, inactive]
+
+    ClientGoalInput:
+      type: object
+      required: [goal]
+      properties:
+        goal:
+          type: string
+          minLength: 1
+        goalTargetDate:
+          type: ["string", "null"]
+
+    ClientGoalHistory:
+      type: object
+      required: [id, clientId, goal, archivedAt]
+      properties:
+        id:
+          type: integer
+        clientId:
+          type: integer
+        goal:
+          type: string
+        goalTargetDate:
+          type: ["string", "null"]
+        archivedAt:
+          type: string
+          format: date-time
 
     ActivityHeatmapEntry:
       type: object

@@ -29,6 +29,8 @@ import type {
   CallLogInput,
   Client,
   ClientDashboard,
+  ClientGoalHistory,
+  ClientGoalInput,
   ClientInput,
   ClientStatusUpdate,
   ClientUpdate,
@@ -965,6 +967,155 @@ export function useGetClientActivityHeatmap<TData = Awaited<ReturnType<typeof ge
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetClientActivityHeatmapQueryOptions(clientId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getCreateClientGoalUrl = (clientId: number,) => {
+
+
+
+
+  return `/api/clients/${clientId}/goals`
+}
+
+/**
+ * @summary Create a new goal, archiving the current one to history
+ */
+export const createClientGoal = async (clientId: number,
+    clientGoalInput: ClientGoalInput, options?: RequestInit): Promise<Client> => {
+
+  return customFetch<Client>(getCreateClientGoalUrl(clientId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      clientGoalInput,)
+  }
+);}
+
+
+
+
+export const getCreateClientGoalMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createClientGoal>>, TError,{clientId: number;data: BodyType<ClientGoalInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createClientGoal>>, TError,{clientId: number;data: BodyType<ClientGoalInput>}, TContext> => {
+
+const mutationKey = ['createClientGoal'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createClientGoal>>, {clientId: number;data: BodyType<ClientGoalInput>}> = (props) => {
+          const {clientId,data} = props ?? {};
+
+          return  createClientGoal(clientId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateClientGoalMutationResult = NonNullable<Awaited<ReturnType<typeof createClientGoal>>>
+    export type CreateClientGoalMutationBody = BodyType<ClientGoalInput>
+    export type CreateClientGoalMutationError = ErrorType<void>
+
+    /**
+ * @summary Create a new goal, archiving the current one to history
+ */
+export const useCreateClientGoal = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createClientGoal>>, TError,{clientId: number;data: BodyType<ClientGoalInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createClientGoal>>,
+        TError,
+        {clientId: number;data: BodyType<ClientGoalInput>},
+        TContext
+      > => {
+      return useMutation(getCreateClientGoalMutationOptions(options));
+    }
+
+export const getListClientGoalHistoryUrl = (clientId: number,) => {
+
+
+
+
+  return `/api/clients/${clientId}/goals/history`
+}
+
+/**
+ * @summary List archived goals for a client, newest first
+ */
+export const listClientGoalHistory = async (clientId: number, options?: RequestInit): Promise<ClientGoalHistory[]> => {
+
+  return customFetch<ClientGoalHistory[]>(getListClientGoalHistoryUrl(clientId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListClientGoalHistoryQueryKey = (clientId: number,) => {
+    return [
+    `/api/clients/${clientId}/goals/history`
+    ] as const;
+    }
+
+
+export const getListClientGoalHistoryQueryOptions = <TData = Awaited<ReturnType<typeof listClientGoalHistory>>, TError = ErrorType<void>>(clientId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listClientGoalHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListClientGoalHistoryQueryKey(clientId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listClientGoalHistory>>> = ({ signal }) => listClientGoalHistory(clientId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(clientId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listClientGoalHistory>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListClientGoalHistoryQueryResult = NonNullable<Awaited<ReturnType<typeof listClientGoalHistory>>>
+export type ListClientGoalHistoryQueryError = ErrorType<void>
+
+
+/**
+ * @summary List archived goals for a client, newest first
+ */
+
+export function useListClientGoalHistory<TData = Awaited<ReturnType<typeof listClientGoalHistory>>, TError = ErrorType<void>>(
+ clientId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listClientGoalHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListClientGoalHistoryQueryOptions(clientId,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

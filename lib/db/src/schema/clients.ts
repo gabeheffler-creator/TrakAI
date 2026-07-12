@@ -25,3 +25,13 @@ export const clientsTable = pgTable("clients", {
 export const insertClientSchema = createInsertSchema(clientsTable).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertClient = z.infer<typeof insertClientSchema>;
 export type Client = typeof clientsTable.$inferSelect;
+
+export const clientGoalHistoryTable = pgTable("client_goal_history", {
+  id: serial("id").primaryKey(),
+  clientId: integer("client_id").notNull().references(() => clientsTable.id, { onDelete: "cascade" }),
+  goal: text("goal").notNull(),
+  goalTargetDate: text("goal_target_date"),
+  archivedAt: timestamp("archived_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type ClientGoalHistory = typeof clientGoalHistoryTable.$inferSelect;

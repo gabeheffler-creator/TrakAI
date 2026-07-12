@@ -194,6 +194,53 @@ export const GetClientActivityHeatmapResponse = zod.array(GetClientActivityHeatm
 
 
 /**
+ * @summary Create a new goal, archiving the current one to history
+ */
+export const CreateClientGoalParams = zod.object({
+  "clientId": zod.coerce.number()
+})
+
+
+
+
+export const CreateClientGoalBody = zod.object({
+  "goal": zod.string().min(1),
+  "goalTargetDate": zod.string().nullish()
+})
+
+export const CreateClientGoalResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "email": zod.string(),
+  "phone": zod.string().nullish(),
+  "goal": zod.string().nullish(),
+  "goalTargetDate": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "inviteToken": zod.string().nullish(),
+  "status": zod.enum(['active', 'inactive']).optional(),
+  "createdAt": zod.coerce.date(),
+  "programName": zod.string().nullish()
+})
+
+
+/**
+ * @summary List archived goals for a client, newest first
+ */
+export const ListClientGoalHistoryParams = zod.object({
+  "clientId": zod.coerce.number()
+})
+
+export const ListClientGoalHistoryResponseItem = zod.object({
+  "id": zod.number(),
+  "clientId": zod.number(),
+  "goal": zod.string(),
+  "goalTargetDate": zod.string().nullish(),
+  "archivedAt": zod.coerce.date()
+})
+export const ListClientGoalHistoryResponse = zod.array(ListClientGoalHistoryResponseItem)
+
+
+/**
  * @summary Generate or refresh an invite link for a client
  */
 export const GenerateInviteLinkParams = zod.object({

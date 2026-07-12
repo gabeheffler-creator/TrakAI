@@ -8,6 +8,7 @@ import { Layout } from "@/components/layout";
 import { Dashboard } from "@/pages/dashboard";
 import { ClientList } from "@/pages/clients";
 import { ClientProfile } from "@/pages/client-profile";
+import { GoalHistoryPage } from "@/pages/goal-history";
 import { Programs } from "@/pages/programs";
 import { ProgramBuilder } from "@/pages/program-builder";
 import { Exercises } from "@/pages/exercises";
@@ -63,6 +64,7 @@ function AppRouter() {
       <Route path="/login" component={LoginGate} />
       <Route path="/" component={HomeGate} />
       <Route path="/clients"><Protected><ClientList /></Protected></Route>
+      <Route path="/clients/:clientId/goal-history"><Protected><GoalHistoryPage /></Protected></Route>
       <Route path="/clients/:clientId"><Protected><ClientProfile /></Protected></Route>
       <Route path="/programs"><Protected><Programs /></Protected></Route>
       <Route path="/programs/:programId"><Protected><ProgramBuilder /></Protected></Route>

@@ -105,6 +105,22 @@ export interface ClientStatusUpdate {
   status: ClientStatusUpdateStatus;
 }
 
+export interface ClientGoalInput {
+  /** @minLength 1 */
+  goal: string;
+  /** @nullable */
+  goalTargetDate?: string | null;
+}
+
+export interface ClientGoalHistory {
+  id: number;
+  clientId: number;
+  goal: string;
+  /** @nullable */
+  goalTargetDate?: string | null;
+  archivedAt: string;
+}
+
 export interface ActivityHeatmapEntry {
   date: string;
   count: number;

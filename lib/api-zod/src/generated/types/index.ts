@@ -22,6 +22,8 @@ export * from './callLog';
 export * from './callLogInput';
 export * from './client';
 export * from './clientDashboard';
+export * from './clientGoalHistory';
+export * from './clientGoalInput';
 export * from './clientInput';
 export * from './clientStatus';
 export * from './clientStatusUpdate';

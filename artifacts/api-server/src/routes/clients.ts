@@ -9,8 +9,9 @@ import {
   progressPhotosTable,
   programAssignmentsTable,
   programsTable,
+  clientGoalHistoryTable,
 } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, desc } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import {
   CreateClientBody,
@@ -23,6 +24,8 @@ import {
   UpdateClientStatusBody,
   UpdateClientStatusParams,
   GetClientActivityHeatmapParams,
+  CreateClientGoalBody,
+  ListClientGoalHistoryParams,
 } from "@workspace/api-zod";
 import { requireCoachAuth, requireClientOwnership, requireCoachOnly, requireClientAuth } from "../middlewares/auth";
 import { sendGmail } from "../lib/mail";
@@ -214,6 +217,48 @@ router.get("/clients/:clientId/activity-heatmap", requireClientOwnership(), asyn
   } catch (err) {
     req.log.error(err);
     res.status(500).json({ error: "Failed to get client activity heatmap" });
+  }
+});
+
+// Create a new goal — archives the current goal to history, sets the new one
+router.post("/clients/:clientId/goals", requireClientOwnership(), requireCoachOnly, async (req, res) => {
+  try {
+    const { clientId } = GetClientParams.parse({ clientId: Number(req.params.clientId) });
+    const body = CreateClientGoalBody.parse(req.body);
+
+    const [existing] = await db.select().from(clientsTable).where(eq(clientsTable.id, clientId));
+    if (!existing) { res.status(404).json({ error: "Client not found" }); return; }
+
+    if (existing.goal) {
+      await db.insert(clientGoalHistoryTable).values({
+        clientId,
+        goal: existing.goal,
+        goalTargetDate: existing.goalTargetDate ?? null,
+      });
+    }
+
+    const [updated] = await db.update(clientsTable)
+      .set({ goal: body.goal, goalTargetDate: body.goalTargetDate ?? null, updatedAt: new Date() })
+      .where(eq(clientsTable.id, clientId))
+      .returning();
+    res.json({ ...updated, createdAt: updated.createdAt.toISOString() });
+  } catch (err) {
+    req.log.error(err);
+    res.status(400).json({ error: "Failed to create goal" });
+  }
+});
+
+// List archived goals for a client, newest first
+router.get("/clients/:clientId/goals/history", requireClientOwnership(), async (req, res) => {
+  try {
+    const { clientId } = ListClientGoalHistoryParams.parse({ clientId: Number(req.params.clientId) });
+    const history = await db.select().from(clientGoalHistoryTable)
+      .where(eq(clientGoalHistoryTable.clientId, clientId))
+      .orderBy(desc(clientGoalHistoryTable.archivedAt));
+    res.json(history.map(h => ({ ...h, archivedAt: h.archivedAt.toISOString() })));
+  } catch (err) {
+    req.log.error(err);
+    res.status(500).json({ error: "Failed to get goal history" });
   }
 });
 
