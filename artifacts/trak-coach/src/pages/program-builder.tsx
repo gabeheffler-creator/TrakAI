@@ -906,36 +906,54 @@ export function ProgramBuilder() {
                 </div>
               </div>
             )}
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <Button
                 variant="outline"
-                className="flex-1"
-                onClick={() => { setPropagateOpen(false); setIsEditing(false); }}
+                onClick={() => setPropagateOpen(false)}
               >
-                Cancel (keep changes)
+                Cancel
               </Button>
               {assignedClients && assignedClients.length > 0 && (
-                <Button
-                  className="flex-1"
-                  disabled={selectedSyncIds.length === 0 || syncToClients.isPending}
-                  onClick={() => {
-                    syncToClients.mutate(
-                      { programId, data: { clientIds: selectedSyncIds } },
-                      {
-                        onSuccess: (result) => {
-                          setPropagateOpen(false);
-                          setIsEditing(false);
-                          toast({
-                            title: `Updated ${result.synced.length} client program${result.synced.length !== 1 ? "s" : ""}`,
-                          });
-                        },
-                        onError: () => toast({ title: "Failed to sync to clients", variant: "destructive" }),
-                      }
-                    );
-                  }}
-                >
-                  {syncToClients.isPending ? "Applying…" : `Apply to ${selectedSyncIds.length}`}
-                </Button>
+                <>
+                  <Button
+                    variant="secondary"
+                    disabled={selectedSyncIds.length === 0 || syncToClients.isPending}
+                    onClick={() => {
+                      syncToClients.mutate(
+                        { programId, data: { clientIds: selectedSyncIds } },
+                        {
+                          onSuccess: (result) => {
+                            setPropagateOpen(false);
+                            setIsEditing(false);
+                            toast({ title: `Updated ${result.synced.length} client program${result.synced.length !== 1 ? "s" : ""}` });
+                          },
+                          onError: () => toast({ title: "Failed to sync to clients", variant: "destructive" }),
+                        }
+                      );
+                    }}
+                  >
+                    {syncToClients.isPending ? "Applying…" : `Apply to ${selectedSyncIds.length}`}
+                  </Button>
+                  <Button
+                    disabled={syncToClients.isPending}
+                    onClick={() => {
+                      const allIds = assignedClients.map(c => c.clientId);
+                      syncToClients.mutate(
+                        { programId, data: { clientIds: allIds } },
+                        {
+                          onSuccess: (result) => {
+                            setPropagateOpen(false);
+                            setIsEditing(false);
+                            toast({ title: `Updated ${result.synced.length} client program${result.synced.length !== 1 ? "s" : ""}` });
+                          },
+                          onError: () => toast({ title: "Failed to sync to clients", variant: "destructive" }),
+                        }
+                      );
+                    }}
+                  >
+                    Apply to all
+                  </Button>
+                </>
               )}
             </div>
           </div>

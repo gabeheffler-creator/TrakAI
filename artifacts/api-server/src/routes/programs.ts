@@ -696,15 +696,25 @@ router.post("/programs/:programId/bulk-assign", requireCoachAuth, requireCoachOn
       return;
     }
 
-    // Find which clientIds already have this program as their source template
-    const alreadyAssigned = await db
-      .select({ clientId: programsTable.clientId })
-      .from(programsTable)
-      .where(eq(programsTable.sourceTemplateId, programId));
+    // Verify all requested clientIds belong to this coach (prevent cross-tenant mutation)
+    const coachClients = await db
+      .select({ id: clientsTable.id })
+      .from(clientsTable)
+      .where(eq(clientsTable.coachId, coachIdOf(req)));
+    const coachClientIdSet = new Set(coachClients.map(c => c.id));
+    const authorizedIds = body.clientIds.filter(id => coachClientIdSet.has(id));
+
+    // Find which authorized clientIds already have this program as their source template
+    const alreadyAssigned = authorizedIds.length > 0
+      ? await db
+        .select({ clientId: programsTable.clientId })
+        .from(programsTable)
+        .where(and(eq(programsTable.sourceTemplateId, programId), inArray(programsTable.clientId, authorizedIds)))
+      : [];
     const alreadyAssignedIds = new Set(alreadyAssigned.map(r => r.clientId).filter((id): id is number => id !== null));
 
-    const toAssign = body.clientIds.filter(id => !alreadyAssignedIds.has(id));
-    const skipped = body.clientIds.filter(id => alreadyAssignedIds.has(id));
+    const toAssign = authorizedIds.filter(id => !alreadyAssignedIds.has(id));
+    const skipped = authorizedIds.filter(id => alreadyAssignedIds.has(id));
     const assigned: number[] = [];
 
     const toDateStr = (d: Date) => d.toISOString().split("T")[0];
@@ -753,13 +763,22 @@ router.post("/programs/:programId/sync-to-clients", requireCoachAuth, requireCoa
 
     const synced: number[] = [];
 
-    for (const clientId of body.clientIds) {
+    // Verify all requested clientIds belong to this coach (prevent cross-tenant mutation)
+    const coachClientsSync = await db
+      .select({ id: clientsTable.id })
+      .from(clientsTable)
+      .where(eq(clientsTable.coachId, coachIdOf(req)));
+    const coachClientIdSetSync = new Set(coachClientsSync.map(c => c.id));
+    const authorizedSyncIds = body.clientIds.filter(id => coachClientIdSetSync.has(id));
+
+    for (const clientId of authorizedSyncIds) {
       try {
         const programName = await db.transaction(async (tx) => {
           const [currentAssignment] = await tx.select().from(programAssignmentsTable).where(eq(programAssignmentsTable.clientId, clientId));
           if (!currentAssignment) return null;
           const [currentProgram] = await tx.select().from(programsTable).where(eq(programsTable.id, currentAssignment.programId));
-          if (!currentProgram?.sourceTemplateId) return null;
+          // Only sync if this client's program was derived from the exact same template
+          if (!currentProgram?.sourceTemplateId || currentProgram.sourceTemplateId !== programId) return null;
 
           await tx.delete(programAssignmentsTable).where(eq(programAssignmentsTable.id, currentAssignment.id));
           if (currentProgram.clientId === clientId) {
