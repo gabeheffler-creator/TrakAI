@@ -916,6 +916,54 @@ export const SyncProgramFromTemplateResponse = zod.object({
 
 
 /**
+ * @summary List all clients that have been assigned this program template
+ */
+export const GetProgramAssignedClientsParams = zod.object({
+  "programId": zod.coerce.number()
+})
+
+export const GetProgramAssignedClientsResponseItem = zod.object({
+  "clientId": zod.number(),
+  "clientName": zod.string(),
+  "assignedAt": zod.coerce.date()
+})
+export const GetProgramAssignedClientsResponse = zod.array(GetProgramAssignedClientsResponseItem)
+
+
+/**
+ * @summary Assign a program template to multiple clients at once
+ */
+export const BulkAssignProgramParams = zod.object({
+  "programId": zod.coerce.number()
+})
+
+export const BulkAssignProgramBody = zod.object({
+  "clientIds": zod.array(zod.number())
+})
+
+export const BulkAssignProgramResponse = zod.object({
+  "assigned": zod.array(zod.number()),
+  "skipped": zod.array(zod.number())
+})
+
+
+/**
+ * @summary Push the current template state to selected assigned clients
+ */
+export const SyncProgramToClientsParams = zod.object({
+  "programId": zod.coerce.number()
+})
+
+export const SyncProgramToClientsBody = zod.object({
+  "clientIds": zod.array(zod.number())
+})
+
+export const SyncProgramToClientsResponse = zod.object({
+  "synced": zod.array(zod.number())
+})
+
+
+/**
  * @summary List workout logs for a client
  */
 export const ListWorkoutLogsParams = zod.object({

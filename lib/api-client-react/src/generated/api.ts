@@ -25,6 +25,8 @@ import type {
   AssignmentInput,
   AssignmentUpdate,
   AuthUser,
+  BulkAssignProgramInput,
+  BulkAssignProgramResult,
   CallLog,
   CallLogInput,
   Client,
@@ -53,6 +55,7 @@ import type {
   NutritionLog,
   NutritionLogInput,
   Program,
+  ProgramAssignedClient,
   ProgramAssignment,
   ProgramAssignmentInput,
   ProgramDay,
@@ -76,6 +79,8 @@ import type {
   SetLogInput,
   SleepLog,
   SleepLogInput,
+  SyncProgramToClientsInput,
+  SyncProgramToClientsResult,
   UnreadCount,
   UploadUrlRequest,
   UploadUrlResponse,
@@ -3122,6 +3127,227 @@ export const useSyncProgramFromTemplate = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getSyncProgramFromTemplateMutationOptions(options));
+    }
+
+export const getGetProgramAssignedClientsUrl = (programId: number,) => {
+
+
+
+
+  return `/api/programs/${programId}/assigned-clients`
+}
+
+/**
+ * @summary List all clients that have been assigned this program template
+ */
+export const getProgramAssignedClients = async (programId: number, options?: RequestInit): Promise<ProgramAssignedClient[]> => {
+
+  return customFetch<ProgramAssignedClient[]>(getGetProgramAssignedClientsUrl(programId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetProgramAssignedClientsQueryKey = (programId: number,) => {
+    return [
+    `/api/programs/${programId}/assigned-clients`
+    ] as const;
+    }
+
+
+export const getGetProgramAssignedClientsQueryOptions = <TData = Awaited<ReturnType<typeof getProgramAssignedClients>>, TError = ErrorType<void>>(programId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProgramAssignedClients>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetProgramAssignedClientsQueryKey(programId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getProgramAssignedClients>>> = ({ signal }) => getProgramAssignedClients(programId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(programId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getProgramAssignedClients>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetProgramAssignedClientsQueryResult = NonNullable<Awaited<ReturnType<typeof getProgramAssignedClients>>>
+export type GetProgramAssignedClientsQueryError = ErrorType<void>
+
+
+/**
+ * @summary List all clients that have been assigned this program template
+ */
+
+export function useGetProgramAssignedClients<TData = Awaited<ReturnType<typeof getProgramAssignedClients>>, TError = ErrorType<void>>(
+ programId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProgramAssignedClients>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetProgramAssignedClientsQueryOptions(programId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getBulkAssignProgramUrl = (programId: number,) => {
+
+
+
+
+  return `/api/programs/${programId}/bulk-assign`
+}
+
+/**
+ * @summary Assign a program template to multiple clients at once
+ */
+export const bulkAssignProgram = async (programId: number,
+    bulkAssignProgramInput: BulkAssignProgramInput, options?: RequestInit): Promise<BulkAssignProgramResult> => {
+
+  return customFetch<BulkAssignProgramResult>(getBulkAssignProgramUrl(programId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      bulkAssignProgramInput,)
+  }
+);}
+
+
+
+
+export const getBulkAssignProgramMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bulkAssignProgram>>, TError,{programId: number;data: BodyType<BulkAssignProgramInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof bulkAssignProgram>>, TError,{programId: number;data: BodyType<BulkAssignProgramInput>}, TContext> => {
+
+const mutationKey = ['bulkAssignProgram'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof bulkAssignProgram>>, {programId: number;data: BodyType<BulkAssignProgramInput>}> = (props) => {
+          const {programId,data} = props ?? {};
+
+          return  bulkAssignProgram(programId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type BulkAssignProgramMutationResult = NonNullable<Awaited<ReturnType<typeof bulkAssignProgram>>>
+    export type BulkAssignProgramMutationBody = BodyType<BulkAssignProgramInput>
+    export type BulkAssignProgramMutationError = ErrorType<void>
+
+    /**
+ * @summary Assign a program template to multiple clients at once
+ */
+export const useBulkAssignProgram = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bulkAssignProgram>>, TError,{programId: number;data: BodyType<BulkAssignProgramInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof bulkAssignProgram>>,
+        TError,
+        {programId: number;data: BodyType<BulkAssignProgramInput>},
+        TContext
+      > => {
+      return useMutation(getBulkAssignProgramMutationOptions(options));
+    }
+
+export const getSyncProgramToClientsUrl = (programId: number,) => {
+
+
+
+
+  return `/api/programs/${programId}/sync-to-clients`
+}
+
+/**
+ * @summary Push the current template state to selected assigned clients
+ */
+export const syncProgramToClients = async (programId: number,
+    syncProgramToClientsInput: SyncProgramToClientsInput, options?: RequestInit): Promise<SyncProgramToClientsResult> => {
+
+  return customFetch<SyncProgramToClientsResult>(getSyncProgramToClientsUrl(programId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      syncProgramToClientsInput,)
+  }
+);}
+
+
+
+
+export const getSyncProgramToClientsMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncProgramToClients>>, TError,{programId: number;data: BodyType<SyncProgramToClientsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof syncProgramToClients>>, TError,{programId: number;data: BodyType<SyncProgramToClientsInput>}, TContext> => {
+
+const mutationKey = ['syncProgramToClients'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof syncProgramToClients>>, {programId: number;data: BodyType<SyncProgramToClientsInput>}> = (props) => {
+          const {programId,data} = props ?? {};
+
+          return  syncProgramToClients(programId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SyncProgramToClientsMutationResult = NonNullable<Awaited<ReturnType<typeof syncProgramToClients>>>
+    export type SyncProgramToClientsMutationBody = BodyType<SyncProgramToClientsInput>
+    export type SyncProgramToClientsMutationError = ErrorType<void>
+
+    /**
+ * @summary Push the current template state to selected assigned clients
+ */
+export const useSyncProgramToClients = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncProgramToClients>>, TError,{programId: number;data: BodyType<SyncProgramToClientsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof syncProgramToClients>>,
+        TError,
+        {programId: number;data: BodyType<SyncProgramToClientsInput>},
+        TContext
+      > => {
+      return useMutation(getSyncProgramToClientsMutationOptions(options));
     }
 
 export const getListWorkoutLogsUrl = (clientId: number,) => {

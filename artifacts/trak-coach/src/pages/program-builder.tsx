@@ -14,9 +14,15 @@ import {
   useSetDayNutritionGoal,
   useDeleteDayNutritionGoal,
   getGetProgramQueryKey,
+  useGetProgramAssignedClients,
+  getGetProgramAssignedClientsQueryKey,
+  useBulkAssignProgram,
+  useSyncProgramToClients,
+  useListClients,
+  getListClientsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Link as WLink } from "wouter";
+import { Link as WLink, useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,8 +33,9 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, ArrowLeft, GripVertical, Layers, Pencil, Apple, LayoutGrid, List } from "lucide-react";
+import { Plus, Trash2, ArrowLeft, GripVertical, Layers, Pencil, Apple, LayoutGrid, List, Users, Save } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { QueryErrorState } from "@/components/query-error-state";
 
 const WEEK_OPTIONS = [1, 2, 3, 4, 5, 6, 8, 10, 12, 16];
@@ -149,6 +156,18 @@ export function ProgramBuilder() {
   const setPhaseNutritionGoal = useSetPhaseNutritionGoal();
   const setDayNutritionGoal = useSetDayNutritionGoal();
   const deleteDayNutritionGoal = useDeleteDayNutritionGoal();
+  const [isEditing, setIsEditing] = useState(false);
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [propagateOpen, setPropagateOpen] = useState(false);
+  const [selectedAssignIds, setSelectedAssignIds] = useState<number[]>([]);
+  const [selectedSyncIds, setSelectedSyncIds] = useState<number[]>([]);
+  const [, setLocation] = useLocation();
+  const { data: allClients } = useListClients({ query: { queryKey: getListClientsQueryKey() } });
+  const bulkAssign = useBulkAssignProgram();
+  const syncToClients = useSyncProgramToClients();
+  const { data: assignedClients, refetch: refetchAssigned } = useGetProgramAssignedClients(programId, {
+    query: { enabled: !!programId, queryKey: getGetProgramAssignedClientsQueryKey(programId) },
+  });
 
   const phaseForm = useForm<z.infer<typeof phaseSchema>>({
     resolver: zodResolver(phaseSchema),
@@ -331,6 +350,8 @@ export function ProgramBuilder() {
   const selectedDay = program.days.find(d => d.id === selectedDayId);
   const unphasedDays = program.days.filter(d => !d.phaseId);
   const hasPhases = program.phases.length > 0;
+  const isTemplate = !program.clientId;
+  const canEdit = !isTemplate || isEditing;
 
   const DayRow = ({ d }: { d: typeof program.days[number] }) => (
     <div
@@ -351,7 +372,7 @@ export function ProgramBuilder() {
             </p>
           )}
         </div>
-        {d.phaseId && (
+        {canEdit && d.phaseId && (
           <button
             onClick={(e) => { e.stopPropagation(); openDayNutritionOverride(d.phaseId!, d); }}
             className={`opacity-0 group-hover:opacity-100 ${selectedDayId === d.id ? "text-primary-foreground/70 hover:text-primary-foreground" : "text-muted-foreground hover:text-foreground"} transition-opacity`}
@@ -361,27 +382,51 @@ export function ProgramBuilder() {
             <Apple className="w-3.5 h-3.5" />
           </button>
         )}
-        <button
-          onClick={(e) => { e.stopPropagation(); handleDeleteDay(d.id); }}
-          className={`opacity-0 group-hover:opacity-100 ${selectedDayId === d.id ? "text-primary-foreground/70 hover:text-primary-foreground" : "text-muted-foreground hover:text-destructive"} transition-opacity`}
-          data-testid={`button-delete-day-${d.id}`}
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-        </button>
+        {canEdit && (
+          <button
+            onClick={(e) => { e.stopPropagation(); handleDeleteDay(d.id); }}
+            className={`opacity-0 group-hover:opacity-100 ${selectedDayId === d.id ? "text-primary-foreground/70 hover:text-primary-foreground" : "text-muted-foreground hover:text-destructive"} transition-opacity`}
+            data-testid={`button-delete-day-${d.id}`}
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        )}
       </div>
     </div>
   );
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <WLink href="/programs" className="text-muted-foreground hover:text-foreground transition-colors">
-          <ArrowLeft className="w-5 h-5" />
-        </WLink>
-        <div>
-          <h1 className="text-2xl font-bold">{program.name}</h1>
-          {program.description && <p className="text-sm text-muted-foreground">{program.description}</p>}
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-3">
+          <WLink href="/programs" className="text-muted-foreground hover:text-foreground transition-colors">
+            <ArrowLeft className="w-5 h-5" />
+          </WLink>
+          <div>
+            <h1 className="text-2xl font-bold">{program.name}</h1>
+            {program.description && <p className="text-sm text-muted-foreground">{program.description}</p>}
+          </div>
         </div>
+        {isTemplate && (
+          isEditing ? (
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => setIsEditing(false)}>Cancel</Button>
+              <Button onClick={() => { setPropagateOpen(true); setSelectedSyncIds((assignedClients ?? []).map(c => c.clientId)); }}>
+                <Save className="w-4 h-4 mr-1.5" /> Save changes
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => setLocation("/programs")}>Cancel</Button>
+              <Button variant="outline" onClick={() => setIsEditing(true)}>
+                <Pencil className="w-4 h-4 mr-1.5" /> Edit program
+              </Button>
+              <Button onClick={() => { setAssignOpen(true); setSelectedAssignIds([]); }}>
+                <Users className="w-4 h-4 mr-1.5" /> Assign program
+              </Button>
+            </div>
+          )
+        )}
       </div>
 
       <div className="grid md:grid-cols-3 gap-6">
@@ -393,7 +438,7 @@ export function ProgramBuilder() {
             </CardTitle>
             <div className="flex items-center gap-1">
               {/* Add Phase dialog */}
-              <Dialog open={phaseDialogOpen} onOpenChange={setPhaseDialogOpen}>
+              {canEdit && <Dialog open={phaseDialogOpen} onOpenChange={setPhaseDialogOpen}>
                 <DialogTrigger asChild>
                   <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" data-testid="button-add-phase">
                     <Layers className="w-3.5 h-3.5" /> Phase
@@ -448,7 +493,7 @@ export function ProgramBuilder() {
                     </form>
                   </Form>
                 </DialogContent>
-              </Dialog>
+              </Dialog>}
 
               {/* Grid/List view toggle */}
               <Select value={phasesViewMode} onValueChange={v => setPhasesViewMode(v as "list" | "grid")}>
@@ -480,6 +525,7 @@ export function ProgramBuilder() {
                       </Badge>
                     )}
                   </div>
+                  {canEdit && (
                   <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={() => openPhaseNutritionGoal(ph)}
@@ -512,6 +558,7 @@ export function ProgramBuilder() {
                       <Trash2 className="w-3 h-3" />
                     </button>
                   </div>
+                  )}
                 </div>
                 {ph.days.length === 0 && (
                   <p className="text-muted-foreground text-xs text-center py-2 pl-6">No days yet</p>
@@ -547,7 +594,7 @@ export function ProgramBuilder() {
             <CardTitle className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
               {selectedDay ? `Day ${selectedDay.dayNumber}: ${selectedDay.name}` : "Select a day"}
             </CardTitle>
-            {selectedDay && (
+            {selectedDay && canEdit && (
               <Dialog open={exDialogOpen} onOpenChange={setExDialogOpen}>
                 <DialogTrigger asChild>
                   <Button variant="ghost" size="sm" className="h-7" data-testid="button-add-exercise">
@@ -704,19 +751,196 @@ export function ProgramBuilder() {
                       {decoded.notes && <span className="text-xs text-muted-foreground italic">"{decoded.notes}"</span>}
                     </div>
                   </div>
-                  <button
-                    onClick={() => handleDeleteExercise(selectedDay.id, e.id)}
-                    className="text-muted-foreground hover:text-destructive transition-colors"
-                    data-testid={`button-delete-exercise-${e.id}`}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  {canEdit && (
+                    <button
+                      onClick={() => handleDeleteExercise(selectedDay.id, e.id)}
+                      className="text-muted-foreground hover:text-destructive transition-colors"
+                      data-testid={`button-delete-exercise-${e.id}`}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               );
             })}
           </CardContent>
         </Card>
       </div>
+
+      {/* Assigned clients section (template only) */}
+      {isTemplate && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-2">
+              <Users className="w-4 h-4" /> Assigned clients
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {(!assignedClients || assignedClients.length === 0) ? (
+              <p className="text-sm text-muted-foreground">No clients assigned yet.</p>
+            ) : (
+              <div className="space-y-1">
+                {assignedClients.map(c => (
+                  <div key={c.clientId} className="flex items-center justify-between py-1.5 px-2 rounded-md hover:bg-muted/50">
+                    <span className="text-sm font-medium">{c.clientName}</span>
+                    <span className="text-xs text-muted-foreground">
+                      Assigned {new Date(c.assignedAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Assign program dialog */}
+      <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Assign program to clients</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            {(!allClients || allClients.length === 0) ? (
+              <p className="text-sm text-muted-foreground">No clients found.</p>
+            ) : (
+              <>
+                <div className="flex items-center gap-2 pb-1 border-b">
+                  <Checkbox
+                    id="assign-all"
+                    checked={selectedAssignIds.length === allClients.length}
+                    onCheckedChange={(checked) =>
+                      setSelectedAssignIds(checked ? allClients.map(c => c.id) : [])
+                    }
+                  />
+                  <label htmlFor="assign-all" className="text-sm font-medium cursor-pointer">
+                    Assign to all ({allClients.length})
+                  </label>
+                </div>
+                <div className="space-y-1 max-h-60 overflow-y-auto">
+                  {allClients.map(c => (
+                    <div key={c.id} className="flex items-center gap-2 py-1">
+                      <Checkbox
+                        id={`assign-client-${c.id}`}
+                        checked={selectedAssignIds.includes(c.id)}
+                        onCheckedChange={(checked) =>
+                          setSelectedAssignIds(prev =>
+                            checked ? [...prev, c.id] : prev.filter(id => id !== c.id)
+                          )
+                        }
+                      />
+                      <label htmlFor={`assign-client-${c.id}`} className="text-sm cursor-pointer flex-1">{c.name}</label>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" className="flex-1" onClick={() => setAssignOpen(false)}>Cancel</Button>
+              <Button
+                className="flex-1"
+                disabled={selectedAssignIds.length === 0 || bulkAssign.isPending}
+                onClick={() => {
+                  bulkAssign.mutate(
+                    { programId, data: { clientIds: selectedAssignIds } },
+                    {
+                      onSuccess: (result) => {
+                        setAssignOpen(false);
+                        refetchAssigned();
+                        toast({
+                          title: `Assigned to ${result.assigned.length} client${result.assigned.length !== 1 ? "s" : ""}`,
+                          description: result.skipped.length > 0 ? `${result.skipped.length} already assigned` : undefined,
+                        });
+                      },
+                      onError: () => toast({ title: "Failed to assign program", variant: "destructive" }),
+                    }
+                  );
+                }}
+              >
+                {bulkAssign.isPending ? "Assigning…" : `Assign to ${selectedAssignIds.length} client${selectedAssignIds.length !== 1 ? "s" : ""}`}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Propagation dialog — shown when saving changes to template */}
+      <Dialog open={propagateOpen} onOpenChange={setPropagateOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Save changes</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Changes to this template have been saved. Do you want to push these updates to assigned clients?
+            </p>
+            {assignedClients && assignedClients.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 pb-1 border-b">
+                  <Checkbox
+                    id="sync-all"
+                    checked={selectedSyncIds.length === assignedClients.length}
+                    onCheckedChange={(checked) =>
+                      setSelectedSyncIds(checked ? assignedClients.map(c => c.clientId) : [])
+                    }
+                  />
+                  <label htmlFor="sync-all" className="text-sm font-medium cursor-pointer">
+                    Apply to all ({assignedClients.length})
+                  </label>
+                </div>
+                <div className="space-y-1 max-h-48 overflow-y-auto">
+                  {assignedClients.map(c => (
+                    <div key={c.clientId} className="flex items-center gap-2 py-1">
+                      <Checkbox
+                        id={`sync-client-${c.clientId}`}
+                        checked={selectedSyncIds.includes(c.clientId)}
+                        onCheckedChange={(checked) =>
+                          setSelectedSyncIds(prev =>
+                            checked ? [...prev, c.clientId] : prev.filter(id => id !== c.clientId)
+                          )
+                        }
+                      />
+                      <label htmlFor={`sync-client-${c.clientId}`} className="text-sm cursor-pointer flex-1">{c.clientName}</label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => { setPropagateOpen(false); setIsEditing(false); }}
+              >
+                Cancel (keep changes)
+              </Button>
+              {assignedClients && assignedClients.length > 0 && (
+                <Button
+                  className="flex-1"
+                  disabled={selectedSyncIds.length === 0 || syncToClients.isPending}
+                  onClick={() => {
+                    syncToClients.mutate(
+                      { programId, data: { clientIds: selectedSyncIds } },
+                      {
+                        onSuccess: (result) => {
+                          setPropagateOpen(false);
+                          setIsEditing(false);
+                          toast({
+                            title: `Updated ${result.synced.length} client program${result.synced.length !== 1 ? "s" : ""}`,
+                          });
+                        },
+                        onError: () => toast({ title: "Failed to sync to clients", variant: "destructive" }),
+                      }
+                    );
+                  }}
+                >
+                  {syncToClients.isPending ? "Applying…" : `Apply to ${selectedSyncIds.length}`}
+                </Button>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Phase Dialog */}
       <Dialog open={editPhaseId !== null} onOpenChange={open => { if (!open) setEditPhaseId(null); }}>

@@ -493,6 +493,29 @@ export interface ProgramAssignmentInput {
   endDate?: string;
 }
 
+export interface ProgramAssignedClient {
+  clientId: number;
+  clientName: string;
+  assignedAt: string;
+}
+
+export interface BulkAssignProgramInput {
+  clientIds: number[];
+}
+
+export interface BulkAssignProgramResult {
+  assigned: number[];
+  skipped: number[];
+}
+
+export interface SyncProgramToClientsInput {
+  clientIds: number[];
+}
+
+export interface SyncProgramToClientsResult {
+  synced: number[];
+}
+
 export interface WorkoutLogInput {
   programDayId?: number;
   date: string;

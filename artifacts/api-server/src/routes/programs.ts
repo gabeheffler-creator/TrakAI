@@ -38,6 +38,11 @@ import {
   AssignProgramParams,
   AssignProgramBody,
   SyncProgramFromTemplateParams,
+  GetProgramAssignedClientsParams,
+  BulkAssignProgramParams,
+  BulkAssignProgramBody,
+  SyncProgramToClientsParams,
+  SyncProgramToClientsBody,
   SetPhaseNutritionGoalParams,
   SetPhaseNutritionGoalBody,
   SetDayNutritionGoalParams,
@@ -648,6 +653,142 @@ router.post("/clients/:clientId/program-assignment/sync-template", requireClient
     }
     req.log.error(err);
     res.status(500).json({ error: "Failed to sync program from template" });
+  }
+});
+
+// GET /programs/:programId/assigned-clients — list clients whose program was cloned from this template
+router.get("/programs/:programId/assigned-clients", requireCoachAuth, async (req, res) => {
+  try {
+    const { programId } = GetProgramAssignedClientsParams.parse({ programId: Number(req.params.programId) });
+    if (!(await programBelongsToCoach(programId, coachIdOf(req)))) {
+      res.status(404).json({ error: "Program not found" });
+      return;
+    }
+    const rows = await db
+      .select({
+        clientId: programsTable.clientId,
+        clientName: clientsTable.name,
+        assignedAt: programAssignmentsTable.createdAt,
+      })
+      .from(programsTable)
+      .innerJoin(clientsTable, eq(programsTable.clientId, clientsTable.id))
+      .innerJoin(programAssignmentsTable, eq(programAssignmentsTable.clientId, programsTable.clientId))
+      .where(eq(programsTable.sourceTemplateId, programId))
+      .orderBy(asc(clientsTable.name));
+    res.json(rows.map(r => ({
+      clientId: r.clientId,
+      clientName: r.clientName,
+      assignedAt: r.assignedAt.toISOString(),
+    })));
+  } catch (err) {
+    req.log.error(err);
+    res.status(500).json({ error: "Failed to get assigned clients" });
+  }
+});
+
+// POST /programs/:programId/bulk-assign — clone template to multiple clients at once
+router.post("/programs/:programId/bulk-assign", requireCoachAuth, requireCoachOnly, async (req, res) => {
+  try {
+    const { programId } = BulkAssignProgramParams.parse({ programId: Number(req.params.programId) });
+    const body = BulkAssignProgramBody.parse(req.body);
+    if (!(await programBelongsToCoach(programId, coachIdOf(req)))) {
+      res.status(404).json({ error: "Program not found" });
+      return;
+    }
+
+    // Find which clientIds already have this program as their source template
+    const alreadyAssigned = await db
+      .select({ clientId: programsTable.clientId })
+      .from(programsTable)
+      .where(eq(programsTable.sourceTemplateId, programId));
+    const alreadyAssignedIds = new Set(alreadyAssigned.map(r => r.clientId).filter((id): id is number => id !== null));
+
+    const toAssign = body.clientIds.filter(id => !alreadyAssignedIds.has(id));
+    const skipped = body.clientIds.filter(id => alreadyAssignedIds.has(id));
+    const assigned: number[] = [];
+
+    const toDateStr = (d: Date) => d.toISOString().split("T")[0];
+
+    for (const clientId of toAssign) {
+      try {
+        const programName = await db.transaction(async (tx) => {
+          // Remove any existing assignment first
+          const [existingAssignment] = await tx.select().from(programAssignmentsTable).where(eq(programAssignmentsTable.clientId, clientId));
+          if (existingAssignment) {
+            await tx.delete(programAssignmentsTable).where(eq(programAssignmentsTable.id, existingAssignment.id));
+            const [oldProgram] = await tx.select({ id: programsTable.id, clientId: programsTable.clientId }).from(programsTable).where(eq(programsTable.id, existingAssignment.programId));
+            if (oldProgram?.clientId === clientId) {
+              await tx.delete(programsTable).where(eq(programsTable.id, oldProgram.id));
+            }
+          }
+          const clonedProgramId = await cloneProgram(tx, programId, coachIdOf(req), clientId);
+          const startDate = toDateStr(new Date());
+          await tx.insert(programAssignmentsTable).values({ clientId, programId: clonedProgramId, startDate });
+          const [prog] = await tx.select().from(programsTable).where(eq(programsTable.id, clonedProgramId));
+          return prog?.name ?? "";
+        });
+        assigned.push(clientId);
+        sendProgramUpdatePush(clientId, programName, req.log);
+      } catch (innerErr) {
+        req.log.error({ clientId, err: innerErr }, "Failed to assign program to client");
+      }
+    }
+
+    res.json({ assigned, skipped });
+  } catch (err) {
+    req.log.error(err);
+    res.status(400).json({ error: "Failed to bulk assign program" });
+  }
+});
+
+// POST /programs/:programId/sync-to-clients — push current template state to selected clients
+router.post("/programs/:programId/sync-to-clients", requireCoachAuth, requireCoachOnly, async (req, res) => {
+  try {
+    const { programId } = SyncProgramToClientsParams.parse({ programId: Number(req.params.programId) });
+    const body = SyncProgramToClientsBody.parse(req.body);
+    if (!(await programBelongsToCoach(programId, coachIdOf(req)))) {
+      res.status(404).json({ error: "Program not found" });
+      return;
+    }
+
+    const synced: number[] = [];
+
+    for (const clientId of body.clientIds) {
+      try {
+        const programName = await db.transaction(async (tx) => {
+          const [currentAssignment] = await tx.select().from(programAssignmentsTable).where(eq(programAssignmentsTable.clientId, clientId));
+          if (!currentAssignment) return null;
+          const [currentProgram] = await tx.select().from(programsTable).where(eq(programsTable.id, currentAssignment.programId));
+          if (!currentProgram?.sourceTemplateId) return null;
+
+          await tx.delete(programAssignmentsTable).where(eq(programAssignmentsTable.id, currentAssignment.id));
+          if (currentProgram.clientId === clientId) {
+            await tx.delete(programsTable).where(eq(programsTable.id, currentProgram.id));
+          }
+
+          const clonedProgramId = await cloneProgram(tx, programId, coachIdOf(req), clientId);
+          await tx.insert(programAssignmentsTable).values({
+            clientId,
+            programId: clonedProgramId,
+            startDate: currentAssignment.startDate,
+            endDate: currentAssignment.endDate,
+          });
+          const [prog] = await tx.select().from(programsTable).where(eq(programsTable.id, clonedProgramId));
+          return prog?.name ?? "";
+        });
+        if (programName !== null) {
+          synced.push(clientId);
+          if (programName) sendProgramUpdatePush(clientId, programName, req.log);
+        }
+      } catch (innerErr) {
+        req.log.error({ clientId, err: innerErr }, "Failed to sync program to client");
+      }
+    }
+
+    res.json({ synced });
+  } catch (err) {
+    req.log.error(err);
+    res.status(400).json({ error: "Failed to sync program to clients" });
   }
 });
 

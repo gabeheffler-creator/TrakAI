@@ -911,6 +911,84 @@ paths:
         "404":
           description: No active assignment or source template not found
 
+  # ── Program Bulk Operations ───────────────────────────────────────────────
+  /programs/{programId}/assigned-clients:
+    get:
+      operationId: getProgramAssignedClients
+      tags: [workouts]
+      summary: List all clients that have been assigned this program template
+      parameters:
+        - name: programId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Assigned clients
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProgramAssignedClient"
+        "404":
+          description: Program not found
+
+  /programs/{programId}/bulk-assign:
+    post:
+      operationId: bulkAssignProgram
+      tags: [workouts]
+      summary: Assign a program template to multiple clients at once
+      parameters:
+        - name: programId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkAssignProgramInput"
+      responses:
+        "200":
+          description: Assignment results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkAssignProgramResult"
+        "404":
+          description: Program not found
+
+  /programs/{programId}/sync-to-clients:
+    post:
+      operationId: syncProgramToClients
+      tags: [workouts]
+      summary: Push the current template state to selected assigned clients
+      parameters:
+        - name: programId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SyncProgramToClientsInput"
+      responses:
+        "200":
+          description: Sync results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SyncProgramToClientsResult"
+        "404":
+          description: Program not found
+
   # ── Workout Logs ──────────────────────────────────────────────────────────
   /clients/{clientId}/workout-logs:
     get:
@@ -2375,6 +2453,58 @@ components:
         endDate:
           type: string
           format: date
+
+    ProgramAssignedClient:
+      type: object
+      required: [clientId, clientName, assignedAt]
+      properties:
+        clientId:
+          type: integer
+        clientName:
+          type: string
+        assignedAt:
+          type: string
+          format: date-time
+
+    BulkAssignProgramInput:
+      type: object
+      required: [clientIds]
+      properties:
+        clientIds:
+          type: array
+          items:
+            type: integer
+
+    BulkAssignProgramResult:
+      type: object
+      required: [assigned, skipped]
+      properties:
+        assigned:
+          type: array
+          items:
+            type: integer
+        skipped:
+          type: array
+          items:
+            type: integer
+
+    SyncProgramToClientsInput:
+      type: object
+      required: [clientIds]
+      properties:
+        clientIds:
+          type: array
+          items:
+            type: integer
+
+    SyncProgramToClientsResult:
+      type: object
+      required: [synced]
+      properties:
+        synced:
+          type: array
+          items:
+            type: integer
 
     # ── Workout Logs ────────────────────────────────────────────────────────
     WorkoutLog:
