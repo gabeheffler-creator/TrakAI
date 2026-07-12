@@ -77,7 +77,14 @@ export function Dashboard() {
               </button>
             )}
           </div>
-          {client?.goal && <p className="text-sm text-muted-foreground mt-1">{client.goal}</p>}
+          {client?.goal && (
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+              <p className="text-sm text-muted-foreground">{client.goal}</p>
+              <Link href="/goal-history" className="text-xs text-primary hover:underline shrink-0">
+                View history
+              </Link>
+            </div>
+          )}
         </div>
       </div>
 

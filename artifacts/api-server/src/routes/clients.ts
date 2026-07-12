@@ -256,8 +256,8 @@ router.post("/clients/:clientId/goals", requireClientOwnership(), requireCoachOn
   }
 });
 
-// List archived goals for a client, newest first (coach only)
-router.get("/clients/:clientId/goals/history", requireClientOwnership(), requireCoachOnly, async (req, res) => {
+// List archived goals for a client, newest first (coach or the client themselves)
+router.get("/clients/:clientId/goals/history", requireClientOwnership(), async (req, res) => {
   try {
     const { clientId } = ListClientGoalHistoryParams.parse({ clientId: Number(req.params.clientId) });
     const history = await db.select().from(clientGoalHistoryTable)
