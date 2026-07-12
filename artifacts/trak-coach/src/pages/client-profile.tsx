@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useLocation } from "wouter";
 import {
   useGetClient,
+  useUpdateClient,
   useGetClientDashboard,
   useListWorkoutLogs,
   useListMeasurements,
@@ -484,6 +485,8 @@ export function ClientProfile() {
   const [msgInput, setMsgInput] = useState("");
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [programDialogOpen, setProgramDialogOpen] = useState(false);
+  const [clientGoalEditOpen, setClientGoalEditOpen] = useState(false);
+  const [clientGoalValue, setClientGoalValue] = useState("");
   const [nutritionGoal, setNutritionGoal] = useState<Record<string, number | null> | null>(null);
   const [goalDialogOpen, setGoalDialogOpen] = useState(false);
   const [goalInputs, setGoalInputs] = useState({ calories: "", protein: "", carbs: "", fat: "" });
@@ -553,6 +556,7 @@ export function ClientProfile() {
   const sendMsg = useSendMessage();
   const createAssignment = useCreateAssignment();
   const deleteAssignment = useDeleteAssignment();
+  const updateClientMutation = useUpdateClient();
   const updateAssignment = useUpdateAssignment();
 
   const assignProgram = useAssignProgram();
@@ -750,17 +754,61 @@ export function ClientProfile() {
         </Card>
       )}
 
-      {client.goal && (
-        <Card>
-          <CardContent className="pt-4 pb-4">
+      <Card>
+        <CardContent className="pt-4 pb-4 flex items-center justify-between gap-3">
+          {client.goal ? (
             <p className="text-sm"><span className="font-medium">Goal: </span>{client.goal}</p>
-          </CardContent>
-        </Card>
-      )}
+          ) : (
+            <p className="text-sm text-muted-foreground italic">No goal set</p>
+          )}
+          <button
+            onClick={() => { setClientGoalValue(client.goal ?? ""); setClientGoalEditOpen(true); }}
+            className="shrink-0 text-muted-foreground hover:text-primary transition-colors"
+            title="Edit goal"
+          >
+            <Pencil className="w-3.5 h-3.5" />
+          </button>
+        </CardContent>
+      </Card>
+
+      <Dialog open={clientGoalEditOpen} onOpenChange={setClientGoalEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{client.goal ? "Edit Goal" : "Add Goal"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Input
+              value={clientGoalValue}
+              onChange={e => setClientGoalValue(e.target.value)}
+              placeholder="e.g. Lose 15 lbs, build strength"
+              onKeyDown={e => { if (e.key === "Enter") e.currentTarget.form?.requestSubmit(); }}
+            />
+            <Button
+              className="w-full"
+              disabled={updateClientMutation.isPending}
+              onClick={() => {
+                updateClientMutation.mutate(
+                  { clientId, data: { goal: clientGoalValue } },
+                  {
+                    onSuccess: () => {
+                      qc.invalidateQueries({ queryKey: getGetClientQueryKey(clientId) });
+                      setClientGoalEditOpen(false);
+                      toast({ title: "Goal updated" });
+                    },
+                    onError: () => toast({ title: "Failed to update goal", variant: "destructive" }),
+                  }
+                );
+              }}
+            >
+              {updateClientMutation.isPending ? "Saving…" : "Save"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Tabs defaultValue="overview">
-        <div className="overflow-x-auto -mx-4 px-4 pb-2 scrollbar-none">
-          <TabsList className="flex w-max gap-1 h-auto bg-transparent p-0">
+        <div className="overflow-x-auto -mx-4 px-4 scrollbar-none border-b border-border">
+          <TabsList className="flex w-max h-auto bg-transparent p-0 gap-0">
             {[
               { value: "overview", label: "Overview" },
               { value: "program", label: "Program" },
@@ -769,7 +817,7 @@ export function ClientProfile() {
               { value: "sleep", label: "Sleep" },
               { value: "nutrition", label: "Nutrition" },
               { value: "photos", label: "Photos" },
-              { value: "assignments", label: "Assignments" },
+              { value: "tasks", label: "Tasks" },
               { value: "messages", label: "Messages" },
               { value: "notes", label: "Notes", icon: <StickyNote className="w-3 h-3" /> },
               { value: "calls", label: "Calls", icon: <Phone className="w-3 h-3" /> },
@@ -777,7 +825,7 @@ export function ClientProfile() {
               <TabsTrigger
                 key={tab.value}
                 value={tab.value}
-                className="flex items-center gap-1 text-xs px-3.5 py-1.5 h-auto rounded-full border border-transparent font-medium text-muted-foreground data-[state=active]:border-primary/25 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none"
+                className="flex items-center gap-1.5 text-sm px-4 py-2.5 h-auto rounded-none bg-transparent font-medium text-muted-foreground border-b-2 border-transparent -mb-px data-[state=active]:border-primary data-[state=active]:text-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none transition-colors hover:text-foreground whitespace-nowrap"
               >
                 {tab.icon}{tab.label}
               </TabsTrigger>
@@ -1279,14 +1327,14 @@ export function ClientProfile() {
         </TabsContent>
 
         {/* Assignments */}
-        <TabsContent value="assignments" className="mt-4 space-y-4">
+        <TabsContent value="tasks" className="mt-4 space-y-4">
           <div className="flex justify-end">
             <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
               <DialogTrigger asChild>
-                <Button size="sm" data-testid="button-create-assignment"><Plus className="w-4 h-4 mr-1" /> New Assignment</Button>
+                <Button size="sm" data-testid="button-create-assignment"><Plus className="w-4 h-4 mr-1" /> New Task</Button>
               </DialogTrigger>
               <DialogContent>
-                <DialogHeader><DialogTitle>Create Assignment</DialogTitle></DialogHeader>
+                <DialogHeader><DialogTitle>Create Task</DialogTitle></DialogHeader>
                 <Form {...assignForm}>
                   <form onSubmit={assignForm.handleSubmit(handleCreateAssignment)} className="space-y-4">
                     <FormField control={assignForm.control} name="title" render={({ field }) => (
@@ -1372,7 +1420,7 @@ export function ClientProfile() {
             </div>
           )}
 
-          {assignments?.length === 0 && <p className="text-muted-foreground text-sm">No assignments yet.</p>}
+          {assignments?.length === 0 && <p className="text-muted-foreground text-sm">No tasks yet.</p>}
         </TabsContent>
 
         {/* Messages */}

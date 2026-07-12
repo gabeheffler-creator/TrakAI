@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,7 +22,7 @@ import {
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Plus, Search, UserX, UserCheck } from "lucide-react";
+import { Plus, Search, UserX, UserCheck, LayoutGrid, List } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 import { format } from "date-fns";
@@ -33,6 +34,82 @@ const clientSchema = z.object({
   phone: z.string().optional(),
   goal: z.string().min(1, "Goal is required"),
 });
+
+function ClientListRow({ client, onStatusChange }: { client: Client; onStatusChange: (id: number, status: "active" | "inactive") => void }) {
+  const isActive = client.status !== "inactive";
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const updateStatus = useUpdateClientStatus();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const setStatus = (status: "active" | "inactive") => {
+    updateStatus.mutate({ clientId: client.id, data: { status } }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListClientsQueryKey() });
+        toast({ title: status === "active" ? "Client reactivated" : "Client deactivated" });
+        onStatusChange(client.id, status);
+      },
+      onError: () => toast({ title: "Failed to update client status", variant: "destructive" }),
+    });
+  };
+
+  return (
+    <div className={cn("flex items-center gap-4 px-4 py-3 rounded-lg border bg-card transition-colors hover:border-primary/50", !isActive && "opacity-60 grayscale")}>
+      <Link href={`/clients/${client.id}`} className="flex-1 flex items-center gap-4 min-w-0" data-testid={`link-client-${client.id}`}>
+        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+          <span className="text-xs font-semibold text-primary">{client.name.charAt(0).toUpperCase()}</span>
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="font-medium text-sm truncate">{client.name}</p>
+          <p className="text-xs text-muted-foreground truncate">{client.email}</p>
+        </div>
+        {client.goal && <p className="text-xs text-muted-foreground hidden sm:block truncate max-w-[200px]">{client.goal}</p>}
+        <span className={cn("text-xs px-2 py-0.5 rounded-full shrink-0", isActive ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-muted text-muted-foreground")}>
+          {isActive ? "Active" : "Inactive"}
+        </span>
+      </Link>
+      {isActive ? (
+        <>
+          <button
+            onClick={() => setConfirmOpen(true)}
+            className="shrink-0 text-xs text-muted-foreground hover:text-destructive transition-colors"
+            data-testid={`button-deactivate-${client.id}`}
+          >
+            <UserX className="w-4 h-4" />
+          </button>
+          <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {client.name} will lose access to the Trak Client app. You'll keep full
+                  access to their data, and you can reactivate them anytime.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  onClick={() => setStatus("inactive")}
+                >
+                  Yes, deactivate
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </>
+      ) : (
+        <button
+          onClick={() => setStatus("active")}
+          className="shrink-0 text-xs text-muted-foreground hover:text-primary transition-colors"
+          data-testid={`button-reactivate-${client.id}`}
+        >
+          <UserCheck className="w-4 h-4" />
+        </button>
+      )}
+    </div>
+  );
+}
 
 function ClientCard({ client }: { client: Client }) {
   const { toast } = useToast();
@@ -119,6 +196,7 @@ function ClientCard({ client }: { client: Client }) {
 export function ClientList() {
   const { data: clients, isLoading, isError, refetch, isFetching } = useListClients();
   const [search, setSearch] = useState("");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -199,14 +277,25 @@ export function ClientList() {
         </SheetContent>
       </Sheet>
 
-      <div className="flex items-center space-x-2 bg-card border rounded-md px-3 py-2">
-        <Search className="w-5 h-5 text-muted-foreground" />
-        <Input 
-          value={search} 
-          onChange={(e) => setSearch(e.target.value)} 
-          placeholder="Search clients..." 
-          className="border-0 focus-visible:ring-0 shadow-none px-0"
-        />
+      <div className="flex items-center gap-2">
+        <div className="flex-1 flex items-center space-x-2 bg-card border rounded-md px-3 py-2">
+          <Search className="w-5 h-5 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search clients..."
+            className="border-0 focus-visible:ring-0 shadow-none px-0"
+          />
+        </div>
+        <Select value={viewMode} onValueChange={v => setViewMode(v as "grid" | "list")}>
+          <SelectTrigger className="h-10 w-[110px] shrink-0" data-testid="select-clients-view-mode">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="grid"><span className="flex items-center gap-1.5"><LayoutGrid className="w-3.5 h-3.5" /> Grid</span></SelectItem>
+            <SelectItem value="list"><span className="flex items-center gap-1.5"><List className="w-3.5 h-3.5" /> List</span></SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {isLoading ? (
@@ -220,32 +309,53 @@ export function ClientList() {
         />
       ) : (
         <div className="space-y-8">
-          <div className="space-y-4">
+          <div className="space-y-3">
             <h2 className="text-lg font-semibold text-muted-foreground">
               Active Clients {activeClients ? `(${activeClients.length})` : ""}
             </h2>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {activeClients?.map((client) => (
-                <ClientCard key={client.id} client={client} />
-              ))}
-              {activeClients?.length === 0 && (
-                <div className="col-span-full p-8 text-center text-muted-foreground border rounded-lg bg-card">
-                  No active clients found.
-                </div>
-              )}
-            </div>
+            {viewMode === "grid" ? (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {activeClients?.map((client) => (
+                  <ClientCard key={client.id} client={client} />
+                ))}
+                {activeClients?.length === 0 && (
+                  <div className="col-span-full p-8 text-center text-muted-foreground border rounded-lg bg-card">
+                    No active clients found.
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                {activeClients?.map((client) => (
+                  <ClientListRow key={client.id} client={client} onStatusChange={() => {}} />
+                ))}
+                {activeClients?.length === 0 && (
+                  <div className="p-8 text-center text-muted-foreground border rounded-lg bg-card">
+                    No active clients found.
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {(inactiveClients?.length ?? 0) > 0 && (
-            <div className="space-y-4">
+            <div className="space-y-3">
               <h2 className="text-lg font-semibold text-muted-foreground">
                 Inactive Clients ({inactiveClients?.length})
               </h2>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {inactiveClients?.map((client) => (
-                  <ClientCard key={client.id} client={client} />
-                ))}
-              </div>
+              {viewMode === "grid" ? (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {inactiveClients?.map((client) => (
+                    <ClientCard key={client.id} client={client} />
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  {inactiveClients?.map((client) => (
+                    <ClientListRow key={client.id} client={client} onStatusChange={() => {}} />
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
