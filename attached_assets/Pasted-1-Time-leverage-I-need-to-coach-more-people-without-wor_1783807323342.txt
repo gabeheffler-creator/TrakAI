@@ -1,0 +1,50 @@
+1. Time leverage: “I need to coach more people without working more hours”
+Solo coaches are usually trading their own time for money. Their biggest fear is hitting a ceiling where they can’t take on more clients without working insane hours.
+What they care most about:
+a) Reusable programs and auto‑delivery
+Why it matters:
+Every hour spent rebuilding the same workout or nutrition plan from scratch is an hour not spent on sales, marketing, or actual coaching.
+What they want in Trainerize:
+Master Programs they can design once and reuse forever.
+Auto‑scheduled workouts, habits, and messages that run on autopilot.
+The ability to tweak one client’s plan without breaking the template for everyone else.
+This directly increases how many clients they can handle at once.
+b) Automated engagement (auto‑messages, check‑ins)
+Why it matters:
+Clients who feel supported stick around longer and refer others—but manually messaging 50–100 clients every day is impossible.
+What they want:
+Welcome sequences, milestone messages, and “I noticed you haven’t logged in” nudges that fire automatically.
+Post‑workout and post‑check‑in automations that make each client feel seen, even when the coach is busy.
+They care about this because it protects retention without requiring constant manual effort.
+c) All‑in‑one stack (programs + messaging + payments + scheduling)
+Why it matters:
+Many solo coaches start out juggling Google Sheets, WhatsApp, Calendly, Stripe, and a dozen other tools. That’s a tax on time and mental energy.
+What they want:
+One place to build programs, chat with clients, book sessions, and collect payments.
+Fewer tabs, fewer logins, fewer “Where did I send that?” moments.
+They care because it frees up cognitive bandwidth to focus on coaching and growing the business.
+
+2. Client results and retention: “If my clients don’t see progress, I lose them (and my reputation)”
+Independent coaches live and die by outcomes and word of mouth. Their pipeline is often: social content → DMs → trial → paying client → referral. If clients don’t get results or feel supported, they cancel and don’t refer.
+What they care most about:
+a) Clear visibility into client activity and compliance
+Why it matters:
+They need to know who’s actually doing the work and who’s ghosting, so they can intervene before the client quits.
+What they want in Trainerize:
+Dashboards that show workouts completed, nutrition compliance, habit streaks, and app sign‑ins.
+Simple flags like “low activity” or “hit a personal best” so they know who to message first.
+This lets them be proactive instead of reactive, which improves results and reduces churn.
+b) Easy progress tracking (stats, photos, measurements)
+Why it matters:
+Clients often feel like “nothing’s happening” even when they’re improving. Coaches need concrete proof of progress to keep clients motivated.
+What they want:
+Simple logging for weight, measurements, and photos.
+Graphs and timelines they can reference in calls or messages: “Look at your 8‑week trend.”
+They care because this is a retention and motivation tool, not just data.
+c) Habit and nutrition coaching built in
+Why it matters:
+For many clients, the limiting factor isn’t the workout; it’s daily behavior (sleep, stress, food, consistency).
+What they want:
+Habit tracking and streaks to make behavior change tangible.
+Nutrition compliance scores and simple macro/calorie targets they can adjust quickly.
+This helps them deliver more holistic coaching without needing a separate nutrition app or complex spreadsheets.

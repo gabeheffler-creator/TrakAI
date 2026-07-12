@@ -1,0 +1,125 @@
+ABC Trainerize is used by a wide range of fitness businesses, but the core demographic is **entrepreneurial fitness professionals and small-to-midsize fitness operators** who run or own their coaching business. The platform explicitly markets itself for both **independent coaches** and **studios/gyms**, from single-location boutiques to multi-location franchises. [trainerize](https://www.trainerize.com/)
+
+Here’s a breakdown by business type and scale, based on how ABC Fitness positions the product and the kinds of customers they showcase.
+
+***
+
+## 1. Independent coaches & solo entrepreneurs
+
+**Who they are:**  
+- Personal trainers, online coaches, nutrition coaches, lifestyle coaches operating as solopreneurs.  
+- Often working from home gyms, client homes, or small rented studio spaces.  
+- Many are building a primarily **online or hybrid** business (mix of in‑person and remote coaching). [trainerize](https://www.trainerize.com/)
+
+**Typical profile:**  
+- 1–5 active clients per coach at the start, scaling up to dozens or hundreds with group/on‑demand programs.  
+- Use multiple tools for bookings, messaging, programs, and payments before consolidating onto Trainerize. ABC’s own survey data says these coaches often juggle **5–7 tools** and spend **$100+/month** across them. [play.google](https://play.google.com/store/apps/details?id=com.trainerize.Trainerize)
+- Common use cases:  
+  - 1:1 online coaching with custom workouts and nutrition plans  
+  - Small-group challenges (e.g., 6‑week transformations)  
+  - Selling digital memberships and on‑demand workout libraries [play.google](https://play.google.com/store/apps/details?id=com.trainerize.Trainerize)
+
+**Examples from their customer stories:**  
+- Solo coaches like Brittany Harris (BFITT), Mike Monti, James David, Johnny, and others who built global online client rosters or doubled/tripled their client numbers using Trainerize. [trainerize](https://www.trainerize.com/blog/fitness-professionals-grow-businesses/)
+- Specialists such as yoga therapists, post‑rehab coaches, or niche coaches (e.g., faith‑based, trauma‑informed) who need a flexible platform to deliver tailored programs. [trainerize](https://www.trainerize.com/blog/fitness-professionals-grow-businesses/)
+
+***
+
+## 2. Boutique studios & small gyms
+
+**Who they are:**  
+- Small personal training studios, group training studios, and boutique fitness concepts (e.g., HIIT, strength, functional fitness, yoga/pilates studios offering PT).  
+- Typically **single-location** operations with a defined local community. [resources.trainerize](https://resources.trainerize.com/customer-success-stories)
+
+**Typical profile:**  
+- Owner-operators plus a small team of coaches (e.g., 2–10 trainers).  
+- Offer a mix of:  
+  - In‑person 1:1 and small‑group training  
+  - Hybrid memberships that include app‑based workouts, challenges, and nutrition coaching between sessions [trainerize](https://www.trainerize.com/)
+- Use Trainerize to:  
+  - Standardize programming across coaches  
+  - Track member progress and engagement  
+  - Run studio-wide challenges and build community [trainerize](https://www.trainerize.com/blog/fitness-professionals-grow-businesses/)
+
+**Examples:**  
+- 23W (Australia-based hybrid studio) using Trainerize to maintain high coaching standards online. [trainerize](https://www.trainerize.com/blog/fitness-professionals-grow-businesses/)
+- Revolution Fitness, MUVFit, Garage Gym, and similar studios that pivoted to or expanded hybrid models and used Trainerize to manage both in‑person and online members. [trainerize](https://www.trainerize.com/blog/fitness-professionals-grow-businesses/)
+
+***
+
+## 3. Midsize gyms and health clubs
+
+**Who they are:**  
+- Independent gyms, athletic clubs, and health clubs that are larger than boutique studios but not massive chains.  
+- Often have multiple departments (PT, group fitness, wellness) and a sizable member base. [trainerize](https://www.trainerize.com/)
+
+**Typical profile:**  
+- Dozens to low hundreds of personal training clients within a broader membership base.  
+- Use Trainerize to:  
+  - Extend personal training beyond the gym floor (digital PT, remote coaching)  
+  - Offer “premium” tiers that include app access, habit tracking, and nutrition coaching  
+  - Improve retention and upsell existing members into PT or hybrid packages [trainerize](https://www.trainerize.com/)
+
+**Examples:**  
+- Wisconsin Athletic Club (WAC) expanding into digital fitness with Trainerize. [trainerize](https://www.trainerize.com/blog/fitness-professionals-grow-businesses/)
+- South Austin Gym and similar clubs that used Trainerize to weather disruptions (e.g., pandemic) and then scale their hybrid offerings. [trainerize](https://www.trainerize.com/blog/fitness-professionals-grow-businesses/)
+
+***
+
+## 4. Franchises and multi-location operators
+
+**Who they are:**  
+- Fitness franchises and networks with multiple locations, sometimes across regions or countries.  
+- Need consistent standards, centralized oversight, and scalable tech. [trainerize](https://www.trainerize.com/blog/fitness-professionals-grow-businesses/)
+
+**Typical profile:**  
+- Multiple franchise territories or corporate-owned sites (e.g., 10–50+ locations, sometimes more).  
+- Use Trainerize to:  
+  - Enforce a **single coaching standard** across all locations  
+  - Deploy standardized programs and challenges network‑wide  
+  - Provide each franchisee with the same client experience and reporting tools [trainerize](https://www.trainerize.com/blog/fitness-professionals-grow-businesses/)
+
+**Examples:**  
+- **Transform Hub** (UK): 44-location gym franchise delivering group-based personal training to the over‑30 demographic, using Trainerize to maintain consistency as they scale toward 100 sites. [trainerize](https://www.trainerize.com/blog/fitness-professionals-grow-businesses/)
+- **Alloy** fitness franchise: uses Trainerize to scale personalized group coaching across franchises. [trainerize](https://www.trainerize.com/blog/fitness-professionals-grow-businesses/)
+- Other multi-site operators like MyQFit, which has coached thousands of members (up to ~21,000 at once) at scale. [trainerize](https://www.trainerize.com/blog/fitness-professionals-grow-businesses/)
+
+***
+
+## 5. Specialized and niche operators
+
+Beyond “standard” gyms and PT businesses, Trainerize is also used by:
+
+- **Corporate wellness providers**  
+  - Example: TriCore Wellness, which scaled a corporate wellness business using Trainerize to manage client communication and programs. [trainerize](https://www.trainerize.com/blog/fitness-professionals-grow-businesses/)
+
+- **Sports teams and performance groups**  
+  - Example: Johnstown Tomahawks (hockey team) using Trainerize to manage fitness for 30 players with a hands‑off, scalable approach. [trainerize](https://www.trainerize.com/blog/fitness-professionals-grow-businesses/)
+
+- **Therapeutic and rehab-focused practices**  
+  - Yoga therapists, physio-aligned coaches, and post‑injury specialists who deliver structured rehab and movement programs online. [trainerize](https://www.trainerize.com/blog/fitness-professionals-grow-businesses/)
+
+- **Faith-based, trauma-informed, or highly niche coaching brands**  
+  - Brands like Champion Method (fitness + religion) and Fire Team Whiskey (trauma resolution + fitness) use Trainerize to deliver holistic programs globally. [trainerize](https://www.trainerize.com/blog/fitness-professionals-grow-businesses/)
+
+***
+
+## Geographic and market reach
+
+- ABC Fitness notes that Trainerize is **available in 39 countries**, and their customer stories span the US, Canada, UK, Australia, and beyond. [trainerize](https://www.trainerize.com/)
+- Their payment infrastructure (ABC Fitness) processes transactions for **40M+ members across 30,000+ fitness businesses** globally, which underpins the payment side of Trainerize Business. [play.google](https://play.google.com/store/apps/details?id=com.trainerize.Trainerize)
+- While they serve very large networks, the **core demographic** remains entrepreneurial coaches and small-to-midsize operators who want to professionalize and scale without building their own tech stack. [trainerize](https://www.trainerize.com/)
+
+***
+
+### Summary snapshot
+
+In practice, Trainerize’s user base looks like:
+
+- **Solo online coaches and PTs** (global, niche, and generalist)  
+- **Boutique studios** (hybrid in‑person + online models)  
+- **Independent gyms/health clubs** adding digital PT and premium tiers  
+- **Franchises and multi-location brands** standardizing coaching at scale  
+- **Specialized providers** (corporate wellness, sports teams, rehab, niche lifestyle coaching) [trainerize](https://www.trainerize.com/)
+
+If you tell me your own business type (e.g., solo online coach, 3-location studio, etc.), I can map which Trainerize plan/features and which customer stories are most relevant to your situation.
