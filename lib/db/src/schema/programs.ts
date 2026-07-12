@@ -9,7 +9,7 @@ export const programsTable = pgTable("programs", {
   id: serial("id").primaryKey(),
   coachId: integer("coach_id").notNull().references(() => coachesTable.id, { onDelete: "cascade" }),
   clientId: integer("client_id").references(() => clientsTable.id, { onDelete: "cascade" }),
-  sourceTemplateId: integer("source_template_id"),
+  sourceTemplateId: integer("source_template_id").references((): any => programsTable.id, { onDelete: "set null" }),
   name: text("name").notNull(),
   description: text("description"),
   durationWeeks: integer("duration_weeks"),

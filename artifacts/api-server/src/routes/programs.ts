@@ -111,8 +111,10 @@ async function cloneProgram(sourceProgramId: number, coachId: number, clientId: 
     phaseIdMap[phase.id] = newPhase.id;
   }
 
-  const sourceNutritionGoals = await db.select().from(programNutritionGoalsTable)
-    .where(inArray(programNutritionGoalsTable.phaseId, sourcePhases.map(p => p.id)));
+  const sourceNutritionGoals = sourcePhases.length > 0
+    ? await db.select().from(programNutritionGoalsTable)
+        .where(inArray(programNutritionGoalsTable.phaseId, sourcePhases.map(p => p.id)))
+    : [];
 
   const sourceDays = await db.select().from(programDaysTable)
     .where(eq(programDaysTable.programId, sourceProgramId))
@@ -606,6 +608,7 @@ router.post("/clients/:clientId/program-assignment", requireClientOwnership(), r
     const { clientId } = AssignProgramParams.parse({ clientId: Number(req.params.clientId) });
     const body = AssignProgramBody.parse(req.body);
     const toDateStr = (d: Date | string) => d instanceof Date ? d.toISOString().split("T")[0] : d;
+    if (!(await programBelongsToCoach(body.programId, coachIdOf(req)))) { res.status(404).json({ error: "Program not found" }); return; }
     const clonedProgramId = await cloneProgram(body.programId, coachIdOf(req), clientId);
     const [assignment] = await db.insert(programAssignmentsTable).values({
       clientId,
