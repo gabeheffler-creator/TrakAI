@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useParams } from "wouter";
+import { useParams, useLocation } from "wouter";
 import {
   useGetClient,
   useGetClientDashboard,
@@ -476,6 +476,7 @@ function ProgramDayCard({ day, dayNumber, programId, onChanged }: { day: Program
 export function ClientProfile() {
   const { clientId: clientIdStr } = useParams<{ clientId: string }>();
   const clientId = Number(clientIdStr);
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
   const qc = useQueryClient();
   const [msgInput, setMsgInput] = useState("");
@@ -911,7 +912,9 @@ export function ClientProfile() {
                         {fullProgram?.days && <p className="text-xs text-muted-foreground">{fullProgram.days.length} days</p>}
                       </div>
                     </div>
-                    <Dialog open={programDialogOpen} onOpenChange={setProgramDialogOpen}>
+                    <div className="flex gap-2 shrink-0">
+                      <Button variant="outline" size="sm" onClick={() => setLocation(`/programs/${programAssignment!.programId}`)}>Edit Program</Button>
+                      <Dialog open={programDialogOpen} onOpenChange={setProgramDialogOpen}>
                       <DialogTrigger asChild>
                         <Button variant="outline" size="sm">Change</Button>
                       </DialogTrigger>
@@ -943,6 +946,7 @@ export function ClientProfile() {
                         </Form>
                       </DialogContent>
                     </Dialog>
+                    </div>
                   </div>
                 </CardContent>
               </Card>

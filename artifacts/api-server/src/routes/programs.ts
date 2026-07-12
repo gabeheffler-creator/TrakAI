@@ -80,12 +80,97 @@ async function programExerciseBelongsToCoach(peId: number, coachId: number): Pro
   return !!row && row.coachId === coachId;
 }
 
+// ── Clone helper ─────────────────────────────────────────────────────────
+
+async function cloneProgram(sourceProgramId: number, coachId: number, clientId: number): Promise<number> {
+  const [source] = await db.select().from(programsTable).where(eq(programsTable.id, sourceProgramId));
+  if (!source) throw new Error(`Program ${sourceProgramId} not found`);
+
+  const [clone] = await db.insert(programsTable).values({
+    coachId,
+    clientId,
+    sourceTemplateId: sourceProgramId,
+    name: source.name,
+    description: source.description,
+    durationWeeks: source.durationWeeks,
+  }).returning();
+
+  const sourcePhases = await db.select().from(programPhasesTable)
+    .where(eq(programPhasesTable.programId, sourceProgramId))
+    .orderBy(asc(programPhasesTable.order));
+
+  const phaseIdMap: Record<number, number> = {};
+  for (const phase of sourcePhases) {
+    const [newPhase] = await db.insert(programPhasesTable).values({
+      programId: clone.id,
+      name: phase.name,
+      order: phase.order,
+      durationWeeks: phase.durationWeeks,
+      daysPerWeek: phase.daysPerWeek,
+    }).returning();
+    phaseIdMap[phase.id] = newPhase.id;
+  }
+
+  const sourceNutritionGoals = await db.select().from(programNutritionGoalsTable)
+    .where(inArray(programNutritionGoalsTable.phaseId, sourcePhases.map(p => p.id)));
+
+  const sourceDays = await db.select().from(programDaysTable)
+    .where(eq(programDaysTable.programId, sourceProgramId))
+    .orderBy(asc(programDaysTable.dayNumber));
+
+  const dayIdMap: Record<number, number> = {};
+  for (const day of sourceDays) {
+    const [newDay] = await db.insert(programDaysTable).values({
+      programId: clone.id,
+      phaseId: day.phaseId != null ? (phaseIdMap[day.phaseId] ?? null) : null,
+      dayNumber: day.dayNumber,
+      name: day.name,
+      notes: day.notes,
+    }).returning();
+    dayIdMap[day.id] = newDay.id;
+  }
+
+  for (const goal of sourceNutritionGoals) {
+    await db.insert(programNutritionGoalsTable).values({
+      phaseId: phaseIdMap[goal.phaseId],
+      dayId: goal.dayId != null ? (dayIdMap[goal.dayId] ?? null) : null,
+      calories: goal.calories,
+      protein: goal.protein,
+      carbs: goal.carbs,
+      fat: goal.fat,
+    });
+  }
+
+  if (sourceDays.length > 0) {
+    const sourceExercises = await db.select().from(programExercisesTable)
+      .where(inArray(programExercisesTable.dayId, sourceDays.map(d => d.id)))
+      .orderBy(asc(programExercisesTable.order));
+
+    for (const ex of sourceExercises) {
+      const newDayId = dayIdMap[ex.dayId];
+      if (!newDayId) continue;
+      await db.insert(programExercisesTable).values({
+        dayId: newDayId,
+        exerciseId: ex.exerciseId,
+        sets: ex.sets,
+        reps: ex.reps,
+        order: ex.order,
+        weight: ex.weight,
+        notes: ex.notes,
+        restSeconds: ex.restSeconds,
+      });
+    }
+  }
+
+  return clone.id;
+}
+
 // ── Programs ──────────────────────────────────────────────────────────────
 
 router.get("/programs", requireCoachAuth, async (req, res) => {
   try {
     const programs = await db.select().from(programsTable)
-      .where(eq(programsTable.coachId, coachIdOf(req)))
+      .where(and(eq(programsTable.coachId, coachIdOf(req)), isNull(programsTable.clientId)))
       .orderBy(programsTable.createdAt);
     res.json(programs.map(p => ({ ...p, createdAt: p.createdAt.toISOString() })));
   } catch (err) {
@@ -521,13 +606,14 @@ router.post("/clients/:clientId/program-assignment", requireClientOwnership(), r
     const { clientId } = AssignProgramParams.parse({ clientId: Number(req.params.clientId) });
     const body = AssignProgramBody.parse(req.body);
     const toDateStr = (d: Date | string) => d instanceof Date ? d.toISOString().split("T")[0] : d;
+    const clonedProgramId = await cloneProgram(body.programId, coachIdOf(req), clientId);
     const [assignment] = await db.insert(programAssignmentsTable).values({
       clientId,
-      programId: body.programId,
+      programId: clonedProgramId,
       startDate: toDateStr(body.startDate),
       endDate: body.endDate != null ? toDateStr(body.endDate) : null,
     }).returning();
-    const [program] = await db.select().from(programsTable).where(eq(programsTable.id, assignment.programId));
+    const [program] = await db.select().from(programsTable).where(eq(programsTable.id, clonedProgramId));
     res.status(201).json({ ...assignment, programName: program?.name ?? "" });
   } catch (err) {
     req.log.error(err);

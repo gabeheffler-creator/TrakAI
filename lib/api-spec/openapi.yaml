@@ -1923,6 +1923,10 @@ components:
           type: ["string", "null"]
         durationWeeks:
           type: ["integer", "null"]
+        clientId:
+          type: ["integer", "null"]
+        sourceTemplateId:
+          type: ["integer", "null"]
         createdAt:
           type: string
           format: date-time
@@ -2068,6 +2072,10 @@ components:
         description:
           type: ["string", "null"]
         durationWeeks:
+          type: ["integer", "null"]
+        clientId:
+          type: ["integer", "null"]
+        sourceTemplateId:
           type: ["integer", "null"]
         phases:
           type: array

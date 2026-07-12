@@ -13,5 +13,9 @@ export interface Program {
   description?: string | null;
   /** @nullable */
   durationWeeks?: number | null;
+  /** @nullable */
+  clientId?: number | null;
+  /** @nullable */
+  sourceTemplateId?: number | null;
   createdAt: Date;
 }

@@ -15,6 +15,10 @@ export interface ProgramDetail {
   description?: string | null;
   /** @nullable */
   durationWeeks?: number | null;
+  /** @nullable */
+  clientId?: number | null;
+  /** @nullable */
+  sourceTemplateId?: number | null;
   phases: ProgramPhaseDetail[];
   days: ProgramDayDetail[];
   createdAt?: Date;

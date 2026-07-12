@@ -3,10 +3,13 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { exercisesTable } from "./exercises";
 import { coachesTable } from "./coaches";
+import { clientsTable } from "./clients";
 
 export const programsTable = pgTable("programs", {
   id: serial("id").primaryKey(),
   coachId: integer("coach_id").notNull().references(() => coachesTable.id, { onDelete: "cascade" }),
+  clientId: integer("client_id").references(() => clientsTable.id, { onDelete: "cascade" }),
+  sourceTemplateId: integer("source_template_id"),
   name: text("name").notNull(),
   description: text("description"),
   durationWeeks: integer("duration_weeks"),

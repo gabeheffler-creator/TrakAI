@@ -275,6 +275,8 @@ export const GetClientDashboardResponse = zod.object({
   "name": zod.string(),
   "description": zod.string().nullish(),
   "durationWeeks": zod.number().nullish(),
+  "clientId": zod.number().nullish(),
+  "sourceTemplateId": zod.number().nullish(),
   "phases": zod.array(zod.object({
   "id": zod.number(),
   "name": zod.string(),
@@ -426,6 +428,8 @@ export const ListProgramsResponseItem = zod.object({
   "name": zod.string(),
   "description": zod.string().nullish(),
   "durationWeeks": zod.number().nullish(),
+  "clientId": zod.number().nullish(),
+  "sourceTemplateId": zod.number().nullish(),
   "createdAt": zod.coerce.date()
 })
 export const ListProgramsResponse = zod.array(ListProgramsResponseItem)
@@ -456,6 +460,8 @@ export const GetProgramResponse = zod.object({
   "name": zod.string(),
   "description": zod.string().nullish(),
   "durationWeeks": zod.number().nullish(),
+  "clientId": zod.number().nullish(),
+  "sourceTemplateId": zod.number().nullish(),
   "phases": zod.array(zod.object({
   "id": zod.number(),
   "name": zod.string(),
@@ -550,6 +556,8 @@ export const UpdateProgramResponse = zod.object({
   "name": zod.string(),
   "description": zod.string().nullish(),
   "durationWeeks": zod.number().nullish(),
+  "clientId": zod.number().nullish(),
+  "sourceTemplateId": zod.number().nullish(),
   "createdAt": zod.coerce.date()
 })
 
