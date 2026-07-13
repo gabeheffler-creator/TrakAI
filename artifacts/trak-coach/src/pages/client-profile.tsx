@@ -490,6 +490,7 @@ export function ClientProfile() {
   const [msgInput, setMsgInput] = useState("");
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [programDialogOpen, setProgramDialogOpen] = useState(false);
+  const [programHistoryOpen, setProgramHistoryOpen] = useState(true);
   const [clientGoalEditOpen, setClientGoalEditOpen] = useState(false);
   const [clientGoalValue, setClientGoalValue] = useState("");
   const [clientGoalTargetDate, setClientGoalTargetDate] = useState("");
@@ -1044,13 +1045,49 @@ export function ClientProfile() {
 
         {/* Program */}
         <TabsContent value="program" className="mt-4 space-y-4">
-          {!programAssignment ? (
+          {!programAssignment && (programHistory?.length ?? 0) === 0 ? (
             <div className="text-center py-16 text-muted-foreground">
               <Dumbbell className="w-10 h-10 mx-auto mb-3 opacity-20" />
               <p className="text-sm">No program assigned yet.</p>
               <Dialog open={programDialogOpen} onOpenChange={setProgramDialogOpen}>
                 <DialogTrigger asChild>
                   <Button size="sm" className="mt-4">Assign a Program</Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader><DialogTitle>Assign Program</DialogTitle></DialogHeader>
+                  <Form {...programForm}>
+                    <form onSubmit={programForm.handleSubmit(handleAssignProgram)} className="space-y-4">
+                      <FormField control={programForm.control} name="programId" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Program</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Select a program" /></SelectTrigger></FormControl>
+                            <SelectContent>
+                              {programs?.map(p => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                      <FormField control={programForm.control} name="startDate" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Start Date</FormLabel>
+                          <FormControl><Input type="date" {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                      <Button type="submit" className="w-full" disabled={assignProgram.isPending}>Assign</Button>
+                    </form>
+                  </Form>
+                </DialogContent>
+              </Dialog>
+            </div>
+          ) : !programAssignment ? (
+            <div className="rounded-lg border border-dashed border-border px-4 py-3 flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">No active program</p>
+              <Dialog open={programDialogOpen} onOpenChange={setProgramDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm">Assign a Program</Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader><DialogTitle>Assign Program</DialogTitle></DialogHeader>
@@ -1165,27 +1202,40 @@ export function ClientProfile() {
 
           {(programHistory?.length ?? 0) > 0 && (
             <div className="mt-6">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">Previous programs</p>
-              <div className="space-y-2">
-                {programHistory!.map(entry => (
-                  <div key={entry.id} className="rounded-lg border border-border bg-card px-4 py-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="font-semibold text-sm truncate">{entry.programName}</p>
-                        {entry.sourceTemplateName && (
-                          <p className="text-xs text-muted-foreground mt-0.5">From template: {entry.sourceTemplateName}</p>
+              <button
+                className="flex items-center gap-1.5 w-full text-left mb-3 group"
+                onClick={() => setProgramHistoryOpen(o => !o)}
+              >
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Previous programs
+                </p>
+                <Badge variant="secondary" className="text-xs">{programHistory!.length}</Badge>
+                {programHistoryOpen
+                  ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground ml-auto" />
+                  : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground ml-auto" />}
+              </button>
+              {programHistoryOpen && (
+                <div className="space-y-2">
+                  {programHistory!.map(entry => (
+                    <div key={entry.id} className="rounded-lg border border-border bg-card px-4 py-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-sm truncate">{entry.programName}</p>
+                          {entry.sourceTemplateName && (
+                            <p className="text-xs text-muted-foreground mt-0.5">From template: {entry.sourceTemplateName}</p>
+                          )}
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {entry.startDate} → {entry.endDate ?? "ongoing"}
+                          </p>
+                        </div>
+                        {entry.durationWeeks != null && (
+                          <Badge variant="secondary" className="shrink-0 text-xs">{entry.durationWeeks}w</Badge>
                         )}
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {entry.startDate} → {entry.endDate ?? "ongoing"}
-                        </p>
                       </div>
-                      {entry.durationWeeks != null && (
-                        <Badge variant="secondary" className="shrink-0 text-xs">{entry.durationWeeks}w</Badge>
-                      )}
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </TabsContent>

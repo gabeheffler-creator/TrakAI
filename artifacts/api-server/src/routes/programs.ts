@@ -598,7 +598,7 @@ router.get("/clients/:clientId/program-assignment-history", requireClientOwnersh
       .select()
       .from(programAssignmentHistoryTable)
       .where(eq(programAssignmentHistoryTable.clientId, clientId))
-      .orderBy(desc(programAssignmentHistoryTable.createdAt));
+      .orderBy(desc(programAssignmentHistoryTable.endDate), desc(programAssignmentHistoryTable.createdAt));
 
     const toWeeks = (start: string, end: string | null): number | null => {
       if (!end) return null;
