@@ -21,6 +21,7 @@ import type {
 
 import type {
   ActivityHeatmapEntry,
+  AiProgramInput,
   Assignment,
   AssignmentInput,
   AssignmentUpdate,
@@ -1806,6 +1807,77 @@ export const useCreateProgram = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getCreateProgramMutationOptions(options));
+    }
+
+export const getGenerateAiProgramUrl = () => {
+
+
+
+
+  return `/api/programs/generate-ai`
+}
+
+/**
+ * @summary Generate a complete workout program using AI based on a training goal
+ */
+export const generateAiProgram = async (aiProgramInput: AiProgramInput, options?: RequestInit): Promise<Program> => {
+
+  return customFetch<Program>(getGenerateAiProgramUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      aiProgramInput,)
+  }
+);}
+
+
+
+
+export const getGenerateAiProgramMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof generateAiProgram>>, TError,{data: BodyType<AiProgramInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof generateAiProgram>>, TError,{data: BodyType<AiProgramInput>}, TContext> => {
+
+const mutationKey = ['generateAiProgram'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof generateAiProgram>>, {data: BodyType<AiProgramInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  generateAiProgram(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type GenerateAiProgramMutationResult = NonNullable<Awaited<ReturnType<typeof generateAiProgram>>>
+    export type GenerateAiProgramMutationBody = BodyType<AiProgramInput>
+    export type GenerateAiProgramMutationError = ErrorType<void>
+
+    /**
+ * @summary Generate a complete workout program using AI based on a training goal
+ */
+export const useGenerateAiProgram = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof generateAiProgram>>, TError,{data: BodyType<AiProgramInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof generateAiProgram>>,
+        TError,
+        {data: BodyType<AiProgramInput>},
+        TContext
+      > => {
+      return useMutation(getGenerateAiProgramMutationOptions(options));
     }
 
 export const getGetProgramUrl = (programId: number,) => {

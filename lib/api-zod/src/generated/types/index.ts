@@ -8,6 +8,7 @@
 
 export * from './activityHeatmapEntry';
 export * from './activityItem';
+export * from './aiProgramInput';
 export * from './assignment';
 export * from './assignmentInput';
 export * from './assignmentInputType';

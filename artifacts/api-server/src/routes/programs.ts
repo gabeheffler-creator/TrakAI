@@ -51,6 +51,7 @@ import {
   DeleteDayNutritionGoalParams,
 } from "@workspace/api-zod";
 import { requireCoachAuth, requireClientOwnership, requireCoachOnly } from "../middlewares/auth";
+import { openai } from "@workspace/integrations-openai-ai-server";
 import { cloneProgram, type DbOrTx } from "../services/clone-program";
 
 if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
@@ -182,6 +183,144 @@ router.post("/programs", requireCoachAuth, async (req, res) => {
   } catch (err) {
     req.log.error(err);
     res.status(400).json({ error: "Failed to create program" });
+  }
+});
+
+router.post("/programs/generate-ai", requireCoachAuth, async (req, res) => {
+  try {
+    const goalText = typeof req.body?.goalText === "string" ? req.body.goalText.trim() : null;
+    if (!goalText) {
+      res.status(400).json({ error: "goalText is required" });
+      return;
+    }
+    const durationWeeks = req.body?.durationWeeks ? Number(req.body.durationWeeks) : undefined;
+    const clientId = req.body?.clientId ? Number(req.body.clientId) : undefined;
+
+    const exercises = await db.select({
+      id: exercisesTable.id,
+      name: exercisesTable.name,
+      muscleGroup: exercisesTable.muscleGroup,
+      isCompound: exercisesTable.isCompound,
+    }).from(exercisesTable);
+
+    const exerciseIdSet = new Set(exercises.map(e => e.id));
+    const exerciseCatalog = exercises.map(e => `${e.id}: ${e.name} (${e.muscleGroup ?? "general"}${e.isCompound ? ", compound" : ""})`).join("\n");
+
+    let clientContext = "";
+    if (clientId) {
+      const [client] = await db.select({ name: clientsTable.name, goal: clientsTable.goal })
+        .from(clientsTable)
+        .where(eq(clientsTable.id, clientId));
+      if (client) {
+        clientContext = `Client name: ${client.name}${client.goal ? `\nClient's stated goal: ${client.goal}` : ""}\n`;
+      }
+    }
+
+    const durationHint = durationWeeks
+      ? `Program duration: ${durationWeeks} weeks.`
+      : "Choose a suitable program duration (4–16 weeks).";
+
+    const userPrompt = `${clientContext}Training goal: ${goalText}
+${durationHint}
+
+Available exercises (ID: Name (Muscle Group)):
+${exerciseCatalog}
+
+Generate a complete workout program. Use ONLY exercise IDs from the list above. Return ONLY valid JSON with this exact structure:
+{
+  "name": "Program name",
+  "description": "Program description (2-3 sentences)",
+  "durationWeeks": 12,
+  "days": [
+    {
+      "dayNumber": 1,
+      "name": "Day name",
+      "notes": "Coaching notes or null",
+      "exercises": [
+        { "exerciseId": 5, "sets": 4, "reps": "6-8", "restSeconds": 120 }
+      ]
+    }
+  ]
+}
+
+Guidelines:
+- 3–5 training days total (not per week, just the day templates)
+- 4–7 exercises per day
+- Mix compound and isolation movements
+- Sensible sets (2–5), reps as a string (e.g. "8-12", "5", "15-20"), rest in seconds (60–180)
+- dayNumber starts at 1`;
+
+    const aiResponse = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      max_completion_tokens: 4096,
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are an expert personal trainer and strength coach who designs evidence-based workout programs. Return only valid JSON, no markdown fences.",
+        },
+        { role: "user", content: userPrompt },
+      ],
+    });
+
+    const raw = aiResponse.choices[0]?.message?.content ?? "{}";
+    type AiDay = { dayNumber: number; name: string; notes?: string | null; exercises: Array<{ exerciseId: number; sets: number; reps: string; restSeconds?: number }> };
+    type AiProgram = { name?: string; description?: string; durationWeeks?: number; days?: AiDay[] };
+    let parsed: AiProgram = {};
+    try {
+      const clean = raw.replace(/^```[a-z]*\n?/i, "").replace(/```\s*$/, "").trim();
+      parsed = JSON.parse(clean) as AiProgram;
+    } catch {
+      req.log.warn({ raw }, "Failed to parse AI program response as JSON");
+      res.status(500).json({ error: "AI returned an invalid response. Please try again." });
+      return;
+    }
+
+    if (!parsed.name || !Array.isArray(parsed.days) || parsed.days.length === 0) {
+      req.log.warn({ parsed }, "AI returned incomplete program structure");
+      res.status(500).json({ error: "AI returned an incomplete program. Please try again." });
+      return;
+    }
+
+    const program = await db.transaction(async (tx) => {
+      const [newProgram] = await tx.insert(programsTable).values({
+        coachId: coachIdOf(req),
+        name: parsed.name!,
+        description: parsed.description ?? null,
+        durationWeeks: parsed.durationWeeks ?? durationWeeks ?? null,
+      }).returning();
+
+      for (const day of parsed.days!) {
+        const [newDay] = await tx.insert(programDaysTable).values({
+          programId: newProgram.id,
+          dayNumber: day.dayNumber,
+          name: day.name,
+          notes: day.notes ?? null,
+        }).returning();
+
+        const validExercises = (day.exercises ?? []).filter(e => exerciseIdSet.has(e.exerciseId));
+        if (validExercises.length > 0) {
+          await tx.insert(programExercisesTable).values(
+            validExercises.map((e, idx) => ({
+              dayId: newDay.id,
+              exerciseId: e.exerciseId,
+              sets: e.sets,
+              reps: String(e.reps),
+              restSeconds: e.restSeconds ?? null,
+              order: idx + 1,
+            }))
+          );
+        }
+      }
+
+      return newProgram;
+    });
+
+    res.status(201).json({ ...program, createdAt: program.createdAt.toISOString() });
+  } catch (err) {
+    req.log.error(err);
+    res.status(500).json({ error: "Failed to generate program" });
   }
 });
 

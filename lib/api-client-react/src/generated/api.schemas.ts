@@ -356,6 +356,18 @@ export interface Program {
   createdAt: string;
 }
 
+export interface AiProgramInput {
+  /**
+     * Training goal or objective to build the program around
+     * @minLength 1
+     */
+  goalText: string;
+  /** Suggested program duration in weeks */
+  durationWeeks?: number;
+  /** Optional client ID to pull their existing goal and context */
+  clientId?: number;
+}
+
 export interface ProgramInput {
   /** @minLength 1 */
   name: string;

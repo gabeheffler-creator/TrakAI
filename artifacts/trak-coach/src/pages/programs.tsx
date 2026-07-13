@@ -5,9 +5,11 @@ import {
   useDeleteProgram,
   useUpdateProgram,
   getListProgramsQueryKey,
+  useGenerateAiProgram,
+  useListClients,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +21,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, ChevronRight, Dumbbell, Pencil, LayoutGrid, List } from "lucide-react";
+import { Plus, Trash2, ChevronRight, Dumbbell, Pencil, LayoutGrid, List, Sparkles, ArrowLeft, Loader2 } from "lucide-react";
 
 const programSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -35,12 +37,20 @@ export function Programs() {
   const createProgram = useCreateProgram();
   const deleteProgram = useDeleteProgram();
   const updateProgram = useUpdateProgram();
+  const generateAiProgram = useGenerateAiProgram();
+  const { data: clients } = useListClients();
   const qc = useQueryClient();
   const { toast } = useToast();
+  const [, navigate] = useLocation();
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
   const [viewMode, setViewMode] = useState<"list" | "grid">("grid");
+
+  const [aiMode, setAiMode] = useState(false);
+  const [aiGoalText, setAiGoalText] = useState("");
+  const [aiClientId, setAiClientId] = useState<string>("");
+  const [aiDurationWeeks, setAiDurationWeeks] = useState<string>("");
 
   const form = useForm<ProgramFormValues>({
     resolver: zodResolver(programSchema),
@@ -97,6 +107,57 @@ export function Programs() {
     });
   };
 
+  const handleClientChange = (clientId: string) => {
+    setAiClientId(clientId);
+    if (clientId && clients) {
+      const client = clients.find(c => String(c.id) === clientId);
+      if (client?.goal) {
+        setAiGoalText(client.goal);
+      }
+    }
+  };
+
+  const handleGenerateAi = () => {
+    if (!aiGoalText.trim()) {
+      toast({ title: "Please describe a training goal", variant: "destructive" });
+      return;
+    }
+    generateAiProgram.mutate({
+      data: {
+        goalText: aiGoalText.trim(),
+        durationWeeks: aiDurationWeeks ? Number(aiDurationWeeks) : undefined,
+        clientId: aiClientId ? Number(aiClientId) : undefined,
+      },
+    }, {
+      onSuccess: (program) => {
+        qc.invalidateQueries({ queryKey: getListProgramsQueryKey() });
+        setSheetOpen(false);
+        resetAiForm();
+        toast({ title: "Program built!", description: "Review and make any changes." });
+        navigate(`/programs/${program.id}`);
+      },
+      onError: (err: unknown) => {
+        const message = err instanceof Error ? err.message : "Failed to generate program. Please try again.";
+        toast({ title: "AI generation failed", description: message, variant: "destructive" });
+      },
+    });
+  };
+
+  const resetAiForm = () => {
+    setAiMode(false);
+    setAiGoalText("");
+    setAiClientId("");
+    setAiDurationWeeks("");
+  };
+
+  const handleSheetOpenChange = (open: boolean) => {
+    setSheetOpen(open);
+    if (!open) {
+      form.reset();
+      resetAiForm();
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -121,27 +182,112 @@ export function Programs() {
       </div>
 
       {/* Create Sheet */}
-      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+      <Sheet open={sheetOpen} onOpenChange={handleSheetOpenChange}>
         <SheetContent side="bottom" className="rounded-t-2xl max-h-[90vh] overflow-y-auto bg-background">
           <SheetHeader className="mb-4">
-            <SheetTitle>Create Program</SheetTitle>
+            {aiMode ? (
+              <div className="flex items-center gap-2">
+                <button onClick={() => setAiMode(false)} className="text-muted-foreground hover:text-foreground transition-colors">
+                  <ArrowLeft className="w-4 h-4" />
+                </button>
+                <SheetTitle className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-primary" />
+                  Build AI Program
+                </SheetTitle>
+              </div>
+            ) : (
+              <SheetTitle>Create Program</SheetTitle>
+            )}
           </SheetHeader>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pb-8">
-              <FormField control={form.control} name="name" render={({ field }) => (
-                <FormItem><FormLabel>Name</FormLabel><FormControl><Input placeholder="e.g. 12-Week Strength Builder" {...field} data-testid="input-program-name" /></FormControl><FormMessage /></FormItem>
-              )} />
-              <FormField control={form.control} name="description" render={({ field }) => (
-                <FormItem><FormLabel>Description <span className="text-muted-foreground">(Optional)</span></FormLabel><FormControl><Textarea placeholder="What is this program designed to achieve?" {...field} rows={3} /></FormControl></FormItem>
-              )} />
-              <FormField control={form.control} name="durationWeeks" render={({ field }) => (
-                <FormItem><FormLabel>Duration in weeks <span className="text-muted-foreground">(Optional)</span></FormLabel><FormControl><Input type="number" placeholder="e.g. 12" {...field} /></FormControl></FormItem>
-              )} />
-              <Button type="submit" className="w-full" disabled={createProgram.isPending}>
-                {createProgram.isPending ? "Creating…" : "Create Program"}
+
+          {aiMode ? (
+            <div className="space-y-4 pb-8">
+              <p className="text-sm text-muted-foreground">
+                Describe the training goal and the AI will build a complete program with days and exercises you can then edit.
+              </p>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Client <span className="text-muted-foreground">(Optional — auto-fills goal)</span></label>
+                <Select value={aiClientId} onValueChange={handleClientChange}>
+                  <SelectTrigger data-testid="select-ai-client">
+                    <SelectValue placeholder="Select a client…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(clients ?? []).map(c => (
+                      <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Training goal <span className="text-muted-foreground">*</span></label>
+                <Textarea
+                  data-testid="textarea-ai-goal"
+                  placeholder="e.g. Build muscle and increase strength with a focus on upper body. Intermediate level, 4 days per week."
+                  value={aiGoalText}
+                  onChange={e => setAiGoalText(e.target.value)}
+                  rows={4}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Duration in weeks <span className="text-muted-foreground">(Optional)</span></label>
+                <Input
+                  type="number"
+                  placeholder="e.g. 12"
+                  value={aiDurationWeeks}
+                  onChange={e => setAiDurationWeeks(e.target.value)}
+                />
+              </div>
+
+              <Button
+                className="w-full"
+                onClick={handleGenerateAi}
+                disabled={generateAiProgram.isPending || !aiGoalText.trim()}
+                data-testid="button-generate-ai-program"
+              >
+                {generateAiProgram.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Building program…
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Generate Program
+                  </>
+                )}
               </Button>
-            </form>
-          </Form>
+            </div>
+          ) : (
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pb-8">
+                <FormField control={form.control} name="name" render={({ field }) => (
+                  <FormItem><FormLabel>Name</FormLabel><FormControl><Input placeholder="e.g. 12-Week Strength Builder" {...field} data-testid="input-program-name" /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={form.control} name="description" render={({ field }) => (
+                  <FormItem><FormLabel>Description <span className="text-muted-foreground">(Optional)</span></FormLabel><FormControl><Textarea placeholder="What is this program designed to achieve?" {...field} rows={3} /></FormControl></FormItem>
+                )} />
+                <FormField control={form.control} name="durationWeeks" render={({ field }) => (
+                  <FormItem><FormLabel>Duration in weeks <span className="text-muted-foreground">(Optional)</span></FormLabel><FormControl><Input type="number" placeholder="e.g. 12" {...field} /></FormControl></FormItem>
+                )} />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full border-primary/30 text-primary hover:bg-primary/5"
+                  onClick={() => setAiMode(true)}
+                  data-testid="button-build-ai-program"
+                >
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Build AI Program
+                </Button>
+                <Button type="submit" className="w-full" disabled={createProgram.isPending}>
+                  {createProgram.isPending ? "Creating…" : "Create Program"}
+                </Button>
+              </form>
+            </Form>
+          )}
         </SheetContent>
       </Sheet>
 

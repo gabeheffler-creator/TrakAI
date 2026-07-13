@@ -466,6 +466,29 @@ paths:
               schema:
                 $ref: "#/components/schemas/Program"
 
+  /programs/generate-ai:
+    post:
+      operationId: generateAiProgram
+      tags: [workouts]
+      summary: Generate a complete workout program using AI based on a training goal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiProgramInput"
+      responses:
+        "201":
+          description: Created program
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Program"
+        "400":
+          description: Invalid input
+        "500":
+          description: AI generation failed
+
   /programs/{programId}:
     get:
       operationId: getProgram
@@ -2137,6 +2160,21 @@ components:
         createdAt:
           type: string
           format: date-time
+
+    AiProgramInput:
+      type: object
+      required: [goalText]
+      properties:
+        goalText:
+          type: string
+          minLength: 1
+          description: Training goal or objective to build the program around
+        durationWeeks:
+          type: integer
+          description: Suggested program duration in weeks
+        clientId:
+          type: integer
+          description: Optional client ID to pull their existing goal and context
 
     ProgramInput:
       type: object

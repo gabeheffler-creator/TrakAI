@@ -509,6 +509,19 @@ export const CreateProgramBody = zod.object({
 
 
 /**
+ * @summary Generate a complete workout program using AI based on a training goal
+ */
+
+
+
+export const GenerateAiProgramBody = zod.object({
+  "goalText": zod.string().min(1).describe('Training goal or objective to build the program around'),
+  "durationWeeks": zod.number().optional().describe('Suggested program duration in weeks'),
+  "clientId": zod.number().optional().describe('Optional client ID to pull their existing goal and context')
+})
+
+
+/**
  * @summary Get a program with its days and exercises
  */
 export const GetProgramParams = zod.object({
