@@ -210,6 +210,11 @@ router.post("/programs/generate-ai", requireCoachAuth, async (req, res) => {
       isCompound: exercisesTable.isCompound,
     }).from(exercisesTable);
 
+    if (exercises.length === 0) {
+      res.status(400).json({ error: "No exercises in the library. Add exercises before generating a program." });
+      return;
+    }
+
     const exerciseMap = new Map(exercises.map(e => [e.id, e]));
     const exerciseCatalog = exercises.map(e => `${e.id}: ${e.name} (${e.muscleGroup ?? "general"}${e.isCompound ? ", compound" : ""})`).join("\n");
 

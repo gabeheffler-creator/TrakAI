@@ -37,6 +37,7 @@ import {
   useCreateClientGoal,
   useListClientGoalHistory,
   useListClientProgramAssignmentHistory,
+  useGenerateAiProgram,
   getGetWorkoutLogQueryKey,
   getGetClientQueryKey,
   getListAssignmentsQueryKey,
@@ -67,7 +68,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import { Copy, Send, Plus, CheckCircle, Circle, Trash2, ArrowLeft, ChevronDown, ChevronRight, Dumbbell, Pencil, X, Check, Phone, StickyNote, Clock, Video, Target } from "lucide-react";
+import { Copy, Send, Plus, CheckCircle, Circle, Trash2, ArrowLeft, ChevronDown, ChevronRight, Dumbbell, Pencil, X, Check, Phone, StickyNote, Clock, Video, Target, Sparkles, Loader2 } from "lucide-react";
 import { Link as WLink } from "wouter";
 import { format, parseISO } from "date-fns";
 import { QueryErrorState } from "@/components/query-error-state";
@@ -491,6 +492,17 @@ export function ClientProfile() {
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [programDialogOpen, setProgramDialogOpen] = useState(false);
   const [programHistoryOpen, setProgramHistoryOpen] = useState(true);
+  const [aiProgramMode, setAiProgramMode] = useState(false);
+  const [aiGoalText, setAiGoalText] = useState("");
+  const generateAiProgram = useGenerateAiProgram();
+  useEffect(() => {
+    if (programDialogOpen) {
+      setAiGoalText((client as { goal?: string } | undefined)?.goal ?? "");
+    } else {
+      setAiProgramMode(false);
+      setAiGoalText("");
+    }
+  }, [programDialogOpen]);
   const [clientGoalEditOpen, setClientGoalEditOpen] = useState(false);
   const [clientGoalValue, setClientGoalValue] = useState("");
   const [clientGoalTargetDate, setClientGoalTargetDate] = useState("");
@@ -710,6 +722,35 @@ export function ClientProfile() {
     });
   };
 
+  const handleGenerateAndAssignProgram = () => {
+    if (!aiGoalText.trim()) {
+      toast({ title: "Please describe a training goal", variant: "destructive" });
+      return;
+    }
+    generateAiProgram.mutate(
+      { data: { goalText: aiGoalText.trim(), clientId } },
+      {
+        onSuccess: (program) => {
+          const today = new Date().toISOString().split("T")[0];
+          assignProgram.mutate(
+            { clientId, data: { programId: program.id, startDate: today } },
+            {
+              onSuccess: () => {
+                qc.invalidateQueries({ queryKey: getGetClientProgramAssignmentQueryKey(clientId) });
+                qc.invalidateQueries({ queryKey: getListClientProgramAssignmentHistoryQueryKey(clientId) });
+                setProgramDialogOpen(false);
+                toast({ title: "Program built & assigned!", description: "You can review and edit it now." });
+                setLocation(`/programs/${program.id}`);
+              },
+              onError: () => toast({ title: "Failed to assign program", variant: "destructive" }),
+            }
+          );
+        },
+        onError: () => toast({ title: "AI generation failed", description: "Please try again.", variant: "destructive" }),
+      }
+    );
+  };
+
   if (clientError) {
     return (
       <QueryErrorState
@@ -728,6 +769,85 @@ export function ClientProfile() {
   const completed = assignments?.filter(a => a.status === "completed") ?? [];
 
   const videoRoomName = `trak-coaching-${clientId}`;
+
+  const assignDialogContent = (
+    <>
+      <DialogHeader>
+        <DialogTitle>
+          {aiProgramMode ? (
+            <span className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-primary" />
+              Build AI Program
+            </span>
+          ) : "Assign Program"}
+        </DialogTitle>
+      </DialogHeader>
+      {aiProgramMode ? (
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            AI will generate a complete program based on this client's goal and assign it immediately.
+          </p>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Training goal</label>
+            <Textarea
+              placeholder="e.g. Build muscle and improve conditioning…"
+              value={aiGoalText}
+              onChange={e => setAiGoalText(e.target.value)}
+              rows={4}
+            />
+          </div>
+          <Button
+            className="w-full"
+            onClick={handleGenerateAndAssignProgram}
+            disabled={generateAiProgram.isPending || assignProgram.isPending || !aiGoalText.trim()}
+          >
+            {(generateAiProgram.isPending || assignProgram.isPending) ? (
+              <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Building program…</>
+            ) : (
+              <><Sparkles className="w-4 h-4 mr-2" />Generate & Assign</>
+            )}
+          </Button>
+          <Button variant="ghost" size="sm" className="w-full" onClick={() => setAiProgramMode(false)}>
+            ← Back
+          </Button>
+        </div>
+      ) : (
+        <Form {...programForm}>
+          <form onSubmit={programForm.handleSubmit(handleAssignProgram)} className="space-y-4">
+            <FormField control={programForm.control} name="programId" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Program</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
+                  <FormControl><SelectTrigger><SelectValue placeholder="Select a program" /></SelectTrigger></FormControl>
+                  <SelectContent>
+                    {programs?.map(p => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={programForm.control} name="startDate" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Start Date</FormLabel>
+                <FormControl><Input type="date" {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full border-primary/30 text-primary hover:bg-primary/5"
+              onClick={() => setAiProgramMode(true)}
+            >
+              <Sparkles className="w-4 h-4 mr-2" />
+              Build AI Program
+            </Button>
+            <Button type="submit" className="w-full" disabled={assignProgram.isPending}>Assign</Button>
+          </form>
+        </Form>
+      )}
+    </>
+  );
 
   return (
     <div className="space-y-6">
@@ -973,33 +1093,7 @@ export function ClientProfile() {
                   <DialogTrigger asChild>
                     <Button variant="link" size="sm" className="p-0 h-auto text-xs mt-1">Assign program</Button>
                   </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader><DialogTitle>Assign Program</DialogTitle></DialogHeader>
-                    <Form {...programForm}>
-                      <form onSubmit={programForm.handleSubmit(handleAssignProgram)} className="space-y-4">
-                        <FormField control={programForm.control} name="programId" render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Program</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
-                              <FormControl><SelectTrigger><SelectValue placeholder="Select a program" /></SelectTrigger></FormControl>
-                              <SelectContent>
-                                {programs?.map(p => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )} />
-                        <FormField control={programForm.control} name="startDate" render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Start Date</FormLabel>
-                            <FormControl><Input type="date" {...field} /></FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )} />
-                        <Button type="submit" className="w-full" disabled={assignProgram.isPending}>Assign</Button>
-                      </form>
-                    </Form>
-                  </DialogContent>
+                  <DialogContent>{assignDialogContent}</DialogContent>
                 </Dialog>
               </CardContent>
             </Card>
@@ -1053,33 +1147,7 @@ export function ClientProfile() {
                 <DialogTrigger asChild>
                   <Button size="sm" className="mt-4">Assign a Program</Button>
                 </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader><DialogTitle>Assign Program</DialogTitle></DialogHeader>
-                  <Form {...programForm}>
-                    <form onSubmit={programForm.handleSubmit(handleAssignProgram)} className="space-y-4">
-                      <FormField control={programForm.control} name="programId" render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Program</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
-                            <FormControl><SelectTrigger><SelectValue placeholder="Select a program" /></SelectTrigger></FormControl>
-                            <SelectContent>
-                              {programs?.map(p => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )} />
-                      <FormField control={programForm.control} name="startDate" render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Start Date</FormLabel>
-                          <FormControl><Input type="date" {...field} /></FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )} />
-                      <Button type="submit" className="w-full" disabled={assignProgram.isPending}>Assign</Button>
-                    </form>
-                  </Form>
-                </DialogContent>
+                <DialogContent>{assignDialogContent}</DialogContent>
               </Dialog>
             </div>
           ) : !programAssignment ? (
@@ -1089,33 +1157,7 @@ export function ClientProfile() {
                 <DialogTrigger asChild>
                   <Button size="sm">Assign a Program</Button>
                 </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader><DialogTitle>Assign Program</DialogTitle></DialogHeader>
-                  <Form {...programForm}>
-                    <form onSubmit={programForm.handleSubmit(handleAssignProgram)} className="space-y-4">
-                      <FormField control={programForm.control} name="programId" render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Program</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
-                            <FormControl><SelectTrigger><SelectValue placeholder="Select a program" /></SelectTrigger></FormControl>
-                            <SelectContent>
-                              {programs?.map(p => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )} />
-                      <FormField control={programForm.control} name="startDate" render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Start Date</FormLabel>
-                          <FormControl><Input type="date" {...field} /></FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )} />
-                      <Button type="submit" className="w-full" disabled={assignProgram.isPending}>Assign</Button>
-                    </form>
-                  </Form>
-                </DialogContent>
+                <DialogContent>{assignDialogContent}</DialogContent>
               </Dialog>
             </div>
           ) : (
@@ -1159,33 +1201,7 @@ export function ClientProfile() {
                       <DialogTrigger asChild>
                         <Button variant="outline" size="sm">Change</Button>
                       </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader><DialogTitle>Assign Program</DialogTitle></DialogHeader>
-                        <Form {...programForm}>
-                          <form onSubmit={programForm.handleSubmit(handleAssignProgram)} className="space-y-4">
-                            <FormField control={programForm.control} name="programId" render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Program</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
-                                  <FormControl><SelectTrigger><SelectValue placeholder="Select a program" /></SelectTrigger></FormControl>
-                                  <SelectContent>
-                                    {programs?.map(p => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}
-                                  </SelectContent>
-                                </Select>
-                                <FormMessage />
-                              </FormItem>
-                            )} />
-                            <FormField control={programForm.control} name="startDate" render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Start Date</FormLabel>
-                                <FormControl><Input type="date" {...field} /></FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )} />
-                            <Button type="submit" className="w-full" disabled={assignProgram.isPending}>Assign</Button>
-                          </form>
-                        </Form>
-                      </DialogContent>
+                      <DialogContent>{assignDialogContent}</DialogContent>
                     </Dialog>
                     </div>
                   </div>
