@@ -57,6 +57,7 @@ import type {
   Program,
   ProgramAssignedClient,
   ProgramAssignment,
+  ProgramAssignmentHistoryItem,
   ProgramAssignmentInput,
   ProgramDay,
   ProgramDayInput,
@@ -3058,6 +3059,83 @@ export const useAssignProgram = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getAssignProgramMutationOptions(options));
     }
+
+export const getListClientProgramAssignmentHistoryUrl = (clientId: number,) => {
+
+
+
+
+  return `/api/clients/${clientId}/program-assignment-history`
+}
+
+/**
+ * @summary List previous program assignments for a client, newest first
+ */
+export const listClientProgramAssignmentHistory = async (clientId: number, options?: RequestInit): Promise<ProgramAssignmentHistoryItem[]> => {
+
+  return customFetch<ProgramAssignmentHistoryItem[]>(getListClientProgramAssignmentHistoryUrl(clientId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListClientProgramAssignmentHistoryQueryKey = (clientId: number,) => {
+    return [
+    `/api/clients/${clientId}/program-assignment-history`
+    ] as const;
+    }
+
+
+export const getListClientProgramAssignmentHistoryQueryOptions = <TData = Awaited<ReturnType<typeof listClientProgramAssignmentHistory>>, TError = ErrorType<void>>(clientId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listClientProgramAssignmentHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListClientProgramAssignmentHistoryQueryKey(clientId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listClientProgramAssignmentHistory>>> = ({ signal }) => listClientProgramAssignmentHistory(clientId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(clientId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listClientProgramAssignmentHistory>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListClientProgramAssignmentHistoryQueryResult = NonNullable<Awaited<ReturnType<typeof listClientProgramAssignmentHistory>>>
+export type ListClientProgramAssignmentHistoryQueryError = ErrorType<void>
+
+
+/**
+ * @summary List previous program assignments for a client, newest first
+ */
+
+export function useListClientProgramAssignmentHistory<TData = Awaited<ReturnType<typeof listClientProgramAssignmentHistory>>, TError = ErrorType<void>>(
+ clientId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listClientProgramAssignmentHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListClientProgramAssignmentHistoryQueryOptions(clientId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getSyncProgramFromTemplateUrl = (clientId: number,) => {
 

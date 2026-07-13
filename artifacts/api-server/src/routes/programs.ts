@@ -7,11 +7,12 @@ import {
   programExercisesTable,
   exercisesTable,
   programAssignmentsTable,
+  programAssignmentHistoryTable,
   programNutritionGoalsTable,
   clientsTable,
   pushSubscriptionsTable,
 } from "@workspace/db";
-import { eq, asc, and, isNull, inArray } from "drizzle-orm";
+import { eq, asc, desc, and, isNull, inArray } from "drizzle-orm";
 import webpush from "web-push";
 import {
   CreateProgramBody,
@@ -91,6 +92,37 @@ const router = Router();
 function coachIdOf(req: import("express").Request): number {
   const actor = req.actor;
   return actor?.type === "coach" ? actor.coach.id : -1;
+}
+
+async function insertProgramHistory(
+  tx: DbOrTx,
+  clientId: number,
+  programId: number,
+  startDate: string,
+): Promise<void> {
+  const today = new Date().toISOString().split("T")[0];
+  const [prog] = await tx
+    .select({ name: programsTable.name, sourceTemplateId: programsTable.sourceTemplateId })
+    .from(programsTable)
+    .where(eq(programsTable.id, programId));
+  if (!prog) return;
+  let sourceTemplateName: string | null = null;
+  if (prog.sourceTemplateId) {
+    const [tmpl] = await tx
+      .select({ name: programsTable.name })
+      .from(programsTable)
+      .where(eq(programsTable.id, prog.sourceTemplateId));
+    sourceTemplateName = tmpl?.name ?? null;
+  }
+  await tx.insert(programAssignmentHistoryTable).values({
+    clientId,
+    programId,
+    programName: prog.name,
+    sourceTemplateId: prog.sourceTemplateId,
+    sourceTemplateName,
+    startDate,
+    endDate: today,
+  });
 }
 
 async function programBelongsToCoach(programId: number, coachId: number): Promise<boolean> {
@@ -559,6 +591,38 @@ router.get("/clients/:clientId/program-assignment", requireClientOwnership(), as
   }
 });
 
+router.get("/clients/:clientId/program-assignment-history", requireClientOwnership(), async (req, res) => {
+  try {
+    const clientId = Number(req.params.clientId);
+    const rows = await db
+      .select()
+      .from(programAssignmentHistoryTable)
+      .where(eq(programAssignmentHistoryTable.clientId, clientId))
+      .orderBy(desc(programAssignmentHistoryTable.createdAt));
+
+    const toWeeks = (start: string, end: string | null): number | null => {
+      if (!end) return null;
+      const days = (new Date(end).getTime() - new Date(start).getTime()) / (1000 * 60 * 60 * 24);
+      return Math.max(1, Math.round(days / 7));
+    };
+
+    res.json(rows.map(r => ({
+      id: r.id,
+      clientId: r.clientId,
+      programId: r.programId,
+      programName: r.programName,
+      sourceTemplateId: r.sourceTemplateId,
+      sourceTemplateName: r.sourceTemplateName,
+      startDate: r.startDate,
+      endDate: r.endDate,
+      durationWeeks: toWeeks(r.startDate, r.endDate),
+    })));
+  } catch (err) {
+    req.log.error(err);
+    res.status(500).json({ error: "Failed to get program history" });
+  }
+});
+
 router.post("/clients/:clientId/program-assignment", requireClientOwnership(), requireCoachOnly, async (req, res) => {
   try {
     const { clientId } = AssignProgramParams.parse({ clientId: Number(req.params.clientId) });
@@ -573,6 +637,7 @@ router.post("/clients/:clientId/program-assignment", requireClientOwnership(), r
         .where(eq(programAssignmentsTable.clientId, clientId));
 
       if (existingAssignment) {
+        await insertProgramHistory(tx, clientId, existingAssignment.programId, existingAssignment.startDate);
         await tx.delete(programAssignmentsTable).where(eq(programAssignmentsTable.id, existingAssignment.id));
         const [oldProgram] = await tx.select({ id: programsTable.id, clientId: programsTable.clientId })
           .from(programsTable).where(eq(programsTable.id, existingAssignment.programId));
@@ -627,6 +692,7 @@ router.post("/clients/:clientId/program-assignment/sync-template", requireClient
         throw new RouteError(404, "Source template not found");
       }
 
+      await insertProgramHistory(tx, clientId, currentProgram.id, currentAssignment.startDate);
       await tx.delete(programAssignmentsTable).where(eq(programAssignmentsTable.id, currentAssignment.id));
       if (currentProgram.clientId === clientId) {
         await tx.delete(programsTable).where(eq(programsTable.id, currentProgram.id));
@@ -725,6 +791,7 @@ router.post("/programs/:programId/bulk-assign", requireCoachAuth, requireCoachOn
           // Remove any existing assignment first
           const [existingAssignment] = await tx.select().from(programAssignmentsTable).where(eq(programAssignmentsTable.clientId, clientId));
           if (existingAssignment) {
+            await insertProgramHistory(tx, clientId, existingAssignment.programId, existingAssignment.startDate);
             await tx.delete(programAssignmentsTable).where(eq(programAssignmentsTable.id, existingAssignment.id));
             const [oldProgram] = await tx.select({ id: programsTable.id, clientId: programsTable.clientId }).from(programsTable).where(eq(programsTable.id, existingAssignment.programId));
             if (oldProgram?.clientId === clientId) {
@@ -780,6 +847,7 @@ router.post("/programs/:programId/sync-to-clients", requireCoachAuth, requireCoa
           // Only sync if this client's program was derived from the exact same template
           if (!currentProgram?.sourceTemplateId || currentProgram.sourceTemplateId !== programId) return null;
 
+          await insertProgramHistory(tx, clientId, currentProgram.id, currentAssignment.startDate);
           await tx.delete(programAssignmentsTable).where(eq(programAssignmentsTable.id, currentAssignment.id));
           if (currentProgram.clientId === clientId) {
             await tx.delete(programsTable).where(eq(programsTable.id, currentProgram.id));

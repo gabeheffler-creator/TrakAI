@@ -36,6 +36,7 @@ import {
   useGenerateInviteLink,
   useCreateClientGoal,
   useListClientGoalHistory,
+  useListClientProgramAssignmentHistory,
   getGetWorkoutLogQueryKey,
   getGetClientQueryKey,
   getListAssignmentsQueryKey,
@@ -48,6 +49,7 @@ import {
   getListCoachNotesQueryKey,
   getListCallLogsQueryKey,
   getListClientGoalHistoryQueryKey,
+  getListClientProgramAssignmentHistoryQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -560,6 +562,7 @@ export function ClientProfile() {
   const { data: callLogs, refetch: refetchCallLogs } = useListCallLogs(clientId, { query: { enabled: !!clientId, queryKey: getListCallLogsQueryKey(clientId) } });
   const { data: fullProgram } = useGetProgram(programAssignment?.programId ?? 0, { query: { enabled: !!programAssignment?.programId, queryKey: getGetProgramQueryKey(programAssignment?.programId ?? 0) } });
   const { data: programs } = useListPrograms();
+  const { data: programHistory } = useListClientProgramAssignmentHistory(clientId, { query: { enabled: !!clientId, queryKey: getListClientProgramAssignmentHistoryQueryKey(clientId) } });
 
   const sendMsg = useSendMessage();
   const createAssignment = useCreateAssignment();
@@ -687,6 +690,7 @@ export function ClientProfile() {
       onSuccess: () => {
         qc.invalidateQueries({ queryKey: getGetClientProgramAssignmentQueryKey(clientId) });
         qc.invalidateQueries({ queryKey: getGetProgramQueryKey(programAssignment?.programId ?? 0) });
+        qc.invalidateQueries({ queryKey: getListClientProgramAssignmentHistoryQueryKey(clientId) });
         setProgramDialogOpen(false);
         toast({ title: "Program assigned" });
       },
@@ -698,6 +702,7 @@ export function ClientProfile() {
       onSuccess: () => {
         qc.invalidateQueries({ queryKey: getGetClientProgramAssignmentQueryKey(clientId) });
         qc.invalidateQueries({ queryKey: getGetProgramQueryKey(programAssignment?.programId ?? 0) });
+        qc.invalidateQueries({ queryKey: getListClientProgramAssignmentHistoryQueryKey(clientId) });
         toast({ title: "Program synced from template" });
       },
       onError: () => toast({ title: "Failed to sync program", variant: "destructive" }),
@@ -1156,6 +1161,32 @@ export function ClientProfile() {
                 ))}
               </div>
             </>
+          )}
+
+          {(programHistory?.length ?? 0) > 0 && (
+            <div className="mt-6">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">Previous programs</p>
+              <div className="space-y-2">
+                {programHistory!.map(entry => (
+                  <div key={entry.id} className="rounded-lg border border-border bg-card px-4 py-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-sm truncate">{entry.programName}</p>
+                        {entry.sourceTemplateName && (
+                          <p className="text-xs text-muted-foreground mt-0.5">From template: {entry.sourceTemplateName}</p>
+                        )}
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {entry.startDate} → {entry.endDate ?? "ongoing"}
+                        </p>
+                      </div>
+                      {entry.durationWeeks != null && (
+                        <Badge variant="secondary" className="shrink-0 text-xs">{entry.durationWeeks}w</Badge>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </TabsContent>
 

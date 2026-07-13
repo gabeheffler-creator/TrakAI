@@ -888,6 +888,29 @@ paths:
               schema:
                 $ref: "#/components/schemas/ProgramAssignment"
 
+  /clients/{clientId}/program-assignment-history:
+    get:
+      operationId: listClientProgramAssignmentHistory
+      tags: [workouts]
+      summary: List previous program assignments for a client, newest first
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Program history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProgramAssignmentHistoryItem"
+        "404":
+          description: Client not found
+
   /clients/{clientId}/program-assignment/sync-template:
     post:
       operationId: syncProgramFromTemplate
@@ -2422,6 +2445,31 @@ components:
           type: ["integer", "null"]
 
     # ── Program Assignment ──────────────────────────────────────────────────
+    ProgramAssignmentHistoryItem:
+      type: object
+      required: [id, clientId, programName, startDate, durationWeeks]
+      properties:
+        id:
+          type: integer
+        clientId:
+          type: integer
+        programId:
+          type: ["integer", "null"]
+        programName:
+          type: string
+        sourceTemplateId:
+          type: ["integer", "null"]
+        sourceTemplateName:
+          type: ["string", "null"]
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: ["string", "null"]
+          format: date
+        durationWeeks:
+          type: ["integer", "null"]
+
     ProgramAssignment:
       type: object
       required: [id, clientId, programId, programName, startDate]

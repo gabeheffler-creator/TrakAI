@@ -66,6 +66,18 @@ export const programAssignmentsTable = pgTable("program_assignments", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const programAssignmentHistoryTable = pgTable("program_assignment_history", {
+  id: serial("id").primaryKey(),
+  clientId: integer("client_id").notNull().references(() => clientsTable.id, { onDelete: "cascade" }),
+  programId: integer("program_id"),
+  programName: text("program_name").notNull(),
+  sourceTemplateId: integer("source_template_id"),
+  sourceTemplateName: text("source_template_name"),
+  startDate: text("start_date").notNull(),
+  endDate: text("end_date"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const insertProgramSchema = createInsertSchema(programsTable).omit({ id: true, createdAt: true });
 export type InsertProgram = z.infer<typeof insertProgramSchema>;
 export type Program = typeof programsTable.$inferSelect;
@@ -73,4 +85,5 @@ export type ProgramPhase = typeof programPhasesTable.$inferSelect;
 export type ProgramDay = typeof programDaysTable.$inferSelect;
 export type ProgramExercise = typeof programExercisesTable.$inferSelect;
 export type ProgramAssignment = typeof programAssignmentsTable.$inferSelect;
+export type ProgramAssignmentHistory = typeof programAssignmentHistoryTable.$inferSelect;
 export type ProgramNutritionGoal = typeof programNutritionGoalsTable.$inferSelect;

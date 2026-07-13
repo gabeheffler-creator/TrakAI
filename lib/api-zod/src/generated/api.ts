@@ -899,6 +899,27 @@ export const AssignProgramBody = zod.object({
 
 
 /**
+ * @summary List previous program assignments for a client, newest first
+ */
+export const ListClientProgramAssignmentHistoryParams = zod.object({
+  "clientId": zod.coerce.number()
+})
+
+export const ListClientProgramAssignmentHistoryResponseItem = zod.object({
+  "id": zod.number(),
+  "clientId": zod.number(),
+  "programId": zod.number().nullish(),
+  "programName": zod.string(),
+  "sourceTemplateId": zod.number().nullish(),
+  "sourceTemplateName": zod.string().nullish(),
+  "startDate": zod.coerce.date(),
+  "endDate": zod.coerce.date().nullish(),
+  "durationWeeks": zod.number().nullable()
+})
+export const ListClientProgramAssignmentHistoryResponse = zod.array(ListClientProgramAssignmentHistoryResponseItem)
+
+
+/**
  * @summary Replace the client's program with a fresh copy of its source template
  */
 export const SyncProgramFromTemplateParams = zod.object({

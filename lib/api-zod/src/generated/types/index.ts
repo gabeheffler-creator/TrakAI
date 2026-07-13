@@ -60,6 +60,7 @@ export * from './nutritionLogInput';
 export * from './program';
 export * from './programAssignedClient';
 export * from './programAssignment';
+export * from './programAssignmentHistoryItem';
 export * from './programAssignmentInput';
 export * from './programDay';
 export * from './programDayDetail';

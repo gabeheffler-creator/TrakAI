@@ -477,6 +477,23 @@ export interface ProgramExerciseUpdate {
   restSeconds?: number | null;
 }
 
+export interface ProgramAssignmentHistoryItem {
+  id: number;
+  clientId: number;
+  /** @nullable */
+  programId?: number | null;
+  programName: string;
+  /** @nullable */
+  sourceTemplateId?: number | null;
+  /** @nullable */
+  sourceTemplateName?: string | null;
+  startDate: string;
+  /** @nullable */
+  endDate?: string | null;
+  /** @nullable */
+  durationWeeks: number | null;
+}
+
 export interface ProgramAssignment {
   id: number;
   clientId: number;
