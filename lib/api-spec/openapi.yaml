@@ -479,13 +479,15 @@ paths:
               $ref: "#/components/schemas/AiProgramInput"
       responses:
         "201":
-          description: Created program
+          description: Created program with full day and exercise detail
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Program"
+                $ref: "#/components/schemas/ProgramDetail"
         "400":
           description: Invalid input
+        "404":
+          description: Client not found or not owned by this coach
         "500":
           description: AI generation failed
 

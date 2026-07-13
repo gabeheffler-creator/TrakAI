@@ -10,6 +10,7 @@ import {
   programAssignmentHistoryTable,
   programNutritionGoalsTable,
   clientsTable,
+  measurementsTable,
   pushSubscriptionsTable,
 } from "@workspace/db";
 import { eq, asc, desc, and, isNull, inArray } from "drizzle-orm";
@@ -52,6 +53,7 @@ import {
 } from "@workspace/api-zod";
 import { requireCoachAuth, requireClientOwnership, requireCoachOnly } from "../middlewares/auth";
 import { openai } from "@workspace/integrations-openai-ai-server";
+import { z } from "zod/v4";
 import { cloneProgram, type DbOrTx } from "../services/clone-program";
 
 if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
@@ -186,15 +188,20 @@ router.post("/programs", requireCoachAuth, async (req, res) => {
   }
 });
 
+const GenerateAiProgramBody = z.object({
+  goalText: z.string().min(1, "goalText is required").max(2000),
+  durationWeeks: z.coerce.number().int().positive().max(52).optional(),
+  clientId: z.coerce.number().int().positive().optional(),
+});
+
 router.post("/programs/generate-ai", requireCoachAuth, async (req, res) => {
   try {
-    const goalText = typeof req.body?.goalText === "string" ? req.body.goalText.trim() : null;
-    if (!goalText) {
-      res.status(400).json({ error: "goalText is required" });
+    const parseResult = GenerateAiProgramBody.safeParse(req.body);
+    if (!parseResult.success) {
+      res.status(400).json({ error: parseResult.error.issues[0]?.message ?? "Invalid input" });
       return;
     }
-    const durationWeeks = req.body?.durationWeeks ? Number(req.body.durationWeeks) : undefined;
-    const clientId = req.body?.clientId ? Number(req.body.clientId) : undefined;
+    const { goalText, durationWeeks, clientId } = parseResult.data;
 
     const exercises = await db.select({
       id: exercisesTable.id,
@@ -203,16 +210,34 @@ router.post("/programs/generate-ai", requireCoachAuth, async (req, res) => {
       isCompound: exercisesTable.isCompound,
     }).from(exercisesTable);
 
-    const exerciseIdSet = new Set(exercises.map(e => e.id));
+    const exerciseMap = new Map(exercises.map(e => [e.id, e]));
     const exerciseCatalog = exercises.map(e => `${e.id}: ${e.name} (${e.muscleGroup ?? "general"}${e.isCompound ? ", compound" : ""})`).join("\n");
 
     let clientContext = "";
     if (clientId) {
-      const [client] = await db.select({ name: clientsTable.name, goal: clientsTable.goal })
-        .from(clientsTable)
-        .where(eq(clientsTable.id, clientId));
-      if (client) {
-        clientContext = `Client name: ${client.name}${client.goal ? `\nClient's stated goal: ${client.goal}` : ""}\n`;
+      const [client] = await db.select({
+        name: clientsTable.name,
+        goal: clientsTable.goal,
+      }).from(clientsTable).where(
+        and(eq(clientsTable.id, clientId), eq(clientsTable.coachId, coachIdOf(req)))
+      );
+      if (!client) {
+        res.status(404).json({ error: "Client not found" });
+        return;
+      }
+      clientContext = `Client name: ${client.name}\n`;
+      if (client.goal) clientContext += `Client's stated goal: ${client.goal}\n`;
+
+      const [latestMeasurement] = await db.select({
+        weight: measurementsTable.weight,
+        unit: measurementsTable.unit,
+      }).from(measurementsTable)
+        .where(eq(measurementsTable.clientId, clientId))
+        .orderBy(desc(measurementsTable.date))
+        .limit(1);
+      if (latestMeasurement?.weight) {
+        const unitLabel = latestMeasurement.unit === "metric" ? "kg" : "lbs";
+        clientContext += `Current weight: ${latestMeasurement.weight} ${unitLabel}\n`;
       }
     }
 
@@ -283,8 +308,15 @@ Guidelines:
       return;
     }
 
-    const program = await db.transaction(async (tx) => {
-      const [newProgram] = await tx.insert(programsTable).values({
+    type CreatedDayDetail = {
+      id: number; programId: number; dayNumber: number; name: string; notes: string | null; phaseId: null;
+      exercises: Array<{ id: number; dayId: number; exerciseId: number; exerciseName: string; muscleGroup: string | null; sets: number; reps: string; order: number; weight: string | null; notes: string | null; restSeconds: number | null }>;
+      nutritionGoalOverride: undefined;
+    };
+    const createdDays: CreatedDayDetail[] = [];
+
+    const newProgram = await db.transaction(async (tx) => {
+      const [program] = await tx.insert(programsTable).values({
         coachId: coachIdOf(req),
         name: parsed.name!,
         description: parsed.description ?? null,
@@ -293,15 +325,17 @@ Guidelines:
 
       for (const day of parsed.days!) {
         const [newDay] = await tx.insert(programDaysTable).values({
-          programId: newProgram.id,
+          programId: program.id,
           dayNumber: day.dayNumber,
           name: day.name,
           notes: day.notes ?? null,
         }).returning();
 
-        const validExercises = (day.exercises ?? []).filter(e => exerciseIdSet.has(e.exerciseId));
+        const validExercises = (day.exercises ?? []).filter(e => exerciseMap.has(e.exerciseId));
+        const dayExercises: CreatedDayDetail["exercises"] = [];
+
         if (validExercises.length > 0) {
-          await tx.insert(programExercisesTable).values(
+          const inserted = await tx.insert(programExercisesTable).values(
             validExercises.map((e, idx) => ({
               dayId: newDay.id,
               exerciseId: e.exerciseId,
@@ -310,14 +344,47 @@ Guidelines:
               restSeconds: e.restSeconds ?? null,
               order: idx + 1,
             }))
-          );
+          ).returning();
+
+          for (const ins of inserted) {
+            const ex = exerciseMap.get(ins.exerciseId);
+            dayExercises.push({
+              id: ins.id,
+              dayId: ins.dayId,
+              exerciseId: ins.exerciseId,
+              exerciseName: ex?.name ?? "",
+              muscleGroup: ex?.muscleGroup ?? null,
+              sets: ins.sets,
+              reps: ins.reps,
+              order: ins.order,
+              weight: ins.weight ?? null,
+              notes: ins.notes ?? null,
+              restSeconds: ins.restSeconds ?? null,
+            });
+          }
         }
+
+        createdDays.push({
+          id: newDay.id,
+          programId: program.id,
+          dayNumber: newDay.dayNumber,
+          name: newDay.name,
+          notes: newDay.notes,
+          phaseId: null,
+          exercises: dayExercises,
+          nutritionGoalOverride: undefined,
+        });
       }
 
-      return newProgram;
+      return program;
     });
 
-    res.status(201).json({ ...program, createdAt: program.createdAt.toISOString() });
+    res.status(201).json({
+      ...newProgram,
+      createdAt: newProgram.createdAt.toISOString(),
+      phases: [],
+      days: createdDays,
+    });
   } catch (err) {
     req.log.error(err);
     res.status(500).json({ error: "Failed to generate program" });

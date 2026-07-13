@@ -1820,9 +1820,9 @@ export const getGenerateAiProgramUrl = () => {
 /**
  * @summary Generate a complete workout program using AI based on a training goal
  */
-export const generateAiProgram = async (aiProgramInput: AiProgramInput, options?: RequestInit): Promise<Program> => {
+export const generateAiProgram = async (aiProgramInput: AiProgramInput, options?: RequestInit): Promise<ProgramDetail> => {
 
-  return customFetch<Program>(getGenerateAiProgramUrl(),
+  return customFetch<ProgramDetail>(getGenerateAiProgramUrl(),
   {
     ...options,
     method: 'POST',
