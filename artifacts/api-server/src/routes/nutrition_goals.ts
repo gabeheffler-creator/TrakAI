@@ -150,6 +150,24 @@ router.get("/clients/:clientId/nutrition-goal", requireClientOwnership(), async 
   }
 });
 
+router.delete("/clients/:clientId/nutrition-goal", requireClientOwnership(), async (req, res) => {
+  try {
+    const clientId = Number(req.params.clientId);
+    if (isNaN(clientId)) { res.status(400).json({ error: "Invalid clientId" }); return; }
+    const dayType = req.query.dayType as string | undefined;
+    if (dayType !== "training" && dayType !== "rest") {
+      res.status(400).json({ error: "dayType must be 'training' or 'rest'" });
+      return;
+    }
+    await db.delete(nutritionGoalsTable)
+      .where(and(eq(nutritionGoalsTable.clientId, clientId), eq(nutritionGoalsTable.dayType, dayType)));
+    res.status(204).end();
+  } catch (err) {
+    req.log.error(err);
+    res.status(500).json({ error: "Failed to delete nutrition goal" });
+  }
+});
+
 router.post("/clients/:clientId/nutrition-goal", requireClientOwnership(), async (req, res) => {
   try {
     const clientId = Number(req.params.clientId);

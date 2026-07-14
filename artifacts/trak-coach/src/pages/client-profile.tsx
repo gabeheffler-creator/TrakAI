@@ -681,6 +681,8 @@ export function ClientProfile() {
   const [anyGoalInputs, setAnyGoalInputs] = useState({ calories: "", protein: "", carbs: "", fat: "" });
   const [trainingGoalInputs, setTrainingGoalInputs] = useState({ calories: "", protein: "", carbs: "", fat: "" });
   const [restGoalInputs, setRestGoalInputs] = useState({ calories: "", protein: "", carbs: "", fat: "" });
+  const [hasTrainingGoal, setHasTrainingGoal] = useState(false);
+  const [hasRestGoal, setHasRestGoal] = useState(false);
   const goalInputs = goalDayTab === "training" ? trainingGoalInputs : goalDayTab === "rest" ? restGoalInputs : anyGoalInputs;
   const setGoalInputs = goalDayTab === "training" ? setTrainingGoalInputs : goalDayTab === "rest" ? setRestGoalInputs : setAnyGoalInputs;
   const [sleepTimeframe, setSleepTimeframe] = useState("1m");
@@ -709,15 +711,27 @@ export function ClientProfile() {
       const r = await fetch(`/api/clients/${clientId}/nutrition-goal?view=all`);
       if (!r.ok) return;
       const all = await r.json() as { training: Record<string, number | null> | null; rest: Record<string, number | null> | null; any: Record<string, number | null> | null };
-      if (all.any) setAnyGoalInputs({ calories: String(all.any.calories ?? ""), protein: String(all.any.protein ?? ""), carbs: String(all.any.carbs ?? ""), fat: String(all.any.fat ?? "") });
-      if (all.training) setTrainingGoalInputs({ calories: String(all.training.calories ?? ""), protein: String(all.training.protein ?? ""), carbs: String(all.training.carbs ?? ""), fat: String(all.training.fat ?? "") });
-      if (all.rest) setRestGoalInputs({ calories: String(all.rest.calories ?? ""), protein: String(all.rest.protein ?? ""), carbs: String(all.rest.carbs ?? ""), fat: String(all.rest.fat ?? "") });
+      setAnyGoalInputs(all.any ? { calories: String(all.any.calories ?? ""), protein: String(all.any.protein ?? ""), carbs: String(all.any.carbs ?? ""), fat: String(all.any.fat ?? "") } : { calories: "", protein: "", carbs: "", fat: "" });
+      setTrainingGoalInputs(all.training ? { calories: String(all.training.calories ?? ""), protein: String(all.training.protein ?? ""), carbs: String(all.training.carbs ?? ""), fat: String(all.training.fat ?? "") } : { calories: "", protein: "", carbs: "", fat: "" });
+      setRestGoalInputs(all.rest ? { calories: String(all.rest.calories ?? ""), protein: String(all.rest.protein ?? ""), carbs: String(all.rest.carbs ?? ""), fat: String(all.rest.fat ?? "") } : { calories: "", protein: "", carbs: "", fat: "" });
+      setHasTrainingGoal(!!all.training);
+      setHasRestGoal(!!all.rest);
       const resolved = all.any;
       if (resolved) setNutritionGoal(resolved);
     } catch { /* ignore */ }
   };
 
   useEffect(() => { loadAllNutritionGoals(); }, [clientId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleDeleteGoal = async (dayType: "training" | "rest") => {
+    try {
+      const res = await fetch(`/api/clients/${clientId}/nutrition-goal?dayType=${dayType}`, { method: "DELETE" });
+      if (res.ok) {
+        await loadAllNutritionGoals();
+        toast({ title: `${dayType === "training" ? "Training" : "Rest"} day goal removed.` });
+      }
+    } catch { toast({ title: "Failed to remove goal", variant: "destructive" }); }
+  };
 
   const handleSetGoal = async () => {
     try {
@@ -1621,7 +1635,18 @@ export function ClientProfile() {
                           </div>
                         </div>
 
-                        <Button className="w-full" onClick={handleSetGoal}>Save Goal</Button>
+                        <div className="flex gap-2">
+                          <Button className="flex-1" onClick={handleSetGoal}>Save Goal</Button>
+                          {(goalDayTab === "training" && hasTrainingGoal) || (goalDayTab === "rest" && hasRestGoal) ? (
+                            <Button
+                              variant="outline"
+                              className="text-destructive border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
+                              onClick={() => handleDeleteGoal(goalDayTab as "training" | "rest")}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          ) : null}
+                        </div>
                       </div>
                     );
                   })()}
