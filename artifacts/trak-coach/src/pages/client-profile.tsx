@@ -68,7 +68,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import { Copy, Send, Plus, CheckCircle, Circle, Trash2, ArrowLeft, ChevronDown, ChevronRight, Dumbbell, Pencil, X, Check, Phone, StickyNote, Clock, Video, Target, Sparkles, Loader2 } from "lucide-react";
+import { Copy, Send, Plus, CheckCircle, Circle, Trash2, ArrowLeft, ChevronDown, ChevronRight, Dumbbell, Pencil, X, Check, Phone, StickyNote, Clock, Video, Target, Sparkles, Loader2, ImageOff } from "lucide-react";
 import { Link as WLink } from "wouter";
 import { format, parseISO } from "date-fns";
 import { QueryErrorState } from "@/components/query-error-state";
@@ -480,6 +480,17 @@ function ProgramDayCard({ day, dayNumber, programId, onChanged }: { day: Program
         </div>
       )}
     </Card>
+  );
+}
+
+const isLegacyUrl = (url: string) => url.startsWith("https://storage.example.com");
+
+function BrokenPhotoPlaceholder({ aspectClass }: { aspectClass: string }) {
+  return (
+    <div className={`w-full ${aspectClass} bg-muted flex flex-col items-center justify-center gap-1`}>
+      <ImageOff className="w-5 h-5 text-muted-foreground opacity-40" />
+      <p className="text-[10px] text-muted-foreground text-center px-2 leading-tight opacity-60">Photo unavailable</p>
+    </div>
   );
 }
 
@@ -1515,12 +1526,16 @@ export function ClientProfile() {
                           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                             {photos.map(n => (
                               <div key={n.id} className="rounded-lg overflow-hidden border border-border bg-card">
-                                <img
-                                  src={n.imageUrl}
-                                  alt={n.notes ?? "MFP screenshot"}
-                                  className="w-full aspect-[3/4] object-cover object-top cursor-pointer"
-                                  onClick={() => window.open(n.imageUrl, "_blank")}
-                                />
+                                {isLegacyUrl(n.imageUrl ?? "") ? (
+                                  <BrokenPhotoPlaceholder aspectClass="aspect-[3/4]" />
+                                ) : (
+                                  <img
+                                    src={n.imageUrl}
+                                    alt={n.notes ?? "MFP screenshot"}
+                                    className="w-full aspect-[3/4] object-cover object-top cursor-pointer"
+                                    onClick={() => window.open(n.imageUrl, "_blank")}
+                                  />
+                                )}
                                 <div className="px-2 py-1.5">
                                   {n.notes && <p className="text-[11px] text-muted-foreground truncate">{n.notes}</p>}
                                   <div className="flex flex-wrap gap-x-2 mt-0.5">
@@ -1569,7 +1584,11 @@ export function ClientProfile() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {progressPhotos?.slice().reverse().map(p => (
               <Card key={p.id} data-testid={`card-photo-${p.id}`} className="overflow-hidden">
-                <img src={p.imageUrl} alt="Progress" className="w-full aspect-square object-cover" />
+                {isLegacyUrl(p.imageUrl) ? (
+                  <BrokenPhotoPlaceholder aspectClass="aspect-square" />
+                ) : (
+                  <img src={p.imageUrl} alt="Progress" className="w-full aspect-square object-cover" />
+                )}
                 <CardContent className="p-2">
                   <p className="text-xs font-medium">{p.date}</p>
                   {p.notes && <p className="text-xs text-muted-foreground">{p.notes}</p>}

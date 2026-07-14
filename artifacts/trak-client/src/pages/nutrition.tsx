@@ -309,13 +309,18 @@ export function NutritionPage() {
       getUploadUrl.mutate({ data: { filename: file.name, contentType: file.type } }, {
         onSuccess: async (data) => {
           try {
-            await fetch(data.uploadUrl, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+            const r = await fetch(data.uploadUrl, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+            if (!r.ok) throw new Error(`Upload failed: ${r.status}`);
             resolve(`/api/storage${data.objectPath}`);
           } catch {
+            toast({ title: "Photo upload failed", description: "Please try again.", variant: "destructive" });
             resolve(null);
           }
         },
-        onError: () => resolve(null),
+        onError: () => {
+          toast({ title: "Photo upload failed", description: "Please try again.", variant: "destructive" });
+          resolve(null);
+        },
       });
     });
   };

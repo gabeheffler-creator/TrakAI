@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, Upload, Camera, UtensilsCrossed } from "lucide-react";
+import { Plus, Trash2, Upload, Camera, UtensilsCrossed, ImageOff } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { QueryErrorState } from "@/components/query-error-state";
 
@@ -80,6 +80,17 @@ function UploadDialog({
   );
 }
 
+const isLegacyUrl = (url: string) => url.startsWith("https://storage.example.com");
+
+function BrokenPhotoPlaceholder({ aspectClass }: { aspectClass: string }) {
+  return (
+    <div className={`w-full ${aspectClass} bg-muted flex flex-col items-center justify-center gap-1`}>
+      <ImageOff className="w-5 h-5 text-muted-foreground opacity-40" />
+      <p className="text-[10px] text-muted-foreground text-center px-2 leading-tight opacity-60">Photo unavailable</p>
+    </div>
+  );
+}
+
 export function PhotosPage() {
   const { clientId } = useClientId();
   const qc = useQueryClient();
@@ -101,7 +112,8 @@ export function PhotosPage() {
     getUploadUrl.mutate({ data: { filename: file.name, contentType: file.type } }, {
       onSuccess: async (data) => {
         try {
-          await fetch(data.uploadUrl, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+          const r = await fetch(data.uploadUrl, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+          if (!r.ok) throw new Error(`Upload failed: ${r.status}`);
           onSuccess(`/api/storage${data.objectPath}`);
         } catch {
           toast({ title: "Upload failed", variant: "destructive" });
@@ -162,7 +174,11 @@ export function PhotosPage() {
           {!nutritionError && mfpPhotos.slice().reverse().map(n => (
             <Card key={n.id} className="overflow-hidden">
               <div className="relative">
-                <img src={n.imageUrl} alt="MFP" className="w-full aspect-square object-cover" />
+                {isLegacyUrl(n.imageUrl!) ? (
+                  <BrokenPhotoPlaceholder aspectClass="aspect-square" />
+                ) : (
+                  <img src={n.imageUrl!} alt="MFP" className="w-full aspect-square object-cover" />
+                )}
                 <button
                   onClick={() => deleteNutrition.mutate({ clientId: clientId!, nutritionId: n.id }, {
                     onSuccess: () => qc.invalidateQueries({ queryKey: getListNutritionLogsQueryKey(clientId!) })
@@ -222,7 +238,11 @@ export function PhotosPage() {
           {!photosError && photos?.slice().reverse().map(p => (
             <Card key={p.id} className="overflow-hidden">
               <div className="relative">
-                <img src={p.imageUrl} alt="Progress" className="w-full aspect-[3/4] object-cover" />
+                {isLegacyUrl(p.imageUrl) ? (
+                  <BrokenPhotoPlaceholder aspectClass="aspect-[3/4]" />
+                ) : (
+                  <img src={p.imageUrl} alt="Progress" className="w-full aspect-[3/4] object-cover" />
+                )}
                 <button
                   onClick={() => deletePhoto.mutate({ clientId: clientId!, photoId: p.id }, {
                     onSuccess: () => qc.invalidateQueries({ queryKey: getListProgressPhotosQueryKey(clientId!) })
