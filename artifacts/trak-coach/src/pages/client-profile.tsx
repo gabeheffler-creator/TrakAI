@@ -76,7 +76,7 @@ import { VideoCall } from "@/components/video-call";
 import { ClientMeasurementsTab } from "@/components/client-measurements-tab";
 
 // ── Vertical drum / scroll picker ────────────────────────────
-const ITEM_H = 40;
+const ITEM_H = 44;
 const VISIBLE = 5; // must be odd; center = selected
 
 function DrumDial({
@@ -86,71 +86,225 @@ function DrumDial({
   color: string; grams: number | null;
 }) {
   const containerH = ITEM_H * VISIBLE;
-  const startRef = useRef<{ y: number; pct: number } | null>(null);
+  const centerTop = ((VISIBLE - 1) / 2) * ITEM_H;
 
-  const handlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    e.currentTarget.setPointerCapture(e.pointerId);
-    startRef.current = { y: e.clientY, pct };
+  // Fractional display offset in "slot units" (same scale as pct: 0–100)
+  const offsetRef = useRef(pct);
+  const [displayOffset, setDisplayOffset] = useState(pct);
+  const rafRef = useRef<number | null>(null);
+  const isInteractingRef = useRef(false); // true while dragging or coasting
+  const lastNotifiedRef = useRef(pct);   // last integer passed to onChange
+
+  const dragRef = useRef<{
+    startY: number; startOffset: number;
+    lastY: number; lastTime: number;
+    velocity: number; // slots/ms, positive = dragged up = higher %
+  } | null>(null);
+
+  // Sync external pct → internal when at rest
+  useEffect(() => {
+    if (!isInteractingRef.current) {
+      offsetRef.current = pct;
+      lastNotifiedRef.current = pct;
+      setDisplayOffset(pct);
+    }
   }, [pct]);
 
-  const handlePointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    if (!startRef.current || e.buttons === 0) return;
-    const delta = startRef.current.y - e.clientY;   // drag up = increase
-    const next = Math.round(startRef.current.pct + delta / ITEM_H);
-    onChange(Math.max(0, Math.min(100, next)));
+  const cancelAnim = useCallback(() => {
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => () => cancelAnim(), [cancelAnim]);
+
+  // Ease-in spring to an integer target, then release interaction lock
+  const springTo = useCallback((target: number) => {
+    const tick = () => {
+      const delta = target - offsetRef.current;
+      if (Math.abs(delta) < 0.003) {
+        offsetRef.current = target;
+        setDisplayOffset(target);
+        if (lastNotifiedRef.current !== target) {
+          lastNotifiedRef.current = target;
+          onChange(target);
+        }
+        isInteractingRef.current = false;
+        rafRef.current = null;
+        return;
+      }
+      offsetRef.current += delta * 0.28; // spring coefficient — feels snappy
+      setDisplayOffset(offsetRef.current);
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
   }, [onChange]);
 
-  const handlePointerUp = useCallback(() => { startRef.current = null; }, []);
+  const handlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    cancelAnim();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    isInteractingRef.current = true;
+    dragRef.current = {
+      startY: e.clientY,
+      startOffset: offsetRef.current,
+      lastY: e.clientY,
+      lastTime: e.timeStamp,
+      velocity: 0,
+    };
+  }, [cancelAnim]);
 
-  // translateY so selected item sits in the middle slot
-  const translateY = -pct * ITEM_H + (VISIBLE - 1) / 2 * ITEM_H;
+  const handlePointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current;
+    if (!drag || e.buttons === 0) return;
+
+    // EMA velocity (slots/ms, drag up = positive)
+    const dt = e.timeStamp - drag.lastTime;
+    if (dt > 0) {
+      const instantV = (drag.lastY - e.clientY) / ITEM_H / dt;
+      drag.velocity = drag.velocity * 0.65 + instantV * 0.35;
+    }
+    drag.lastY = e.clientY;
+    drag.lastTime = e.timeStamp;
+
+    // Fractional offset — no rounding, wheel follows pointer continuously
+    const next = Math.max(0, Math.min(100, drag.startOffset + (drag.startY - e.clientY) / ITEM_H));
+    offsetRef.current = next;
+    setDisplayOffset(next);
+
+    // Notify parent only when the snapped integer changes
+    const rounded = Math.round(next);
+    if (rounded !== lastNotifiedRef.current) {
+      lastNotifiedRef.current = rounded;
+      onChange(rounded);
+    }
+  }, [onChange]);
+
+  const handlePointerUp = useCallback(() => {
+    const drag = dragRef.current;
+    if (!drag) return;
+    dragRef.current = null;
+
+    let vel = drag.velocity; // slots/ms at moment of release
+    const MIN_VEL = 0.0008;
+
+    if (Math.abs(vel) < MIN_VEL) {
+      springTo(Math.round(offsetRef.current));
+      return;
+    }
+
+    // Coast with exponential friction, then spring-snap to nearest integer
+    let lastFrameTime: number | null = null;
+    const coast = (time: number) => {
+      if (lastFrameTime === null) lastFrameTime = time;
+      const dt = Math.min(time - lastFrameTime, 32); // cap to avoid jump after tab switch
+      lastFrameTime = time;
+
+      vel *= Math.pow(0.94, dt / 16); // ~0.94 per 16 ms frame
+
+      const next = Math.max(0, Math.min(100, offsetRef.current + vel * dt));
+      offsetRef.current = next;
+      setDisplayOffset(next);
+
+      const rounded = Math.round(next);
+      if (rounded !== lastNotifiedRef.current) {
+        lastNotifiedRef.current = rounded;
+        onChange(rounded);
+      }
+
+      if (Math.abs(vel) > MIN_VEL && next > 0 && next < 100) {
+        rafRef.current = requestAnimationFrame(coast);
+      } else {
+        springTo(Math.round(next));
+      }
+    };
+    rafRef.current = requestAnimationFrame(coast);
+  }, [onChange, springTo]);
+
+  const translateY = -displayOffset * ITEM_H + centerTop;
 
   return (
     <div className="flex flex-col items-center gap-2 select-none">
-      {/* Drum container */}
-      <div
-        className="relative overflow-hidden cursor-ns-resize touch-none"
-        style={{ height: containerH, width: 72 }}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
-      >
-        {/* Center highlight band */}
+      <div className="relative" style={{ width: 80 }}>
+        {/* Drum scroll area */}
         <div
-          className="absolute inset-x-0 pointer-events-none z-10 rounded-lg border border-border/60"
-          style={{ top: (VISIBLE - 1) / 2 * ITEM_H, height: ITEM_H, background: `${color}18` }}
-        />
-
-        {/* Scrolling list — show only nearby values for perf */}
-        <div
-          className="absolute w-full"
-          style={{ transform: `translateY(${translateY}px)`, willChange: "transform" }}
+          className="relative overflow-hidden cursor-ns-resize touch-none rounded-xl"
+          style={{ height: containerH }}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
         >
-          {Array.from({ length: 101 }, (_, v) => {
-            const dist = Math.abs(v - pct);
-            const opacity = dist === 0 ? 1 : dist === 1 ? 0.55 : dist === 2 ? 0.25 : 0.08;
-            const scale  = dist === 0 ? 1 : dist === 1 ? 0.88 : 0.78;
-            return (
-              <div
-                key={v}
-                className="flex items-center justify-center font-semibold tabular-nums"
-                style={{ height: ITEM_H, fontSize: 15, opacity, transform: `scale(${scale})`, color: dist === 0 ? color : undefined, transition: "opacity 80ms, transform 80ms" }}
-              >
-                {v}%
-              </div>
-            );
-          })}
-        </div>
+          {/* Scrolling number strip */}
+          <div
+            className="absolute inset-x-0"
+            style={{ transform: `translateY(${translateY}px)`, willChange: "transform" }}
+          >
+            {Array.from({ length: 101 }, (_, v) => {
+              const dist = Math.abs(v - displayOffset);
+              // Smooth continuous falloff — not the old discrete steps
+              const opacity = Math.max(0.04, 1 - dist * 0.62);
+              const scale  = Math.max(0.70, 1 - dist * 0.12);
+              const fsize  = 14 + Math.max(0, (1 - dist) * 4); // 14–18 px
+              return (
+                <div
+                  key={v}
+                  className="flex items-center justify-center font-bold tabular-nums"
+                  style={{
+                    height: ITEM_H,
+                    fontSize: fsize,
+                    opacity,
+                    transform: `scale(${scale})`,
+                    color: dist < 0.5 ? color : undefined,
+                  }}
+                >
+                  {v}%
+                </div>
+              );
+            })}
+          </div>
 
-        {/* Fade top */}
-        <div className="absolute inset-x-0 top-0 pointer-events-none z-20" style={{ height: ITEM_H * 2, background: "linear-gradient(to bottom, var(--background) 30%, transparent)" }} />
-        {/* Fade bottom */}
-        <div className="absolute inset-x-0 bottom-0 pointer-events-none z-20" style={{ height: ITEM_H * 2, background: "linear-gradient(to top, var(--background) 30%, transparent)" }} />
+          {/* Top fade */}
+          <div
+            className="absolute inset-x-0 top-0 pointer-events-none z-20"
+            style={{ height: ITEM_H * 2, background: "linear-gradient(to bottom, var(--background) 25%, transparent)" }}
+          />
+          {/* Bottom fade */}
+          <div
+            className="absolute inset-x-0 bottom-0 pointer-events-none z-20"
+            style={{ height: ITEM_H * 2, background: "linear-gradient(to top, var(--background) 25%, transparent)" }}
+          />
+
+          {/* Center zone tint */}
+          <div
+            className="absolute inset-x-0 pointer-events-none z-10"
+            style={{ top: centerTop, height: ITEM_H, background: `${color}12` }}
+          />
+          {/* Center indicator — top rule */}
+          <div
+            className="absolute inset-x-0 pointer-events-none z-30"
+            style={{ top: centerTop, height: 1.5, background: color, opacity: 0.55 }}
+          />
+          {/* Center indicator — bottom rule */}
+          <div
+            className="absolute inset-x-0 pointer-events-none z-30"
+            style={{ top: centerTop + ITEM_H - 1.5, height: 1.5, background: color, opacity: 0.55 }}
+          />
+
+          {/* Dial pointer — small left-pointing caret at right edge of center slot */}
+          <div
+            className="absolute pointer-events-none z-30"
+            style={{ top: centerTop + ITEM_H / 2, right: 5, transform: "translateY(-50%)" }}
+          >
+            <svg width="7" height="12" viewBox="0 0 7 12" fill="none">
+              <polygon points="7,0 0,6 7,12" fill={color} opacity="0.8" />
+            </svg>
+          </div>
+        </div>
       </div>
 
       <p className="text-xs font-semibold" style={{ color }}>{label}</p>
-      <p className="text-xs text-muted-foreground">{grams !== null ? `${grams}g` : "—"}</p>
+      <p className="text-xs text-muted-foreground tabular-nums">{grams !== null ? `${grams}g` : "—"}</p>
     </div>
   );
 }
