@@ -7,6 +7,7 @@
     "dev": "export NODE_ENV=development && pnpm run build && pnpm run start",
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
+    "test": "node --import tsx/esm --test src/lib/day-type.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "backfill-program-templates": "tsx ./src/scripts/backfill-program-templates.ts",
     "seed-demo-accounts": "tsx ./src/scripts/seed-demo-accounts.ts"

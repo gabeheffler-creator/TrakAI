@@ -11,6 +11,7 @@ import {
 } from "@workspace/db";
 import { eq, desc, asc, inArray, and } from "drizzle-orm";
 import { requireClientOwnership } from "../middlewares/auth";
+import { chooseDayType } from "../lib/day-type.js";
 
 const router = Router();
 
@@ -123,23 +124,37 @@ router.get("/clients/:clientId/nutrition-goal", requireClientOwnership(), async 
 
     const programGoal = await resolveProgramNutritionGoal(clientId);
     if (programGoal) {
-      res.json(programGoal);
+      // Program goals are schedule-based, not training/rest based.
+      res.json({ ...programGoal, dayType: "any" as const, isTrainingDay: null });
       return;
     }
 
     const date = dateParam ?? new Date().toISOString().split("T")[0];
-    const isTraining = await hasWorkoutOnDate(clientId, date);
-    const preferredType: DayType = isTraining ? "training" : "rest";
 
-    const preferredGoal = await getLatestGoalByDayType(clientId, preferredType);
-    if (preferredGoal) {
-      res.json({ ...preferredGoal, createdAt: preferredGoal.createdAt.toISOString(), dayType: preferredGoal.dayType, isTrainingDay: isTraining });
-      return;
+    // Resolve whether today is a training day. If the workout-log query fails
+    // (DB error, timeout, etc.) we must NOT silently return a training or rest
+    // goal — fall back to the "any" goal and log a warning.
+    let isTrainingRaw: boolean | null;
+    try {
+      isTrainingRaw = await hasWorkoutOnDate(clientId, date);
+    } catch (err) {
+      req.log.warn({ err, clientId, date }, "Workout-log lookup failed; falling back to all-days goal");
+      isTrainingRaw = null;
+    }
+
+    const { preferredType, isTrainingDay, skipToAny } = chooseDayType(isTrainingRaw);
+
+    if (!skipToAny) {
+      const preferredGoal = await getLatestGoalByDayType(clientId, preferredType);
+      if (preferredGoal) {
+        res.json({ ...preferredGoal, createdAt: preferredGoal.createdAt.toISOString(), dayType: preferredGoal.dayType, isTrainingDay });
+        return;
+      }
     }
 
     const anyGoal = await getLatestGoalByDayType(clientId, "any");
     if (anyGoal) {
-      res.json({ ...anyGoal, createdAt: anyGoal.createdAt.toISOString(), dayType: anyGoal.dayType, isTrainingDay: isTraining });
+      res.json({ ...anyGoal, createdAt: anyGoal.createdAt.toISOString(), dayType: anyGoal.dayType, isTrainingDay });
       return;
     }
 
