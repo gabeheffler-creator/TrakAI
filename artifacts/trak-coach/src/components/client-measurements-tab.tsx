@@ -6,17 +6,17 @@ import { Badge } from "@/components/ui/badge";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import {
   LineChart, Line, BarChart, Bar, Cell,
-  XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
+  XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine,
 } from "recharts";
 
 type TimeframeKey = "4w" | "3m" | "6m" | "1y" | "all";
 
 const TIMEFRAME_OPTIONS: { value: TimeframeKey; label: string }[] = [
-  { value: "4w", label: "Last 4 weeks" },
-  { value: "3m", label: "Last 3 months" },
-  { value: "6m", label: "Last 6 months" },
-  { value: "1y", label: "Last year" },
-  { value: "all", label: "All time" },
+  { value: "4w",  label: "Last 4 weeks"  },
+  { value: "3m",  label: "Last 3 months" },
+  { value: "6m",  label: "Last 6 months" },
+  { value: "1y",  label: "Last year"     },
+  { value: "all", label: "All time"      },
 ];
 
 type CoachMetricKey = "weight" | "chest" | "waist" | "hips" | "arms" | "thighs" | "calves" | "bodyFat";
@@ -35,10 +35,10 @@ const METRICS: { key: CoachMetricKey; label: string; lowerIsBetter: boolean }[] 
 function getTimeframeCutoff(tf: TimeframeKey): Date | null {
   const now = new Date();
   switch (tf) {
-    case "4w": return new Date(now.getTime() - 28  * 24 * 60 * 60 * 1000);
-    case "3m": return new Date(now.getTime() - 90  * 24 * 60 * 60 * 1000);
-    case "6m": return new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000);
-    case "1y": return new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+    case "4w":  return new Date(now.getTime() - 28  * 24 * 60 * 60 * 1000);
+    case "3m":  return new Date(now.getTime() - 90  * 24 * 60 * 60 * 1000);
+    case "6m":  return new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000);
+    case "1y":  return new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
     case "all": return null;
   }
 }
@@ -49,7 +49,8 @@ function filterByTimeframe(measurements: Measurement[], tf: TimeframeKey): Measu
   return measurements.filter(m => new Date(m.date) >= cutoff);
 }
 
-type ChartPoint = { date: string; value: number };
+// Full ISO date in `date` for math; MM-DD in `label` for XAxis display
+type ChartPoint = { date: string; label: string; value: number };
 
 function calcLastChange(data: ChartPoint[]): number | null {
   if (data.length < 2) return null;
@@ -59,20 +60,30 @@ function calcLastChange(data: ChartPoint[]): number | null {
 function calcAvgRatePerWeek(data: ChartPoint[]): number | null {
   if (data.length < 2) return null;
   const first = data[0];
-  const last = data[data.length - 1];
+  const last  = data[data.length - 1];
   const weeks = (new Date(last.date).getTime() - new Date(first.date).getTime()) / (7 * 24 * 60 * 60 * 1000);
   if (weeks < 0.1) return null;
   return (last.value - first.value) / weeks;
 }
 
+// Most recent entry within the 7-day window before the last entry
 function calcLast7DaysChange(data: ChartPoint[]): number | null {
   if (data.length < 2) return null;
-  const last = data[data.length - 1];
-  const cutoff = new Date(last.date);
-  cutoff.setDate(cutoff.getDate() - 7);
-  const prev = [...data].slice(0, -1).reverse().find(d => new Date(d.date) <= cutoff);
+  const last   = data[data.length - 1];
+  const cutoff = new Date(new Date(last.date).getTime() - 7 * 24 * 60 * 60 * 1000);
+  const prev   = [...data].slice(0, -1).reverse().find(d => new Date(d.date) >= cutoff);
   if (!prev) return null;
   return last.value - prev.value;
+}
+
+// Slope between the last two visible points, expressed as per-week change
+function calcSlopeLastTwo(data: ChartPoint[]): number | null {
+  if (data.length < 2) return null;
+  const last = data[data.length - 1];
+  const prev = data[data.length - 2];
+  const days = (new Date(last.date).getTime() - new Date(prev.date).getTime()) / (24 * 60 * 60 * 1000);
+  if (days < 0.5) return null;
+  return ((last.value - prev.value) / days) * 7;
 }
 
 function formatChange(val: number | null, unit: string): string {
@@ -105,10 +116,16 @@ export function ClientMeasurementsTab({ measurements }: ClientMeasurementsTabPro
   const metricRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const sortedAll = [...measurements].sort((a, b) => a.date.localeCompare(b.date));
-  const filtered = filterByTimeframe(sortedAll, timeframe);
+  const filtered  = filterByTimeframe(sortedAll, timeframe);
 
+  // Pills show metrics that have ANY data across full history
   const activeMetrics = METRICS.filter(m =>
     sortedAll.some(entry => entry[m.key] != null)
+  );
+
+  // History table columns: only metrics present in the filtered window
+  const filteredActiveMetrics = METRICS.filter(m =>
+    filtered.some(entry => entry[m.key] != null)
   );
 
   const unitLabel = sortedAll[0]?.unit === "metric"
@@ -116,7 +133,7 @@ export function ClientMeasurementsTab({ measurements }: ClientMeasurementsTabPro
     : { weight: "lbs", length: "in" };
 
   function getUnit(key: CoachMetricKey): string {
-    if (key === "weight") return unitLabel.weight;
+    if (key === "weight")  return unitLabel.weight;
     if (key === "bodyFat") return "%";
     return unitLabel.length;
   }
@@ -168,19 +185,28 @@ export function ClientMeasurementsTab({ measurements }: ClientMeasurementsTabPro
         const unit = getUnit(metric.key);
         const chartData: ChartPoint[] = filtered
           .filter(m => m[metric.key] != null)
-          .map(m => ({ date: m.date.slice(5), value: m[metric.key] as number }));
+          .map(m => ({
+            date:  m.date,          // full ISO for math
+            label: m.date.slice(5), // MM-DD for display
+            value: m[metric.key] as number,
+          }));
 
         if (chartData.length === 0) return null;
 
-        const lc  = calcLastChange(chartData);
-        const avg = calcAvgRatePerWeek(chartData);
-        const l7  = calcLast7DaysChange(chartData);
+        const lc    = calcLastChange(chartData);
+        const avg   = calcAvgRatePerWeek(chartData);
+        const l7    = calcLast7DaysChange(chartData);
+        const slope = calcSlopeLastTwo(chartData);
 
         const stats = [
-          { label: "Last change",   val: lc  },
-          { label: "Avg / week",    val: avg },
-          { label: "Last 7 days",   val: l7  },
+          { label: "Last change", val: lc  },
+          { label: "Avg / week",  val: avg },
+          { label: "Last 7 days", val: l7  },
         ];
+
+        const slopeText = slope != null
+          ? `${slope > 0 ? "+" : ""}${slope.toFixed(1)}/wk`
+          : null;
 
         return (
           <div
@@ -189,14 +215,7 @@ export function ClientMeasurementsTab({ measurements }: ClientMeasurementsTabPro
           >
             <Card>
               <CardHeader className="pb-2 pt-4 px-4">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-semibold">{metric.label}</CardTitle>
-                  {avg != null && (
-                    <span className={`text-xs font-medium ${changeColor(avg, metric.lowerIsBetter)}`}>
-                      {avg > 0 ? "+" : ""}{avg.toFixed(2)}/wk avg
-                    </span>
-                  )}
-                </div>
+                <CardTitle className="text-sm font-semibold">{metric.label}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 pb-4 px-4">
                 {/* Stats strip */}
@@ -213,33 +232,50 @@ export function ClientMeasurementsTab({ measurements }: ClientMeasurementsTabPro
 
                 {chartData.length >= 2 ? (
                   <>
-                    {/* Line chart */}
-                    <ResponsiveContainer width="100%" height={180}>
-                      <LineChart data={chartData} margin={{ top: 4, right: 8, left: -24, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                        <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-                        <YAxis domain={["auto", "auto"]} tick={{ fontSize: 10 }} />
-                        <Tooltip
-                          formatter={(v: number) => [`${v} ${unit}`, metric.label]}
-                          labelFormatter={l => `Date: ${l}`}
-                          contentStyle={{ fontSize: 12 }}
-                        />
-                        <Line
-                          type="monotone"
-                          dataKey="value"
-                          stroke="hsl(var(--primary))"
-                          strokeWidth={2}
-                          dot={{ r: 2 }}
-                          activeDot={{ r: 4 }}
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
+                    {/* Line chart with slope annotation near right edge */}
+                    <div className="relative">
+                      <ResponsiveContainer width="100%" height={180}>
+                        <LineChart data={chartData} margin={{ top: 4, right: 8, left: -24, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                          <XAxis dataKey="label" tick={{ fontSize: 10 }} />
+                          <YAxis domain={["auto", "auto"]} tick={{ fontSize: 10 }} />
+                          <Tooltip
+                            formatter={(v: number) => [`${v} ${unit}`, metric.label]}
+                            labelFormatter={l => `Date: ${l}`}
+                            contentStyle={{ fontSize: 12 }}
+                          />
+                          <Line
+                            type="monotone"
+                            dataKey="value"
+                            stroke="hsl(var(--primary))"
+                            strokeWidth={2}
+                            dot={{ r: 2 }}
+                            activeDot={{ r: 4 }}
+                          />
+                          {slopeText != null && (
+                            <ReferenceLine
+                              x={chartData[chartData.length - 1].label}
+                              stroke="transparent"
+                              label={{
+                                value: slopeText,
+                                position: "insideTopRight",
+                                fontSize: 10,
+                                fill: slope! > 0
+                                  ? (metric.lowerIsBetter ? "hsl(0 84% 60%)" : "hsl(142 71% 45%)")
+                                  : (metric.lowerIsBetter ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)"),
+                                offset: 4,
+                              }}
+                            />
+                          )}
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
 
                     {/* Bar chart */}
                     <ResponsiveContainer width="100%" height={120}>
                       <BarChart data={chartData} margin={{ top: 0, right: 8, left: -24, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
-                        <XAxis dataKey="date" tick={{ fontSize: 9 }} />
+                        <XAxis dataKey="label" tick={{ fontSize: 9 }} />
                         <YAxis domain={["auto", "auto"]} tick={{ fontSize: 9 }} />
                         <Tooltip
                           formatter={(v: number) => [`${v} ${unit}`, metric.label]}
@@ -271,7 +307,7 @@ export function ClientMeasurementsTab({ measurements }: ClientMeasurementsTabPro
         );
       })}
 
-      {/* Collapsible history table */}
+      {/* Collapsible history table — columns limited to metrics present in filtered window */}
       {filtered.length > 0 && (
         <div>
           <button
@@ -293,7 +329,7 @@ export function ClientMeasurementsTab({ measurements }: ClientMeasurementsTabPro
                 <thead>
                   <tr className="border-b border-border bg-muted/50">
                     <th className="text-left px-3 py-2 font-medium whitespace-nowrap">Date</th>
-                    {activeMetrics.map(m => (
+                    {filteredActiveMetrics.map(m => (
                       <th key={m.key} className="text-right px-3 py-2 font-medium whitespace-nowrap">
                         {m.label}
                       </th>
@@ -304,7 +340,7 @@ export function ClientMeasurementsTab({ measurements }: ClientMeasurementsTabPro
                   {filteredDesc.map(m => (
                     <tr key={m.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
                       <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{m.date}</td>
-                      {activeMetrics.map(metric => {
+                      {filteredActiveMetrics.map(metric => {
                         const val = m[metric.key];
                         return (
                           <td key={metric.key} className="px-3 py-2 text-right tabular-nums">

@@ -69,21 +69,17 @@ function filterByTimeframe(measurements: Measurement[], tf: TimeframeKey): Measu
 
 type ClientMetricKey =
   | "weight" | "chest" | "waist" | "hips"
-  | "leftArm" | "rightArm"
-  | "leftThigh" | "rightThigh"
-  | "leftCalf" | "rightCalf";
+  | "arms" | "thighs" | "calves" | "bodyFat";
 
 const CHART_METRICS: { key: ClientMetricKey; label: string }[] = [
-  { key: "weight",     label: "Weight"      },
-  { key: "chest",      label: "Chest"       },
-  { key: "waist",      label: "Waist"       },
-  { key: "hips",       label: "Hips"        },
-  { key: "leftArm",    label: "Left Arm"    },
-  { key: "rightArm",   label: "Right Arm"   },
-  { key: "leftThigh",  label: "Left Thigh"  },
-  { key: "rightThigh", label: "Right Thigh" },
-  { key: "leftCalf",   label: "Left Calf"   },
-  { key: "rightCalf",  label: "Right Calf"  },
+  { key: "weight",  label: "Weight"   },
+  { key: "chest",   label: "Chest"    },
+  { key: "waist",   label: "Waist"    },
+  { key: "hips",    label: "Hips"     },
+  { key: "arms",    label: "Arms"     },
+  { key: "thighs",  label: "Thighs"   },
+  { key: "calves",  label: "Calves"   },
+  { key: "bodyFat", label: "Body Fat" },
 ];
 
 function rateAnnotation(
@@ -260,7 +256,7 @@ export function MeasurementsPage() {
 
         if (chartData.length < 2) return null;
 
-        const unit = metric.key === "weight" ? weightLabel : lengthLabel;
+        const unit = metric.key === "weight" ? weightLabel : metric.key === "bodyFat" ? "%" : lengthLabel;
         const annotation = rateAnnotation(chartData, unit);
 
         return (
