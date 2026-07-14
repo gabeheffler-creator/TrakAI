@@ -513,6 +513,7 @@ export function ClientProfile() {
   const [nutritionGoal, setNutritionGoal] = useState<Record<string, number | null> | null>(null);
   const [goalDialogOpen, setGoalDialogOpen] = useState(false);
   const [goalInputs, setGoalInputs] = useState({ calories: "", protein: "", carbs: "", fat: "" });
+  const [sleepTimeframe, setSleepTimeframe] = useState("4w");
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const generateInvite = useGenerateInviteLink();
 
@@ -1272,21 +1273,54 @@ export function ClientProfile() {
 
         {/* Sleep */}
         <TabsContent value="sleep" className="mt-4 space-y-3">
-          {(sleepLogs?.length ?? 0) === 0 && <p className="text-muted-foreground text-sm">No sleep logs.</p>}
-          {sleepLogs?.slice().reverse().map(s => (
-            <Card key={s.id} data-testid={`card-sleep-${s.id}`}>
-              <CardContent className="pt-4 pb-4 flex items-center justify-between">
-                <div>
-                  <p className="font-medium">{s.date}</p>
-                  <p className="text-xs text-muted-foreground">{s.notes}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-2xl font-bold">{s.hoursSlept}h</p>
-                  {s.quality && <Badge variant="outline">{s.quality}</Badge>}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+          {/* Timeframe dropdown */}
+          <Select value={sleepTimeframe} onValueChange={setSleepTimeframe}>
+            <SelectTrigger className="w-36 h-8 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="7d">Last 7 days</SelectItem>
+              <SelectItem value="4w">Last 4 weeks</SelectItem>
+              <SelectItem value="3m">Last 3 months</SelectItem>
+              <SelectItem value="all">All time</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {(() => {
+            const days = sleepTimeframe === "7d" ? 7 : sleepTimeframe === "4w" ? 28 : sleepTimeframe === "3m" ? 90 : null;
+            const since = days ? new Date(Date.now() - days * 86400000).toISOString().split("T")[0] : null;
+            const filtered = (sleepLogs ?? []).filter(s => !since || s.date >= since);
+            const avg = filtered.length ? filtered.reduce((sum, s) => sum + (s.hoursSlept ?? 0), 0) / filtered.length : null;
+            return (
+              <>
+                {/* Weekly Average card */}
+                {avg != null && (
+                  <Card>
+                    <CardContent className="pt-4 pb-3 text-center">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Weekly Average</p>
+                      <p className="text-4xl font-bold tabular-nums">{avg.toFixed(1)}<span className="text-xl font-normal text-muted-foreground ml-1">h</span></p>
+                      <p className="text-xs text-muted-foreground mt-1">{filtered.length} night{filtered.length !== 1 ? "s" : ""} logged</p>
+                    </CardContent>
+                  </Card>
+                )}
+                {filtered.length === 0 && <p className="text-muted-foreground text-sm">No sleep logs in this timeframe.</p>}
+                {[...filtered].reverse().map(s => (
+                  <Card key={s.id} data-testid={`card-sleep-${s.id}`}>
+                    <CardContent className="pt-4 pb-4 flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">{s.date}</p>
+                        {s.notes && <p className="text-xs text-muted-foreground">{s.notes}</p>}
+                      </div>
+                      <div className="text-right">
+                        <p className="text-2xl font-bold">{s.hoursSlept}h</p>
+                        {s.quality && <Badge variant="outline">{s.quality}</Badge>}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </>
+            );
+          })()}
         </TabsContent>
 
         {/* Nutrition */}
