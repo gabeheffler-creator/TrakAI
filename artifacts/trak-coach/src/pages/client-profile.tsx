@@ -73,6 +73,7 @@ import { Link as WLink } from "wouter";
 import { format, parseISO } from "date-fns";
 import { QueryErrorState } from "@/components/query-error-state";
 import { VideoCall } from "@/components/video-call";
+import { ClientMeasurementsTab } from "@/components/client-measurements-tab";
 
 // ── Vertical drum / scroll picker ────────────────────────────
 const ITEM_H = 40;
@@ -1265,27 +1266,8 @@ export function ClientProfile() {
         </TabsContent>
 
         {/* Measurements */}
-        <TabsContent value="measurements" className="mt-4 space-y-3">
-          {(measurements?.length ?? 0) === 0 && <p className="text-muted-foreground text-sm">No measurements logged.</p>}
-          {measurements?.slice().reverse().map(m => (
-            <Card key={m.id} data-testid={`card-measurement-${m.id}`}>
-              <CardContent className="pt-4 pb-4">
-                <p className="font-medium text-sm mb-2">{m.date}</p>
-                <div className="grid grid-cols-3 md:grid-cols-7 gap-2">
-                  {(["weight", "chest", "waist", "hips", "arms", "thighs", "calves"] as const).map(k => {
-                    const val = m[k];
-                    if (!val) return null;
-                    return (
-                      <div key={k} className="text-center">
-                        <p className="text-xs text-muted-foreground capitalize">{k}</p>
-                        <p className="font-bold">{val}</p>
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+        <TabsContent value="measurements" className="mt-4">
+          <ClientMeasurementsTab measurements={measurements ?? []} />
         </TabsContent>
 
         {/* Sleep */}
