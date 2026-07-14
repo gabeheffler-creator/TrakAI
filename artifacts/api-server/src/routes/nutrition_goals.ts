@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type RequestHandler } from "express";
 import { db } from "@workspace/db";
 import {
   nutritionGoalsTable,
@@ -7,13 +7,11 @@ import {
   programPhasesTable,
   programDaysTable,
   programNutritionGoalsTable,
-  workoutLogsTable,
 } from "@workspace/db";
 import { eq, desc, asc, inArray, and } from "drizzle-orm";
 import { requireClientOwnership } from "../middlewares/auth";
 import { chooseDayType } from "../lib/day-type.js";
-
-const router = Router();
+import { hasWorkoutOnDate } from "../lib/workout-lookup.js";
 
 type DayType = "any" | "training" | "rest";
 
@@ -88,13 +86,6 @@ async function resolveProgramNutritionGoal(clientId: number) {
   };
 }
 
-async function hasWorkoutOnDate(clientId: number, date: string): Promise<boolean> {
-  const logs = await db.select({ id: workoutLogsTable.id }).from(workoutLogsTable)
-    .where(and(eq(workoutLogsTable.clientId, clientId), eq(workoutLogsTable.date, date)))
-    .limit(1);
-  return logs.length > 0;
-}
-
 async function getLatestGoalByDayType(clientId: number, dayType: DayType) {
   const [goal] = await db.select().from(nutritionGoalsTable)
     .where(and(eq(nutritionGoalsTable.clientId, clientId), eq(nutritionGoalsTable.dayType, dayType)))
@@ -103,115 +94,161 @@ async function getLatestGoalByDayType(clientId: number, dayType: DayType) {
   return goal ?? null;
 }
 
-router.get("/clients/:clientId/nutrition-goal", requireClientOwnership(), async (req, res) => {
-  try {
-    const clientId = Number(req.params.clientId);
-    if (isNaN(clientId)) { res.status(400).json({ error: "Invalid clientId" }); return; }
+// ── Injectable context ────────────────────────────────────────────────────
+// Separating the I/O operations from the route wiring makes the GET handler
+// testable without a live database or module-level mocking.
 
-    const view = req.query.view as string | undefined;
-    const dateParam = typeof req.query.date === "string" ? req.query.date : null;
+type NutritionGoalRow = Awaited<ReturnType<typeof getLatestGoalByDayType>>;
+type ProgramGoalRow = Awaited<ReturnType<typeof resolveProgramNutritionGoal>>;
 
-    if (view === "all") {
-      const [trainingGoal, restGoal, anyGoal] = await Promise.all([
-        getLatestGoalByDayType(clientId, "training"),
-        getLatestGoalByDayType(clientId, "rest"),
-        getLatestGoalByDayType(clientId, "any"),
-      ]);
-      const fmt = (g: typeof trainingGoal) => g ? { ...g, createdAt: g.createdAt.toISOString() } : null;
-      res.json({ training: fmt(trainingGoal), rest: fmt(restGoal), any: fmt(anyGoal) });
-      return;
-    }
+export type RouteContext = {
+  checkOwnership: () => RequestHandler;
+  hasWorkout: (clientId: number, date: string) => Promise<boolean>;
+  getGoal: (clientId: number, dayType: DayType) => Promise<NutritionGoalRow | null>;
+  getProgram: (clientId: number) => Promise<ProgramGoalRow>;
+};
 
-    const programGoal = await resolveProgramNutritionGoal(clientId);
-    if (programGoal) {
-      // Program goals are schedule-based, not training/rest based.
-      res.json({ ...programGoal, dayType: "any" as const, isTrainingDay: null });
-      return;
-    }
+const defaultCtx: RouteContext = {
+  checkOwnership: requireClientOwnership,
+  hasWorkout: hasWorkoutOnDate,
+  getGoal: getLatestGoalByDayType,
+  getProgram: resolveProgramNutritionGoal,
+};
 
-    const date = dateParam ?? new Date().toISOString().split("T")[0];
+/**
+ * Creates the nutrition-goals router.
+ * Pass a partial context to override dependencies (useful in tests).
+ */
+export function makeNutritionGoalsRouter(ctx: Partial<RouteContext> = {}): Router {
+  const {
+    checkOwnership = defaultCtx.checkOwnership,
+    hasWorkout = defaultCtx.hasWorkout,
+    getGoal = defaultCtx.getGoal,
+    getProgram = defaultCtx.getProgram,
+  } = ctx;
 
-    // Resolve whether today is a training day. If the workout-log query fails
-    // (DB error, timeout, etc.) we must NOT silently return a training or rest
-    // goal — fall back to the "any" goal and log a warning.
-    let isTrainingRaw: boolean | null;
+  const router = Router();
+
+  router.get("/clients/:clientId/nutrition-goal", checkOwnership(), async (req, res) => {
     try {
-      isTrainingRaw = await hasWorkoutOnDate(clientId, date);
-    } catch (err) {
-      req.log.warn({ err, clientId, date }, "Workout-log lookup failed; falling back to all-days goal");
-      isTrainingRaw = null;
-    }
+      const clientId = Number(req.params.clientId);
+      if (isNaN(clientId)) { res.status(400).json({ error: "Invalid clientId" }); return; }
 
-    const { preferredType, isTrainingDay, skipToAny } = chooseDayType(isTrainingRaw);
+      const view = req.query.view as string | undefined;
+      const dateParam = typeof req.query.date === "string" ? req.query.date : null;
 
-    if (!skipToAny) {
-      const preferredGoal = await getLatestGoalByDayType(clientId, preferredType);
-      if (preferredGoal) {
-        res.json({ ...preferredGoal, createdAt: preferredGoal.createdAt.toISOString(), dayType: preferredGoal.dayType, isTrainingDay });
+      if (view === "all") {
+        const [trainingGoal, restGoal, anyGoal] = await Promise.all([
+          getGoal(clientId, "training"),
+          getGoal(clientId, "rest"),
+          getGoal(clientId, "any"),
+        ]);
+        const fmt = (g: NutritionGoalRow | null) => g ? { ...g, createdAt: g.createdAt.toISOString() } : null;
+        res.json({ training: fmt(trainingGoal), rest: fmt(restGoal), any: fmt(anyGoal) });
         return;
       }
+
+      // Resolve program-driven goal. If the lookup fails (corrupt assignment,
+      // DB error) log a warning and fall through to coach-set goals rather than
+      // returning 500.
+      let programGoal: ProgramGoalRow = null;
+      try {
+        programGoal = await getProgram(clientId);
+      } catch (err) {
+        req.log.warn({ err, clientId }, "Program goal resolution failed; falling through to coach-set goals");
+      }
+      if (programGoal) {
+        // Program goals are schedule-based, not training/rest based.
+        res.json({ ...programGoal, dayType: "any" as const, isTrainingDay: null });
+        return;
+      }
+
+      const date = dateParam ?? new Date().toISOString().split("T")[0];
+
+      // Resolve whether today is a training day. If the workout-log query fails
+      // (DB error, timeout, etc.) we must NOT silently return a training or rest
+      // goal — fall back to the "any" goal and log a warning.
+      let isTrainingRaw: boolean | null;
+      try {
+        isTrainingRaw = await hasWorkout(clientId, date);
+      } catch (err) {
+        req.log.warn({ err, clientId, date }, "Workout-log lookup failed; falling back to all-days goal");
+        isTrainingRaw = null;
+      }
+
+      const { preferredType, isTrainingDay, skipToAny } = chooseDayType(isTrainingRaw);
+
+      if (!skipToAny) {
+        const preferredGoal = await getGoal(clientId, preferredType);
+        if (preferredGoal) {
+          res.json({ ...preferredGoal, createdAt: preferredGoal.createdAt.toISOString(), dayType: preferredGoal.dayType, isTrainingDay });
+          return;
+        }
+      }
+
+      const anyGoal = await getGoal(clientId, "any");
+      if (anyGoal) {
+        res.json({ ...anyGoal, createdAt: anyGoal.createdAt.toISOString(), dayType: anyGoal.dayType, isTrainingDay });
+        return;
+      }
+
+      res.json(null);
+    } catch (err) {
+      req.log.error(err);
+      res.status(500).json({ error: "Failed to fetch nutrition goal" });
     }
+  });
 
-    const anyGoal = await getLatestGoalByDayType(clientId, "any");
-    if (anyGoal) {
-      res.json({ ...anyGoal, createdAt: anyGoal.createdAt.toISOString(), dayType: anyGoal.dayType, isTrainingDay });
-      return;
+  router.delete("/clients/:clientId/nutrition-goal/:dayType", checkOwnership(), async (req, res) => {
+    try {
+      const clientId = Number(req.params.clientId);
+      if (isNaN(clientId)) { res.status(400).json({ error: "Invalid clientId" }); return; }
+      const dayType = req.params.dayType as string | undefined;
+      if (dayType !== "training" && dayType !== "rest") {
+        res.status(400).json({ error: "dayType must be 'training' or 'rest'" });
+        return;
+      }
+      await db.delete(nutritionGoalsTable)
+        .where(and(eq(nutritionGoalsTable.clientId, clientId), eq(nutritionGoalsTable.dayType, dayType)));
+      res.status(204).end();
+    } catch (err) {
+      req.log.error(err);
+      res.status(500).json({ error: "Failed to delete nutrition goal" });
     }
+  });
 
-    res.json(null);
-  } catch (err) {
-    req.log.error(err);
-    res.status(500).json({ error: "Failed to fetch nutrition goal" });
-  }
-});
-
-router.delete("/clients/:clientId/nutrition-goal/:dayType", requireClientOwnership(), async (req, res) => {
-  try {
-    const clientId = Number(req.params.clientId);
-    if (isNaN(clientId)) { res.status(400).json({ error: "Invalid clientId" }); return; }
-    const dayType = req.params.dayType as string | undefined;
-    if (dayType !== "training" && dayType !== "rest") {
-      res.status(400).json({ error: "dayType must be 'training' or 'rest'" });
-      return;
+  router.post("/clients/:clientId/nutrition-goal", checkOwnership(), async (req, res) => {
+    try {
+      const clientId = Number(req.params.clientId);
+      if (isNaN(clientId)) { res.status(400).json({ error: "Invalid clientId" }); return; }
+      const body = req.body as Record<string, unknown>;
+      const periodType = (["day", "week", "phase"] as const).includes(body.periodType as never)
+        ? (body.periodType as "day" | "week" | "phase")
+        : "day";
+      const dayType = (["any", "training", "rest"] as const).includes(body.dayType as never)
+        ? (body.dayType as DayType)
+        : "any";
+      const [goal] = await db.insert(nutritionGoalsTable).values({
+        clientId,
+        calories: toInt(body.calories),
+        protein: toInt(body.protein),
+        carbs: toInt(body.carbs),
+        fat: toInt(body.fat),
+        waterOz: toInt(body.waterOz),
+        periodType,
+        effectiveWeek: toInt(body.effectiveWeek),
+        durationWeeks: toInt(body.durationWeeks),
+        notes: typeof body.notes === "string" ? body.notes : null,
+        dayType,
+      }).returning();
+      res.status(201).json({ ...goal, createdAt: goal.createdAt.toISOString() });
+    } catch (err) {
+      req.log.error(err);
+      res.status(400).json({ error: "Failed to set nutrition goal" });
     }
-    await db.delete(nutritionGoalsTable)
-      .where(and(eq(nutritionGoalsTable.clientId, clientId), eq(nutritionGoalsTable.dayType, dayType)));
-    res.status(204).end();
-  } catch (err) {
-    req.log.error(err);
-    res.status(500).json({ error: "Failed to delete nutrition goal" });
-  }
-});
+  });
 
-router.post("/clients/:clientId/nutrition-goal", requireClientOwnership(), async (req, res) => {
-  try {
-    const clientId = Number(req.params.clientId);
-    if (isNaN(clientId)) { res.status(400).json({ error: "Invalid clientId" }); return; }
-    const body = req.body as Record<string, unknown>;
-    const periodType = (["day", "week", "phase"] as const).includes(body.periodType as never)
-      ? (body.periodType as "day" | "week" | "phase")
-      : "day";
-    const dayType = (["any", "training", "rest"] as const).includes(body.dayType as never)
-      ? (body.dayType as DayType)
-      : "any";
-    const [goal] = await db.insert(nutritionGoalsTable).values({
-      clientId,
-      calories: toInt(body.calories),
-      protein: toInt(body.protein),
-      carbs: toInt(body.carbs),
-      fat: toInt(body.fat),
-      waterOz: toInt(body.waterOz),
-      periodType,
-      effectiveWeek: toInt(body.effectiveWeek),
-      durationWeeks: toInt(body.durationWeeks),
-      notes: typeof body.notes === "string" ? body.notes : null,
-      dayType,
-    }).returning();
-    res.status(201).json({ ...goal, createdAt: goal.createdAt.toISOString() });
-  } catch (err) {
-    req.log.error(err);
-    res.status(400).json({ error: "Failed to set nutrition goal" });
-  }
-});
+  return router;
+}
 
-export default router;
+export default makeNutritionGoalsRouter();
