@@ -1279,6 +1279,15 @@ export const DeleteNutritionLogParams = zod.object({
 
 
 /**
+ * @summary Delete a training or rest day nutrition goal for a client
+ */
+export const DeleteClientNutritionGoalParams = zod.object({
+  "clientId": zod.coerce.number(),
+  "dayType": zod.enum(['training', 'rest'])
+})
+
+
+/**
  * @summary List progress photos for a client
  */
 export const ListProgressPhotosParams = zod.object({

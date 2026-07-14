@@ -1359,6 +1359,30 @@ paths:
         "204":
           description: Deleted
 
+  # ── Client Nutrition Goal ─────────────────────────────────────────────────
+  /clients/{clientId}/nutrition-goal/{dayType}:
+    delete:
+      operationId: deleteClientNutritionGoal
+      tags: [nutrition]
+      summary: Delete a training or rest day nutrition goal for a client
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: dayType
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [training, rest]
+      responses:
+        "204":
+          description: Deleted
+        "400":
+          description: Invalid dayType
+
   # ── Progress Photos ───────────────────────────────────────────────────────
   /clients/{clientId}/photos:
     get:

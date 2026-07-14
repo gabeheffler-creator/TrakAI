@@ -4542,6 +4542,78 @@ export const useDeleteNutritionLog = <TError = ErrorType<unknown>,
       return useMutation(getDeleteNutritionLogMutationOptions(options));
     }
 
+export const getDeleteClientNutritionGoalUrl = (clientId: number,
+    dayType: 'training' | 'rest',) => {
+
+
+
+
+  return `/api/clients/${clientId}/nutrition-goal/${dayType}`
+}
+
+/**
+ * @summary Delete a training or rest day nutrition goal for a client
+ */
+export const deleteClientNutritionGoal = async (clientId: number,
+    dayType: 'training' | 'rest', options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteClientNutritionGoalUrl(clientId,dayType),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteClientNutritionGoalMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteClientNutritionGoal>>, TError,{clientId: number;dayType: 'training' | 'rest'}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteClientNutritionGoal>>, TError,{clientId: number;dayType: 'training' | 'rest'}, TContext> => {
+
+const mutationKey = ['deleteClientNutritionGoal'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteClientNutritionGoal>>, {clientId: number;dayType: 'training' | 'rest'}> = (props) => {
+          const {clientId,dayType} = props ?? {};
+
+          return  deleteClientNutritionGoal(clientId,dayType,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteClientNutritionGoalMutationResult = NonNullable<Awaited<ReturnType<typeof deleteClientNutritionGoal>>>
+
+    export type DeleteClientNutritionGoalMutationError = ErrorType<void>
+
+    /**
+ * @summary Delete a training or rest day nutrition goal for a client
+ */
+export const useDeleteClientNutritionGoal = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteClientNutritionGoal>>, TError,{clientId: number;dayType: 'training' | 'rest'}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteClientNutritionGoal>>,
+        TError,
+        {clientId: number;dayType: 'training' | 'rest'},
+        TContext
+      > => {
+      return useMutation(getDeleteClientNutritionGoalMutationOptions(options));
+    }
+
 export const getListProgressPhotosUrl = (clientId: number,) => {
 
 

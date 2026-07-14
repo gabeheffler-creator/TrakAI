@@ -16,6 +16,7 @@ import {
   useDeleteAssignment,
   useUpdateAssignment,
 
+  useDeleteClientNutritionGoal,
   useGetClientProgramAssignment,
   useGetProgram,
   useListPrograms,
@@ -723,14 +724,15 @@ export function ClientProfile() {
 
   useEffect(() => { loadAllNutritionGoals(); }, [clientId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleDeleteGoal = async (dayType: "training" | "rest") => {
-    try {
-      const res = await fetch(`/api/clients/${clientId}/nutrition-goal?dayType=${dayType}`, { method: "DELETE" });
-      if (res.ok) {
+  const deleteNutritionGoal = useDeleteClientNutritionGoal();
+  const handleDeleteGoal = (dayType: "training" | "rest") => {
+    deleteNutritionGoal.mutate({ clientId, dayType }, {
+      onSuccess: async () => {
         await loadAllNutritionGoals();
         toast({ title: `${dayType === "training" ? "Training" : "Rest"} day goal removed.` });
-      }
-    } catch { toast({ title: "Failed to remove goal", variant: "destructive" }); }
+      },
+      onError: () => toast({ title: "Failed to remove goal", variant: "destructive" }),
+    });
   };
 
   const handleSetGoal = async () => {
@@ -1640,10 +1642,13 @@ export function ClientProfile() {
                           {(goalDayTab === "training" && hasTrainingGoal) || (goalDayTab === "rest" && hasRestGoal) ? (
                             <Button
                               variant="outline"
-                              className="text-destructive border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
+                              className="text-destructive border-destructive/40 hover:bg-destructive/10 hover:text-destructive gap-1.5"
                               onClick={() => handleDeleteGoal(goalDayTab as "training" | "rest")}
+                              disabled={deleteNutritionGoal.isPending}
+                              aria-label="Remove goal"
                             >
                               <Trash2 className="w-4 h-4" />
+                              Remove goal
                             </Button>
                           ) : null}
                         </div>
