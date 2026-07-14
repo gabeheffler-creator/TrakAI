@@ -40,11 +40,10 @@ const measurementSchema = z.object({
 
 type FormValues = z.infer<typeof measurementSchema>;
 
-type TimeframeKey = "4w" | "3m" | "6m" | "1y" | "all";
+type TimeframeKey = "1m" | "6m" | "1y" | "all";
 
 const TIMEFRAME_OPTIONS: { value: TimeframeKey; label: string }[] = [
-  { value: "4w",  label: "Last 4 weeks"  },
-  { value: "3m",  label: "Last 3 months" },
+  { value: "1m",  label: "Last month"    },
   { value: "6m",  label: "Last 6 months" },
   { value: "1y",  label: "Last year"     },
   { value: "all", label: "All time"      },
@@ -53,8 +52,7 @@ const TIMEFRAME_OPTIONS: { value: TimeframeKey; label: string }[] = [
 function getTimeframeCutoff(tf: TimeframeKey): Date | null {
   const now = new Date();
   switch (tf) {
-    case "4w":  return new Date(now.getTime() - 28  * 24 * 60 * 60 * 1000);
-    case "3m":  return new Date(now.getTime() - 90  * 24 * 60 * 60 * 1000);
+    case "1m":  return new Date(now.getTime() - 30  * 24 * 60 * 60 * 1000);
     case "6m":  return new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000);
     case "1y":  return new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
     case "all": return null;

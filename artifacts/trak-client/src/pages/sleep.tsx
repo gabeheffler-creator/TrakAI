@@ -35,11 +35,11 @@ const qualityColors: Record<string, string> = {
   great: "text-green-500",
 };
 
-type Timeframe = "7d" | "30d" | "90d" | "all";
+type Timeframe = "7d" | "1m" | "6m" | "1y" | "all";
 
 function filterByTimeframe<T extends { date: string }>(items: T[], tf: Timeframe): T[] {
   if (tf === "all") return items;
-  const days = tf === "7d" ? 7 : tf === "30d" ? 30 : 90;
+  const days = tf === "7d" ? 7 : tf === "1m" ? 30 : tf === "6m" ? 180 : 365;
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - days);
   const cutoffStr = cutoff.toISOString().split("T")[0];
@@ -51,7 +51,7 @@ export function SleepPage() {
   const qc = useQueryClient();
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [timeframe, setTimeframe] = useState<Timeframe>("30d");
+  const [timeframe, setTimeframe] = useState<Timeframe>("1m");
 
   const { data: logs, isLoading, isError, refetch, isFetching } = useListSleepLogs(clientId!, {
     query: { enabled: !!clientId, queryKey: getListSleepLogsQueryKey(clientId!) }
@@ -110,8 +110,9 @@ export function SleepPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="7d">Last 7 days</SelectItem>
-              <SelectItem value="30d">Last 30 days</SelectItem>
-              <SelectItem value="90d">Last 90 days</SelectItem>
+              <SelectItem value="1m">Last month</SelectItem>
+              <SelectItem value="6m">Last 6 months</SelectItem>
+              <SelectItem value="1y">Last year</SelectItem>
               <SelectItem value="all">All time</SelectItem>
             </SelectContent>
           </Select>

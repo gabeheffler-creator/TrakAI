@@ -678,8 +678,9 @@ export function ClientProfile() {
   const [nutritionGoal, setNutritionGoal] = useState<Record<string, number | null> | null>(null);
   const [goalDialogOpen, setGoalDialogOpen] = useState(false);
   const [goalInputs, setGoalInputs] = useState({ calories: "", protein: "", carbs: "", fat: "" });
-  const [sleepTimeframe, setSleepTimeframe] = useState("4w");
-  const [nutritionTimeframe, setNutritionTimeframe] = useState("4w");
+  const [sleepTimeframe, setSleepTimeframe] = useState("1m");
+  const [nutritionTimeframe, setNutritionTimeframe] = useState("1m");
+  const [photoTimeframe, setPhotoTimeframe] = useState("1m");
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const generateInvite = useGenerateInviteLink();
 
@@ -1446,14 +1447,15 @@ export function ClientProfile() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="7d">Last 7 days</SelectItem>
-              <SelectItem value="4w">Last 4 weeks</SelectItem>
-              <SelectItem value="3m">Last 3 months</SelectItem>
+              <SelectItem value="1m">Last month</SelectItem>
+              <SelectItem value="6m">Last 6 months</SelectItem>
+              <SelectItem value="1y">Last year</SelectItem>
               <SelectItem value="all">All time</SelectItem>
             </SelectContent>
           </Select>
 
           {(() => {
-            const days = sleepTimeframe === "7d" ? 7 : sleepTimeframe === "4w" ? 28 : sleepTimeframe === "3m" ? 90 : null;
+            const days = sleepTimeframe === "7d" ? 7 : sleepTimeframe === "1m" ? 30 : sleepTimeframe === "6m" ? 180 : sleepTimeframe === "1y" ? 365 : null;
             const since = days ? new Date(Date.now() - days * 86400000).toISOString().split("T")[0] : null;
             const filtered = (sleepLogs ?? []).filter(s => !since || s.date >= since);
             const avg = filtered.length ? filtered.reduce((sum, s) => sum + (s.hoursSlept ?? 0), 0) / filtered.length : null;
@@ -1592,8 +1594,9 @@ export function ClientProfile() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="7d">Last 7 days</SelectItem>
-                <SelectItem value="4w">Last 4 weeks</SelectItem>
-                <SelectItem value="3m">Last 3 months</SelectItem>
+                <SelectItem value="1m">Last month</SelectItem>
+                <SelectItem value="6m">Last 6 months</SelectItem>
+                <SelectItem value="1y">Last year</SelectItem>
                 <SelectItem value="all">All time</SelectItem>
               </SelectContent>
             </Select>
@@ -1602,11 +1605,13 @@ export function ClientProfile() {
           {nutritionLogs && nutritionLogs.length > 0 && (() => {
             const now = new Date();
             const cutoff = nutritionTimeframe === "7d"
-              ? new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
-              : nutritionTimeframe === "4w"
-              ? new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
-              : nutritionTimeframe === "3m"
-              ? new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
+              ? new Date(now.getTime() - 7   * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
+              : nutritionTimeframe === "1m"
+              ? new Date(now.getTime() - 30  * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
+              : nutritionTimeframe === "6m"
+              ? new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
+              : nutritionTimeframe === "1y"
+              ? new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
               : null;
             const filteredLogs = cutoff ? nutritionLogs.filter(n => n.date >= cutoff) : nutritionLogs;
             if (filteredLogs.length === 0) return <p className="text-muted-foreground text-sm">No nutrition logs in this period.</p>;
@@ -1733,23 +1738,44 @@ export function ClientProfile() {
         </TabsContent>
 
         {/* Photos */}
-        <TabsContent value="photos" className="mt-4">
-          {(progressPhotos?.length ?? 0) === 0 && <p className="text-muted-foreground text-sm">No progress photos.</p>}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {progressPhotos?.slice().reverse().map(p => (
-              <Card key={p.id} data-testid={`card-photo-${p.id}`} className="overflow-hidden">
-                {isLegacyUrl(p.imageUrl) ? (
-                  <BrokenPhotoPlaceholder aspectClass="aspect-square" />
-                ) : (
-                  <img src={p.imageUrl} alt="Progress" className="w-full aspect-square object-cover" />
-                )}
-                <CardContent className="p-2">
-                  <p className="text-xs font-medium">{p.date}</p>
-                  {p.notes && <p className="text-xs text-muted-foreground">{p.notes}</p>}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+        <TabsContent value="photos" className="mt-4 space-y-3">
+          <Select value={photoTimeframe} onValueChange={setPhotoTimeframe}>
+            <SelectTrigger className="w-36 h-8 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="7d">Last 7 days</SelectItem>
+              <SelectItem value="1m">Last month</SelectItem>
+              <SelectItem value="6m">Last 6 months</SelectItem>
+              <SelectItem value="1y">Last year</SelectItem>
+              <SelectItem value="all">All time</SelectItem>
+            </SelectContent>
+          </Select>
+          {(() => {
+            const days = photoTimeframe === "7d" ? 7 : photoTimeframe === "1m" ? 30 : photoTimeframe === "6m" ? 180 : photoTimeframe === "1y" ? 365 : null;
+            const since = days ? new Date(Date.now() - days * 86400000).toISOString().split("T")[0] : null;
+            const filtered = (progressPhotos ?? []).filter(p => !since || p.date >= since).slice().reverse();
+            return (
+              <>
+                {filtered.length === 0 && <p className="text-muted-foreground text-sm">No progress photos in this timeframe.</p>}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {filtered.map(p => (
+                    <Card key={p.id} data-testid={`card-photo-${p.id}`} className="overflow-hidden">
+                      {isLegacyUrl(p.imageUrl) ? (
+                        <BrokenPhotoPlaceholder aspectClass="aspect-square" />
+                      ) : (
+                        <img src={p.imageUrl} alt="Progress" className="w-full aspect-square object-cover" />
+                      )}
+                      <CardContent className="p-2">
+                        <p className="text-xs font-medium">{p.date}</p>
+                        {p.notes && <p className="text-xs text-muted-foreground">{p.notes}</p>}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </>
+            );
+          })()}
         </TabsContent>
 
         {/* Assignments */}

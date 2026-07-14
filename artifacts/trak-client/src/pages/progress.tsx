@@ -423,11 +423,11 @@ function HistoryList({
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
-type Timeframe = "30d" | "90d" | "1y" | "all";
+type Timeframe = "1m" | "6m" | "1y" | "all";
 
 function filterByTf<T extends { date: string }>(items: T[], tf: Timeframe): T[] {
   if (tf === "all") return items;
-  const days = tf === "30d" ? 30 : tf === "90d" ? 90 : 365;
+  const days = tf === "1m" ? 30 : tf === "6m" ? 180 : 365;
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - days);
   const cutoffStr = cutoff.toISOString().split("T")[0];
@@ -555,8 +555,8 @@ export function ProgressPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="30d">Last 30 days</SelectItem>
-              <SelectItem value="90d">Last 90 days</SelectItem>
+              <SelectItem value="1m">Last month</SelectItem>
+              <SelectItem value="6m">Last 6 months</SelectItem>
               <SelectItem value="1y">Last year</SelectItem>
               <SelectItem value="all">All time</SelectItem>
             </SelectContent>
