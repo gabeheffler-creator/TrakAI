@@ -236,12 +236,20 @@ export function NutritionPage() {
   const { toast } = useToast();
 
   const [coachGoals, setCoachGoals] = useState<NutritionGoals | null>(null);
+  const [isTrainingDay, setIsTrainingDay] = useState<boolean | null>(null);
+  const [goalDayType, setGoalDayType] = useState<string | null>(null);
 
   useEffect(() => {
     if (!clientId) return;
     fetch(`/api/clients/${clientId}/nutrition-goal`)
       .then(r => r.ok ? r.json() : null)
-      .then(g => { if (g) setCoachGoals(g); })
+      .then(g => {
+        if (g) {
+          setCoachGoals(g);
+          if (typeof g.isTrainingDay === "boolean") setIsTrainingDay(g.isTrainingDay);
+          if (typeof g.dayType === "string") setGoalDayType(g.dayType);
+        }
+      })
       .catch(() => {});
   }, [clientId]);
 
@@ -467,6 +475,14 @@ export function NutritionPage() {
 
       {/* ── Today's Summary ───────────────────── */}
       <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
+        {/* Day type badge — shown when coach has set different training/rest goals */}
+        {goalDayType && goalDayType !== "any" && isTrainingDay !== null && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+              {isTrainingDay ? "🏋️ Training day" : "🌙 Rest day"}
+            </span>
+          </div>
+        )}
         {/* Calories row — always visible */}
         <div className="flex items-end justify-between">
           <div className="flex items-end gap-1.5">

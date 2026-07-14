@@ -13,6 +13,7 @@ export const nutritionGoalsTable = pgTable("nutrition_goals", {
   effectiveWeek: integer("effective_week"),
   durationWeeks: integer("duration_weeks"),
   notes: text("notes"),
+  dayType: text("day_type").notNull().default("any"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

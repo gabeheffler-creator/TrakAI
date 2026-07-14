@@ -677,7 +677,12 @@ export function ClientProfile() {
   const [newGoalTargetDate, setNewGoalTargetDate] = useState("");
   const [nutritionGoal, setNutritionGoal] = useState<Record<string, number | null> | null>(null);
   const [goalDialogOpen, setGoalDialogOpen] = useState(false);
-  const [goalInputs, setGoalInputs] = useState({ calories: "", protein: "", carbs: "", fat: "" });
+  const [goalDayTab, setGoalDayTab] = useState<"any" | "training" | "rest">("any");
+  const [anyGoalInputs, setAnyGoalInputs] = useState({ calories: "", protein: "", carbs: "", fat: "" });
+  const [trainingGoalInputs, setTrainingGoalInputs] = useState({ calories: "", protein: "", carbs: "", fat: "" });
+  const [restGoalInputs, setRestGoalInputs] = useState({ calories: "", protein: "", carbs: "", fat: "" });
+  const goalInputs = goalDayTab === "training" ? trainingGoalInputs : goalDayTab === "rest" ? restGoalInputs : anyGoalInputs;
+  const setGoalInputs = goalDayTab === "training" ? setTrainingGoalInputs : goalDayTab === "rest" ? setRestGoalInputs : setAnyGoalInputs;
   const [sleepTimeframe, setSleepTimeframe] = useState("1m");
   const [nutritionTimeframe, setNutritionTimeframe] = useState("1m");
   const [photoTimeframe, setPhotoTimeframe] = useState("1m");
@@ -698,13 +703,21 @@ export function ClientProfile() {
     });
   };
 
-  useEffect(() => {
+  const loadAllNutritionGoals = async () => {
     if (!clientId) return;
-    fetch(`/api/clients/${clientId}/nutrition-goal`)
-      .then(r => r.ok ? r.json() : null)
-      .then(g => { if (g) { setNutritionGoal(g); setGoalInputs({ calories: String(g.calories ?? ""), protein: String(g.protein ?? ""), carbs: String(g.carbs ?? ""), fat: String(g.fat ?? "") }); } })
-      .catch(() => {});
-  }, [clientId]);
+    try {
+      const r = await fetch(`/api/clients/${clientId}/nutrition-goal?view=all`);
+      if (!r.ok) return;
+      const all = await r.json() as { training: Record<string, number | null> | null; rest: Record<string, number | null> | null; any: Record<string, number | null> | null };
+      if (all.any) setAnyGoalInputs({ calories: String(all.any.calories ?? ""), protein: String(all.any.protein ?? ""), carbs: String(all.any.carbs ?? ""), fat: String(all.any.fat ?? "") });
+      if (all.training) setTrainingGoalInputs({ calories: String(all.training.calories ?? ""), protein: String(all.training.protein ?? ""), carbs: String(all.training.carbs ?? ""), fat: String(all.training.fat ?? "") });
+      if (all.rest) setRestGoalInputs({ calories: String(all.rest.calories ?? ""), protein: String(all.rest.protein ?? ""), carbs: String(all.rest.carbs ?? ""), fat: String(all.rest.fat ?? "") });
+      const resolved = all.any;
+      if (resolved) setNutritionGoal(resolved);
+    } catch { /* ignore */ }
+  };
+
+  useEffect(() => { loadAllNutritionGoals(); }, [clientId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSetGoal = async () => {
     try {
@@ -714,6 +727,7 @@ export function ClientProfile() {
         carbs: goalInputs.carbs ? Number(goalInputs.carbs) : undefined,
         fat: goalInputs.fat ? Number(goalInputs.fat) : undefined,
         periodType: "day",
+        dayType: goalDayTab,
       };
       const res = await fetch(`/api/clients/${clientId}/nutrition-goal`, {
         method: "POST",
@@ -721,8 +735,7 @@ export function ClientProfile() {
         body: JSON.stringify(body),
       });
       if (res.ok) {
-        const g = await res.json();
-        setNutritionGoal(g);
+        await loadAllNutritionGoals();
         setGoalDialogOpen(false);
         toast({ title: "Nutrition goal saved!" });
       }
@@ -1496,9 +1509,21 @@ export function ClientProfile() {
           {/* Coach-set goal */}
           <div className="mb-4 p-4 rounded-xl border border-border bg-card">
             <div className="flex items-start justify-between gap-3">
-              <div>
+              <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold">Daily Nutrition Goal</p>
-                {nutritionGoal ? (
+                {trainingGoalInputs.calories || restGoalInputs.calories ? (
+                  <div className="mt-1 space-y-0.5">
+                    {trainingGoalInputs.calories && (
+                      <p className="text-xs text-muted-foreground">🏋️ Training: {trainingGoalInputs.calories} kcal · P {trainingGoalInputs.protein || "—"}g · C {trainingGoalInputs.carbs || "—"}g · F {trainingGoalInputs.fat || "—"}g</p>
+                    )}
+                    {restGoalInputs.calories && (
+                      <p className="text-xs text-muted-foreground">🌙 Rest: {restGoalInputs.calories} kcal · P {restGoalInputs.protein || "—"}g · C {restGoalInputs.carbs || "—"}g · F {restGoalInputs.fat || "—"}g</p>
+                    )}
+                    {anyGoalInputs.calories && (
+                      <p className="text-xs text-muted-foreground">All days: {anyGoalInputs.calories} kcal · P {anyGoalInputs.protein || "—"}g · C {anyGoalInputs.carbs || "—"}g · F {anyGoalInputs.fat || "—"}g</p>
+                    )}
+                  </div>
+                ) : nutritionGoal ? (
                   <p className="text-xs text-muted-foreground mt-1">
                     {nutritionGoal.calories ?? "—"} kcal · P {nutritionGoal.protein ?? "—"}g · C {nutritionGoal.carbs ?? "—"}g · F {nutritionGoal.fat ?? "—"}g
                   </p>
@@ -1506,15 +1531,33 @@ export function ClientProfile() {
                   <p className="text-xs text-muted-foreground mt-1">No goal set yet</p>
                 )}
               </div>
-              <Dialog open={goalDialogOpen} onOpenChange={setGoalDialogOpen}>
+              <Dialog open={goalDialogOpen} onOpenChange={open => { setGoalDialogOpen(open); if (open) { setGoalDayTab("any"); loadAllNutritionGoals(); } }}>
                 <DialogTrigger asChild>
                   <Button size="sm" variant="outline"><Target className="w-3.5 h-3.5 mr-1.5" /> Set Goal</Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent className="max-w-sm">
                   <DialogHeader><DialogTitle>Set Daily Nutrition Goal</DialogTitle></DialogHeader>
+                  {/* Day type tabs */}
+                  <div className="flex rounded-lg border border-border overflow-hidden text-xs font-medium mt-1">
+                    {(["any", "training", "rest"] as const).map(tab => (
+                      <button
+                        key={tab}
+                        onClick={() => setGoalDayTab(tab)}
+                        className={`flex-1 py-1.5 transition-colors ${goalDayTab === tab ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground hover:bg-muted"}`}
+                      >
+                        {tab === "any" ? "All Days" : tab === "training" ? "🏋️ Training" : "🌙 Rest"}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground -mt-1">
+                    {goalDayTab === "any"
+                      ? "Applies on any day that doesn't have a specific training or rest goal set."
+                      : goalDayTab === "training"
+                      ? "Applies on days when a workout is logged."
+                      : "Applies on days with no workout logged."}
+                  </p>
                   {(() => {
                     const cal = Number(goalInputs.calories) || 0;
-                    // pct from stored grams
                     const proteinPct = cal > 0 ? Math.min(100, Math.round((Number(goalInputs.protein || 0) * 4 / cal) * 100)) : 0;
                     const carbsPct   = cal > 0 ? Math.min(100, Math.round((Number(goalInputs.carbs   || 0) * 4 / cal) * 100)) : 0;
                     const fatPct     = cal > 0 ? Math.min(100, Math.round((Number(goalInputs.fat     || 0) * 9 / cal) * 100)) : 0;
@@ -1531,7 +1574,7 @@ export function ClientProfile() {
                     const fatG     = cal > 0 ? Math.round((fatPct     / 100) * cal / 9) : null;
 
                     return (
-                      <div className="space-y-5 mt-2">
+                      <div className="space-y-5 mt-1">
                         {/* Calories */}
                         <div>
                           <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Daily Calories (kcal)</label>
@@ -1642,12 +1685,20 @@ export function ClientProfile() {
                   }), { calories: 0, protein: 0, carbs: 0, fat: 0, sodium: 0 });
 
                   const hasMacros = totals.calories > 0 || totals.protein > 0;
+                  const hasWorkout = (workoutLogs ?? []).some(w => w.date === date);
+                  const hasTrainingGoal = !!trainingGoalInputs.calories;
+                  const hasRestGoal = !!restGoalInputs.calories;
+                  const showDayTypeTag = hasWorkout ? hasTrainingGoal : hasRestGoal;
+                  const dayTypeTag = hasWorkout ? "🏋️ Training day" : "🌙 Rest day";
 
                   return (
                     <div key={date} className="border border-border rounded-xl overflow-hidden">
                       {/* Date header + macro summary */}
                       <div className="px-4 py-3 bg-muted/40 border-b border-border flex flex-wrap items-center gap-3">
                         <span className="text-sm font-semibold">{format(parseISO(date), "EEE, MMM d")}</span>
+                        {showDayTypeTag && (
+                          <span className="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">{dayTypeTag}</span>
+                        )}
                         {hasMacros && (
                           <div className="flex flex-wrap gap-2 ml-auto">
                             {totals.calories > 0 && (
