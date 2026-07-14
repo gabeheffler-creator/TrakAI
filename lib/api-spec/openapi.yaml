@@ -3153,9 +3153,11 @@ components:
 
     UploadUrlResponse:
       type: object
-      required: [uploadUrl, publicUrl]
+      required: [uploadUrl, objectPath]
       properties:
         uploadUrl:
+          type: string
+        objectPath:
           type: string
         publicUrl:
           type: string

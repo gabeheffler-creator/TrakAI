@@ -1627,7 +1627,8 @@ export const GetUploadUrlBody = zod.object({
 
 export const GetUploadUrlResponse = zod.object({
   "uploadUrl": zod.string(),
-  "publicUrl": zod.string()
+  "objectPath": zod.string(),
+  "publicUrl": zod.string().optional()
 })
 
 

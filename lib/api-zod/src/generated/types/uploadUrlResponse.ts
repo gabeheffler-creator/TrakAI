@@ -8,5 +8,6 @@
 
 export interface UploadUrlResponse {
   uploadUrl: string;
-  publicUrl: string;
+  objectPath: string;
+  publicUrl?: string;
 }

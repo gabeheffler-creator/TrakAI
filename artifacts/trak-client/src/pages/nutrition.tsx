@@ -52,6 +52,7 @@ interface MealSlot {
   label: string;
   file: File | null;
   previewUrl: string | null;
+  uploadedUrl: string | null;
   cantTrack: boolean;
   cantTrackNote: string;
   calorieGuess: string;
@@ -221,6 +222,7 @@ function makeSlot(label: string): MealSlot {
     label,
     file: null,
     previewUrl: null,
+    uploadedUrl: null,
     cantTrack: false,
     cantTrackNote: "",
     calorieGuess: "",
@@ -308,8 +310,10 @@ export function NutritionPage() {
         onSuccess: async (data) => {
           try {
             await fetch(data.uploadUrl, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
-          } catch { /* ignore */ }
-          resolve(data.publicUrl ?? null);
+            resolve(`/api/storage${data.objectPath}`);
+          } catch {
+            resolve(null);
+          }
         },
         onError: () => resolve(null),
       });
@@ -333,6 +337,12 @@ export function NutritionPage() {
     }
 
     if (url) {
+      const setUploaded = (s: MealSlot) => s.id === slotId ? { ...s, uploadedUrl: url } : s;
+      if (isDiary) {
+        setDiarySlot(s => ({ ...s, uploadedUrl: url }));
+      } else {
+        setMealSlots(prev => prev.map(setUploaded));
+      }
       extractMacrosFromImage(url, slotId);
     }
   };
@@ -364,14 +374,14 @@ export function NutritionPage() {
             }
           }, { onSuccess: () => resolve(), onError: () => resolve() });
         });
-      } else if (slot.previewUrl) {
+      } else if (slot.uploadedUrl) {
         const ai = aiResults[slot.id];
         await new Promise<void>(resolve => {
           createNutritionLog.mutate({
             clientId,
             data: {
               date: today,
-              imageUrl: slot.previewUrl!,
+              imageUrl: slot.uploadedUrl!,
               notes: slot.label,
               calories: ai?.calories ?? undefined,
               protein: ai?.protein ?? undefined,

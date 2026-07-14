@@ -102,8 +102,10 @@ export function PhotosPage() {
       onSuccess: async (data) => {
         try {
           await fetch(data.uploadUrl, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
-        } catch { /* ignore */ }
-        onSuccess(data.publicUrl ?? URL.createObjectURL(file));
+          onSuccess(`/api/storage${data.objectPath}`);
+        } catch {
+          toast({ title: "Upload failed", variant: "destructive" });
+        }
       },
       onError: () => toast({ title: "Upload failed", variant: "destructive" }),
     });

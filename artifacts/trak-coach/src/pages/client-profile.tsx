@@ -514,6 +514,7 @@ export function ClientProfile() {
   const [goalDialogOpen, setGoalDialogOpen] = useState(false);
   const [goalInputs, setGoalInputs] = useState({ calories: "", protein: "", carbs: "", fat: "" });
   const [sleepTimeframe, setSleepTimeframe] = useState("4w");
+  const [nutritionTimeframe, setNutritionTimeframe] = useState("4w");
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const generateInvite = useGenerateInviteLink();
 
@@ -1418,10 +1419,34 @@ export function ClientProfile() {
               </Dialog>
             </div>
           </div>
+          {/* Timeframe filter */}
+          <div className="flex justify-end mb-4">
+            <Select value={nutritionTimeframe} onValueChange={setNutritionTimeframe}>
+              <SelectTrigger className="w-40 h-8 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="7d">Last 7 days</SelectItem>
+                <SelectItem value="4w">Last 4 weeks</SelectItem>
+                <SelectItem value="3m">Last 3 months</SelectItem>
+                <SelectItem value="all">All time</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           {(nutritionLogs?.length ?? 0) === 0 && <p className="text-muted-foreground text-sm">No nutrition logs yet.</p>}
           {nutritionLogs && nutritionLogs.length > 0 && (() => {
+            const now = new Date();
+            const cutoff = nutritionTimeframe === "7d"
+              ? new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
+              : nutritionTimeframe === "4w"
+              ? new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
+              : nutritionTimeframe === "3m"
+              ? new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
+              : null;
+            const filteredLogs = cutoff ? nutritionLogs.filter(n => n.date >= cutoff) : nutritionLogs;
+            if (filteredLogs.length === 0) return <p className="text-muted-foreground text-sm">No nutrition logs in this period.</p>;
             // Group by date, most recent first
-            const byDate = nutritionLogs.reduce<Record<string, typeof nutritionLogs>>((acc, n) => {
+            const byDate = filteredLogs.reduce<Record<string, typeof filteredLogs>>((acc, n) => {
               (acc[n.date] ??= []).push(n);
               return acc;
             }, {});
