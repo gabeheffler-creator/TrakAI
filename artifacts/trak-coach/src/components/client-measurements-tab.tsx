@@ -98,12 +98,12 @@ function changeColor(val: number | null, lowerIsBetter: boolean): string {
   return improved ? "text-green-600 dark:text-green-400" : "text-red-500";
 }
 
+const NEUTRAL_GREY = "hsl(215 20% 65%)";
+
 function barFill(current: number, prev: number | undefined, lowerIsBetter: boolean): string {
-  if (prev === undefined) return "hsl(var(--primary) / 0.55)";
-  if (lowerIsBetter) {
-    return current <= prev ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)";
-  }
-  return "hsl(var(--primary) / 0.55)";
+  if (!lowerIsBetter) return NEUTRAL_GREY;
+  if (prev === undefined) return NEUTRAL_GREY;
+  return current <= prev ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)";
 }
 
 interface ClientMeasurementsTabProps {
@@ -163,12 +163,12 @@ export function ClientMeasurementsTab({ measurements }: ClientMeasurementsTabPro
           </SelectContent>
         </Select>
 
-        <div className="flex gap-1.5 flex-wrap">
+        <div className="flex gap-1.5 overflow-x-auto pb-0.5 min-w-0 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {activeMetrics.map(m => (
             <button
               key={m.key}
               onClick={() => scrollToMetric(m.key)}
-              className="px-2.5 py-0.5 rounded-full text-xs font-medium border border-border bg-background hover:bg-accent transition-colors"
+              className="px-2.5 py-0.5 rounded-full text-xs font-medium border border-border bg-background hover:bg-accent transition-colors shrink-0 whitespace-nowrap"
             >
               {m.label}
             </button>
@@ -238,7 +238,7 @@ export function ClientMeasurementsTab({ measurements }: ClientMeasurementsTabPro
                         <LineChart data={chartData} margin={{ top: 4, right: 8, left: -24, bottom: 0 }}>
                           <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                           <XAxis dataKey="label" tick={{ fontSize: 10 }} />
-                          <YAxis domain={["auto", "auto"]} tick={{ fontSize: 10 }} />
+                          <YAxis domain={([min, max]: [number, number]) => { const p = (max - min) * 0.1 || 1; return [+(min - p).toFixed(1), +(max + p).toFixed(1)]; }} tick={{ fontSize: 10 }} />
                           <Tooltip
                             formatter={(v: number) => [`${v} ${unit}`, metric.label]}
                             labelFormatter={l => `Date: ${l}`}
@@ -276,7 +276,7 @@ export function ClientMeasurementsTab({ measurements }: ClientMeasurementsTabPro
                       <BarChart data={chartData} margin={{ top: 0, right: 8, left: -24, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
                         <XAxis dataKey="label" tick={{ fontSize: 9 }} />
-                        <YAxis domain={["auto", "auto"]} tick={{ fontSize: 9 }} />
+                        <YAxis domain={([min, max]: [number, number]) => { const p = (max - min) * 0.1 || 1; return [+(min - p).toFixed(1), +(max + p).toFixed(1)]; }} tick={{ fontSize: 9 }} />
                         <Tooltip
                           formatter={(v: number) => [`${v} ${unit}`, metric.label]}
                           contentStyle={{ fontSize: 12 }}
