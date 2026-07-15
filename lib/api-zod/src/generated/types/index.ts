@@ -23,6 +23,8 @@ export * from './bulkAssignProgramInput';
 export * from './bulkAssignProgramResult';
 export * from './callLog';
 export * from './callLogInput';
+export * from './callLogInputSource';
+export * from './callLogSource';
 export * from './client';
 export * from './clientDashboard';
 export * from './clientGoalHistory';

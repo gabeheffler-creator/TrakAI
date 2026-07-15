@@ -652,6 +652,14 @@ export interface CoachNoteInput {
   content: string;
 }
 
+export type CallLogSource = typeof CallLogSource[keyof typeof CallLogSource];
+
+
+export const CallLogSource = {
+  auto: 'auto',
+  manual: 'manual',
+} as const;
+
 export interface CallLog {
   id: number;
   clientId: number;
@@ -660,13 +668,23 @@ export interface CallLog {
   durationMinutes?: number | null;
   /** @nullable */
   notes?: string | null;
+  source: CallLogSource;
   createdAt: string;
 }
+
+export type CallLogInputSource = typeof CallLogInputSource[keyof typeof CallLogInputSource];
+
+
+export const CallLogInputSource = {
+  auto: 'auto',
+  manual: 'manual',
+} as const;
 
 export interface CallLogInput {
   date: string;
   durationMinutes?: number;
   notes?: string;
+  source?: CallLogInputSource;
 }
 
 export type MeasurementInputUnit = typeof MeasurementInputUnit[keyof typeof MeasurementInputUnit];

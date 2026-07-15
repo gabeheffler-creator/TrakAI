@@ -795,6 +795,7 @@ export function ClientProfile() {
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
   const [editingNoteContent, setEditingNoteContent] = useState("");
   const [notesTimeframe, setNotesTimeframe] = useState("1m");
+  const [sortView, setSortView] = useState<"chronological" | "separated">("chronological");
 
   // Call log state
   const [callDate, setCallDate] = useState(new Date().toISOString().split("T")[0]);
@@ -812,6 +813,7 @@ export function ClientProfile() {
   const handleEndVideoCall = async () => {
     try { await fetch(`/api/clients/${clientId}/video-call/end`, { method: "POST" }); } catch { /* ignore */ }
     setVideoCallOpen(false);
+    refetchCallLogs();
   };
 
   const handleCreateNote = () => {
@@ -1259,7 +1261,6 @@ export function ClientProfile() {
               { value: "photos", label: "Photos" },
               { value: "tasks", label: "Tasks" },
               { value: "notes", label: "Notes", icon: <StickyNote className="w-3 h-3" /> },
-              { value: "calls", label: "Calls", icon: <Phone className="w-3 h-3" /> },
             ].map(tab => (
               <TabsTrigger
                 key={tab.value}
@@ -1991,147 +1992,32 @@ export function ClientProfile() {
           </Card>
         </TabsContent>
 
-        {/* Coach Notes (private) */}
+        {/* Notes — private + auto-logged calls + manual calls */}
         <TabsContent value="notes" className="mt-4 space-y-4">
+
+          {/* Add private note */}
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <StickyNote className="w-4 h-4" /> Private Notes
+                <StickyNote className="w-4 h-4" /> Private Note
                 <Badge variant="secondary" className="text-xs font-normal">Visible to coach only</Badge>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex gap-2">
-                <Textarea
-                  placeholder="Add a note about this client..."
-                  value={noteContent}
-                  onChange={e => setNoteContent(e.target.value)}
-                  className="resize-none min-h-[80px] flex-1 text-sm"
-                  onKeyDown={e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleCreateNote(); }}
-                />
-              </div>
+              <Textarea
+                placeholder="Add a note about this client..."
+                value={noteContent}
+                onChange={e => setNoteContent(e.target.value)}
+                className="resize-none min-h-[80px] text-sm"
+                onKeyDown={e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleCreateNote(); }}
+              />
               <Button onClick={handleCreateNote} disabled={!noteContent.trim() || createNote.isPending} size="sm">
                 <Plus className="w-3.5 h-3.5 mr-1" /> Add Note
               </Button>
             </CardContent>
           </Card>
 
-          <Select value={notesTimeframe} onValueChange={setNotesTimeframe}>
-            <SelectTrigger className="w-36 h-8 text-sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="7d">Last 7 days</SelectItem>
-              <SelectItem value="1m">Last month</SelectItem>
-              <SelectItem value="6m">Last 6 months</SelectItem>
-              <SelectItem value="1y">Last year</SelectItem>
-              <SelectItem value="all">All time</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {(() => {
-            const days = notesTimeframe === "7d" ? 7 : notesTimeframe === "1m" ? 30 : notesTimeframe === "6m" ? 180 : notesTimeframe === "1y" ? 365 : null;
-            const cutoff = days ? new Date(Date.now() - days * 86400000) : null;
-
-            type Entry =
-              | { kind: "note"; id: number; content: string; date: Date }
-              | { kind: "call"; id: number; notes: string; date: Date; durationMinutes: number | null };
-
-            const entries: Entry[] = [
-              ...(coachNotes ?? []).map(n => ({
-                kind: "note" as const,
-                id: n.id,
-                content: n.content,
-                date: new Date(n.updatedAt),
-              })),
-              ...(callLogs ?? [])
-                .filter(c => !!c.notes)
-                .map(c => ({
-                  kind: "call" as const,
-                  id: c.id,
-                  notes: c.notes!,
-                  date: new Date(c.date),
-                  durationMinutes: c.durationMinutes ?? null,
-                })),
-            ]
-              .filter(e => !cutoff || e.date >= cutoff)
-              .sort((a, b) => b.date.getTime() - a.date.getTime());
-
-            const hasAny = (coachNotes?.length ?? 0) > 0 || (callLogs ?? []).some(c => c.notes);
-
-            if (entries.length === 0) return (
-              <p className="text-muted-foreground text-sm text-center py-6">
-                {!hasAny ? "No notes yet. Add your first note above." : "No notes in this timeframe."}
-              </p>
-            );
-
-            return (
-              <div className="space-y-3">
-                {entries.map(entry => entry.kind === "note" ? (
-                  <Card key={`note-${entry.id}`} className="border-border/60">
-                    <CardContent className="pt-3 pb-3">
-                      {editingNoteId === entry.id ? (
-                        <div className="space-y-2">
-                          <Textarea
-                            value={editingNoteContent}
-                            onChange={e => setEditingNoteContent(e.target.value)}
-                            className="resize-none text-sm min-h-[80px]"
-                            autoFocus
-                          />
-                          <div className="flex gap-2">
-                            <Button size="sm" onClick={() => handleUpdateNote(entry.id)} disabled={updateNote.isPending}>
-                              <Check className="w-3.5 h-3.5 mr-1" /> Save
-                            </Button>
-                            <Button size="sm" variant="ghost" onClick={() => setEditingNoteId(null)}>Cancel</Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex gap-3">
-                          <p className="flex-1 text-sm whitespace-pre-wrap">{entry.content}</p>
-                          <div className="flex flex-col gap-1 flex-shrink-0">
-                            <button
-                              onClick={() => { setEditingNoteId(entry.id); setEditingNoteContent(entry.content); }}
-                              className="p-1.5 text-muted-foreground hover:text-foreground transition-colors rounded"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteNote(entry.id)}
-                              className="p-1.5 text-muted-foreground hover:text-destructive transition-colors rounded"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                      <p className="text-xs text-muted-foreground mt-2">
-                        {format(entry.date, "MMM d, yyyy 'at' h:mm a")}
-                      </p>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  <Card key={`call-${entry.id}`} className="border-border/60 border-dashed">
-                    <CardContent className="pt-3 pb-3">
-                      <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                        <Badge variant="outline" className="text-xs gap-1 font-normal">
-                          <Phone className="w-3 h-3" /> Call note
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">
-                          {format(entry.date, "MMM d, yyyy")}
-                          {entry.durationMinutes != null ? ` · ${entry.durationMinutes} min` : ""}
-                        </span>
-                      </div>
-                      <p className="text-sm whitespace-pre-wrap">{entry.notes}</p>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            );
-          })()}
-        </TabsContent>
-
-        {/* Call Log */}
-        <TabsContent value="calls" className="mt-4 space-y-4">
+          {/* Log a call (manual) */}
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -2142,33 +2028,16 @@ export function ClientProfile() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-muted-foreground">Date</label>
-                  <Input
-                    type="date"
-                    value={callDate}
-                    onChange={e => setCallDate(e.target.value)}
-                    className="text-sm"
-                  />
+                  <Input type="date" value={callDate} onChange={e => setCallDate(e.target.value)} className="text-sm" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-muted-foreground">Duration (min)</label>
-                  <Input
-                    type="number"
-                    placeholder="e.g. 30"
-                    value={callDuration}
-                    onChange={e => setCallDuration(e.target.value)}
-                    className="text-sm"
-                    min={1}
-                  />
+                  <Input type="number" placeholder="e.g. 30" value={callDuration} onChange={e => setCallDuration(e.target.value)} className="text-sm" min={1} />
                 </div>
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground">Notes</label>
-                <Textarea
-                  placeholder="What did you discuss?"
-                  value={callNotes}
-                  onChange={e => setCallNotes(e.target.value)}
-                  className="resize-none min-h-[80px] text-sm"
-                />
+                <Textarea placeholder="What did you discuss?" value={callNotes} onChange={e => setCallNotes(e.target.value)} className="resize-none min-h-[80px] text-sm" />
               </div>
               <Button onClick={handleLogCall} disabled={!callDate || createCall.isPending} size="sm">
                 <Plus className="w-3.5 h-3.5 mr-1" /> Log Call
@@ -2176,37 +2045,139 @@ export function ClientProfile() {
             </CardContent>
           </Card>
 
-          {(callLogs?.length ?? 0) === 0 && (
-            <p className="text-muted-foreground text-sm text-center py-6">No calls logged yet.</p>
-          )}
-
-          <div className="space-y-3">
-            {[...(callLogs ?? [])].reverse().map(call => (
-              <Card key={call.id} className="border-border/60">
-                <CardContent className="pt-3 pb-3">
-                  <div className="flex items-start gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-medium text-sm">{format(parseISO(call.date), "MMM d, yyyy")}</p>
-                        {call.durationMinutes != null && (
-                          <Badge variant="secondary" className="text-xs gap-1">
-                            <Clock className="w-3 h-3" />{call.durationMinutes} min
-                          </Badge>
-                        )}
-                      </div>
-                      {call.notes && <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap">{call.notes}</p>}
-                    </div>
-                    <button
-                      onClick={() => handleDeleteCall(call.id)}
-                      className="p-1.5 text-muted-foreground hover:text-destructive transition-colors rounded flex-shrink-0"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+          {/* Controls: timeframe + sort view */}
+          <div className="flex gap-2 flex-wrap">
+            <Select value={notesTimeframe} onValueChange={setNotesTimeframe}>
+              <SelectTrigger className="w-36 h-8 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="7d">Last 7 days</SelectItem>
+                <SelectItem value="1m">Last month</SelectItem>
+                <SelectItem value="6m">Last 6 months</SelectItem>
+                <SelectItem value="1y">Last year</SelectItem>
+                <SelectItem value="all">All time</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={sortView} onValueChange={v => setSortView(v as "chronological" | "separated")}>
+              <SelectTrigger className="w-40 h-8 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="chronological">Chronological</SelectItem>
+                <SelectItem value="separated">Separated</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
+
+          {/* History */}
+          {(() => {
+            const days = notesTimeframe === "7d" ? 7 : notesTimeframe === "1m" ? 30 : notesTimeframe === "6m" ? 180 : notesTimeframe === "1y" ? 365 : null;
+            const cutoff = days ? new Date(Date.now() - days * 86400000) : null;
+
+            type NoteEntry = { kind: "private"; id: number; content: string; date: Date };
+            type CallEntry = { kind: "auto" | "manual"; id: number; notes: string | null; date: Date; durationMinutes: number | null };
+            type Entry = NoteEntry | CallEntry;
+
+            const allPrivate: Entry[] = (coachNotes ?? [])
+              .map(n => ({ kind: "private" as const, id: n.id, content: n.content, date: new Date(n.updatedAt) }))
+              .filter(e => !cutoff || e.date >= cutoff);
+
+            const allAuto: Entry[] = (callLogs ?? [])
+              .filter(c => c.source === "auto")
+              .map(c => ({ kind: "auto" as const, id: c.id, notes: c.notes ?? null, date: new Date(c.date), durationMinutes: c.durationMinutes ?? null }))
+              .filter(e => !cutoff || e.date >= cutoff);
+
+            const allManual: Entry[] = (callLogs ?? [])
+              .filter(c => c.source === "manual")
+              .map(c => ({ kind: "manual" as const, id: c.id, notes: c.notes ?? null, date: new Date(c.date), durationMinutes: c.durationMinutes ?? null }))
+              .filter(e => !cutoff || e.date >= cutoff);
+
+            const byDate = (a: Entry, b: Entry) => b.date.getTime() - a.date.getTime();
+
+            const renderEntry = (entry: Entry) => {
+              if (entry.kind === "private") {
+                return (
+                  <Card key={`private-${entry.id}`} className="border-border/60">
+                    <CardContent className="pt-3 pb-3">
+                      <span className="inline-block text-xs font-semibold px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300 mb-2">Private</span>
+                      {editingNoteId === entry.id ? (
+                        <div className="space-y-2">
+                          <Textarea value={editingNoteContent} onChange={e => setEditingNoteContent(e.target.value)} className="resize-none text-sm min-h-[80px]" autoFocus />
+                          <div className="flex gap-2">
+                            <Button size="sm" onClick={() => handleUpdateNote(entry.id)} disabled={updateNote.isPending}><Check className="w-3.5 h-3.5 mr-1" /> Save</Button>
+                            <Button size="sm" variant="ghost" onClick={() => setEditingNoteId(null)}>Cancel</Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex gap-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm whitespace-pre-wrap">{entry.content}</p>
+                            <p className="text-xs text-muted-foreground mt-1.5">{format(entry.date, "MMM d, yyyy 'at' h:mm a")}</p>
+                          </div>
+                          <div className="flex flex-col gap-1 flex-shrink-0">
+                            <button onClick={() => { setEditingNoteId(entry.id); setEditingNoteContent(entry.content); }} className="p-1.5 text-muted-foreground hover:text-foreground transition-colors rounded"><Pencil className="w-3.5 h-3.5" /></button>
+                            <button onClick={() => handleDeleteNote(entry.id)} className="p-1.5 text-muted-foreground hover:text-destructive transition-colors rounded"><Trash2 className="w-3.5 h-3.5" /></button>
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              }
+              const isAuto = entry.kind === "auto";
+              return (
+                <Card key={`${entry.kind}-${entry.id}`} className="border-border/60">
+                  <CardContent className="pt-3 pb-3">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                          <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full ${isAuto ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300" : "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"}`}>
+                            {isAuto ? "Call" : "Manual"}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {format(entry.date, "MMM d, yyyy")}
+                            {entry.durationMinutes != null ? ` · ${entry.durationMinutes} min` : ""}
+                          </span>
+                        </div>
+                        {entry.notes && <p className="text-sm whitespace-pre-wrap">{entry.notes}</p>}
+                      </div>
+                      <button onClick={() => handleDeleteCall(entry.id)} className="p-1.5 text-muted-foreground hover:text-destructive transition-colors rounded flex-shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            };
+
+            if (sortView === "chronological") {
+              const all = [...allPrivate, ...allAuto, ...allManual].sort(byDate);
+              if (all.length === 0) return <p className="text-muted-foreground text-sm text-center py-6">No entries in this timeframe.</p>;
+              return <div className="space-y-3">{all.map(renderEntry)}</div>;
+            }
+
+            return (
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Private Notes</h3>
+                  {allPrivate.length === 0
+                    ? <p className="text-muted-foreground text-sm">No private notes in this timeframe.</p>
+                    : <div className="space-y-3">{[...allPrivate].sort(byDate).map(renderEntry)}</div>}
+                </div>
+                <div>
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Call History</h3>
+                  {allAuto.length === 0
+                    ? <p className="text-muted-foreground text-sm">No auto-logged calls in this timeframe.</p>
+                    : <div className="space-y-3">{[...allAuto].sort(byDate).map(renderEntry)}</div>}
+                </div>
+                <div>
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Manual Calls</h3>
+                  {allManual.length === 0
+                    ? <p className="text-muted-foreground text-sm">No manual calls in this timeframe.</p>
+                    : <div className="space-y-3">{[...allManual].sort(byDate).map(renderEntry)}</div>}
+                </div>
+              </div>
+            );
+          })()}
         </TabsContent>
       </Tabs>
     </div>

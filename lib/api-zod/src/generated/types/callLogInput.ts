@@ -5,9 +5,11 @@
  * Trak fitness coaching platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { CallLogInputSource } from './callLogInputSource';
 
 export interface CallLogInput {
   date: Date;
   durationMinutes?: number;
   notes?: string;
+  source?: CallLogInputSource;
 }

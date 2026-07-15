@@ -2770,7 +2770,7 @@ components:
 
     CallLog:
       type: object
-      required: [id, clientId, date, createdAt]
+      required: [id, clientId, date, source, createdAt]
       properties:
         id:
           type: integer
@@ -2783,6 +2783,9 @@ components:
           type: ["integer", "null"]
         notes:
           type: ["string", "null"]
+        source:
+          type: string
+          enum: [auto, manual]
         createdAt:
           type: string
           format: date-time
@@ -2798,6 +2801,9 @@ components:
           type: integer
         notes:
           type: string
+        source:
+          type: string
+          enum: [auto, manual]
 
     # ── Measurements ────────────────────────────────────────────────────────
     Measurement:

@@ -7,6 +7,7 @@ export const callLogsTable = pgTable("call_logs", {
   date: text("date").notNull(),
   durationMinutes: integer("duration_minutes"),
   notes: text("notes"),
+  source: text("source").notNull().default("manual"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

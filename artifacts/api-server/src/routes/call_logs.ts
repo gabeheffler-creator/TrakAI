@@ -37,6 +37,7 @@ router.post("/clients/:clientId/call-logs", requireClientOwnership(), requireCoa
       date: dateStr,
       durationMinutes: body.durationMinutes ?? null,
       notes: body.notes ?? null,
+      source: (body.source as "auto" | "manual" | undefined) ?? "manual",
     }).returning();
     res.status(201).json({ ...log, createdAt: log.createdAt.toISOString() });
   } catch (err) {

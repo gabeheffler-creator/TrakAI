@@ -1574,6 +1574,7 @@ export const ListCallLogsResponseItem = zod.object({
   "date": zod.coerce.date(),
   "durationMinutes": zod.number().nullish(),
   "notes": zod.string().nullish(),
+  "source": zod.enum(['auto', 'manual']),
   "createdAt": zod.coerce.date()
 })
 export const ListCallLogsResponse = zod.array(ListCallLogsResponseItem)
@@ -1589,7 +1590,8 @@ export const CreateCallLogParams = zod.object({
 export const CreateCallLogBody = zod.object({
   "date": zod.coerce.date(),
   "durationMinutes": zod.number().optional(),
-  "notes": zod.string().optional()
+  "notes": zod.string().optional(),
+  "source": zod.enum(['auto', 'manual']).optional()
 })
 
 
@@ -1604,7 +1606,8 @@ export const UpdateCallLogParams = zod.object({
 export const UpdateCallLogBody = zod.object({
   "date": zod.coerce.date(),
   "durationMinutes": zod.number().optional(),
-  "notes": zod.string().optional()
+  "notes": zod.string().optional(),
+  "source": zod.enum(['auto', 'manual']).optional()
 })
 
 export const UpdateCallLogResponse = zod.object({
@@ -1613,6 +1616,7 @@ export const UpdateCallLogResponse = zod.object({
   "date": zod.coerce.date(),
   "durationMinutes": zod.number().nullish(),
   "notes": zod.string().nullish(),
+  "source": zod.enum(['auto', 'manual']),
   "createdAt": zod.coerce.date()
 })
 
