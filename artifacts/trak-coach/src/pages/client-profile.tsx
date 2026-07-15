@@ -794,7 +794,7 @@ export function ClientProfile() {
   const [noteContent, setNoteContent] = useState("");
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
   const [editingNoteContent, setEditingNoteContent] = useState("");
-  const [notesTimeframe, setNotesTimeframe] = useState("all");
+  const [notesTimeframe, setNotesTimeframe] = useState("1m");
 
   // Call log state
   const [callDate, setCallDate] = useState(new Date().toISOString().split("T")[0]);
@@ -2016,80 +2016,115 @@ export function ClientProfile() {
             </CardContent>
           </Card>
 
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-muted-foreground font-medium">
-              {notesTimeframe === "all" ? "All notes" : `Last ${notesTimeframe} days`}
-            </p>
-            <Select value={notesTimeframe} onValueChange={setNotesTimeframe}>
-              <SelectTrigger className="h-8 w-36 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All time</SelectItem>
-                <SelectItem value="7">Last 7 days</SelectItem>
-                <SelectItem value="30">Last 30 days</SelectItem>
-                <SelectItem value="90">Last 90 days</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <Select value={notesTimeframe} onValueChange={setNotesTimeframe}>
+            <SelectTrigger className="w-36 h-8 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="7d">Last 7 days</SelectItem>
+              <SelectItem value="1m">Last month</SelectItem>
+              <SelectItem value="6m">Last 6 months</SelectItem>
+              <SelectItem value="1y">Last year</SelectItem>
+              <SelectItem value="all">All time</SelectItem>
+            </SelectContent>
+          </Select>
 
           {(() => {
-            const cutoff = notesTimeframe === "all"
-              ? null
-              : new Date(Date.now() - Number(notesTimeframe) * 24 * 60 * 60 * 1000);
-            const filtered = [...(coachNotes ?? [])]
-              .reverse()
-              .filter(n => !cutoff || new Date(n.updatedAt) >= cutoff);
-            if (filtered.length === 0) return (
+            const days = notesTimeframe === "7d" ? 7 : notesTimeframe === "1m" ? 30 : notesTimeframe === "6m" ? 180 : notesTimeframe === "1y" ? 365 : null;
+            const cutoff = days ? new Date(Date.now() - days * 86400000) : null;
+
+            type Entry =
+              | { kind: "note"; id: number; content: string; date: Date }
+              | { kind: "call"; id: number; notes: string; date: Date; durationMinutes: number | null };
+
+            const entries: Entry[] = [
+              ...(coachNotes ?? []).map(n => ({
+                kind: "note" as const,
+                id: n.id,
+                content: n.content,
+                date: new Date(n.updatedAt),
+              })),
+              ...(callLogs ?? [])
+                .filter(c => !!c.notes)
+                .map(c => ({
+                  kind: "call" as const,
+                  id: c.id,
+                  notes: c.notes!,
+                  date: new Date(c.date),
+                  durationMinutes: c.durationMinutes ?? null,
+                })),
+            ]
+              .filter(e => !cutoff || e.date >= cutoff)
+              .sort((a, b) => b.date.getTime() - a.date.getTime());
+
+            const hasAny = (coachNotes?.length ?? 0) > 0 || (callLogs ?? []).some(c => c.notes);
+
+            if (entries.length === 0) return (
               <p className="text-muted-foreground text-sm text-center py-6">
-                {(coachNotes?.length ?? 0) === 0 ? "No notes yet. Add your first note above." : "No notes in this timeframe."}
+                {!hasAny ? "No notes yet. Add your first note above." : "No notes in this timeframe."}
               </p>
             );
+
             return (
               <div className="space-y-3">
-                {filtered.map(note => (
-              <Card key={note.id} className="border-border/60">
-                <CardContent className="pt-3 pb-3">
-                  {editingNoteId === note.id ? (
-                    <div className="space-y-2">
-                      <Textarea
-                        value={editingNoteContent}
-                        onChange={e => setEditingNoteContent(e.target.value)}
-                        className="resize-none text-sm min-h-[80px]"
-                        autoFocus
-                      />
-                      <div className="flex gap-2">
-                        <Button size="sm" onClick={() => handleUpdateNote(note.id)} disabled={updateNote.isPending}>
-                          <Check className="w-3.5 h-3.5 mr-1" /> Save
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={() => setEditingNoteId(null)}>Cancel</Button>
+                {entries.map(entry => entry.kind === "note" ? (
+                  <Card key={`note-${entry.id}`} className="border-border/60">
+                    <CardContent className="pt-3 pb-3">
+                      {editingNoteId === entry.id ? (
+                        <div className="space-y-2">
+                          <Textarea
+                            value={editingNoteContent}
+                            onChange={e => setEditingNoteContent(e.target.value)}
+                            className="resize-none text-sm min-h-[80px]"
+                            autoFocus
+                          />
+                          <div className="flex gap-2">
+                            <Button size="sm" onClick={() => handleUpdateNote(entry.id)} disabled={updateNote.isPending}>
+                              <Check className="w-3.5 h-3.5 mr-1" /> Save
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => setEditingNoteId(null)}>Cancel</Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex gap-3">
+                          <p className="flex-1 text-sm whitespace-pre-wrap">{entry.content}</p>
+                          <div className="flex flex-col gap-1 flex-shrink-0">
+                            <button
+                              onClick={() => { setEditingNoteId(entry.id); setEditingNoteContent(entry.content); }}
+                              className="p-1.5 text-muted-foreground hover:text-foreground transition-colors rounded"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteNote(entry.id)}
+                              className="p-1.5 text-muted-foreground hover:text-destructive transition-colors rounded"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      <p className="text-xs text-muted-foreground mt-2">
+                        {format(entry.date, "MMM d, yyyy 'at' h:mm a")}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <Card key={`call-${entry.id}`} className="border-border/60 border-dashed">
+                    <CardContent className="pt-3 pb-3">
+                      <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                        <Badge variant="outline" className="text-xs gap-1 font-normal">
+                          <Phone className="w-3 h-3" /> Call note
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          {format(entry.date, "MMM d, yyyy")}
+                          {entry.durationMinutes != null ? ` · ${entry.durationMinutes} min` : ""}
+                        </span>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="flex gap-3">
-                      <p className="flex-1 text-sm whitespace-pre-wrap">{note.content}</p>
-                      <div className="flex flex-col gap-1 flex-shrink-0">
-                        <button
-                          onClick={() => { setEditingNoteId(note.id); setEditingNoteContent(note.content); }}
-                          className="p-1.5 text-muted-foreground hover:text-foreground transition-colors rounded"
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteNote(note.id)}
-                          className="p-1.5 text-muted-foreground hover:text-destructive transition-colors rounded"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                  <p className="text-xs text-muted-foreground mt-2">
-                    {format(parseISO(note.updatedAt), "MMM d, yyyy 'at' h:mm a")}
-                  </p>
-                </CardContent>
-              </Card>
-            ))}
+                      <p className="text-sm whitespace-pre-wrap">{entry.notes}</p>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
             );
           })()}
