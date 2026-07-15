@@ -794,6 +794,7 @@ export function ClientProfile() {
   const [noteContent, setNoteContent] = useState("");
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
   const [editingNoteContent, setEditingNoteContent] = useState("");
+  const [notesTimeframe, setNotesTimeframe] = useState("all");
 
   // Call log state
   const [callDate, setCallDate] = useState(new Date().toISOString().split("T")[0]);
@@ -1257,7 +1258,6 @@ export function ClientProfile() {
               { value: "nutrition", label: "Nutrition" },
               { value: "photos", label: "Photos" },
               { value: "tasks", label: "Tasks" },
-              { value: "messages", label: "Messages" },
               { value: "notes", label: "Notes", icon: <StickyNote className="w-3 h-3" /> },
               { value: "calls", label: "Calls", icon: <Phone className="w-3 h-3" /> },
             ].map(tab => (
@@ -2016,12 +2016,38 @@ export function ClientProfile() {
             </CardContent>
           </Card>
 
-          {(coachNotes?.length ?? 0) === 0 && (
-            <p className="text-muted-foreground text-sm text-center py-6">No notes yet. Add your first note above.</p>
-          )}
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-muted-foreground font-medium">
+              {notesTimeframe === "all" ? "All notes" : `Last ${notesTimeframe} days`}
+            </p>
+            <Select value={notesTimeframe} onValueChange={setNotesTimeframe}>
+              <SelectTrigger className="h-8 w-36 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All time</SelectItem>
+                <SelectItem value="7">Last 7 days</SelectItem>
+                <SelectItem value="30">Last 30 days</SelectItem>
+                <SelectItem value="90">Last 90 days</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-          <div className="space-y-3">
-            {[...(coachNotes ?? [])].reverse().map(note => (
+          {(() => {
+            const cutoff = notesTimeframe === "all"
+              ? null
+              : new Date(Date.now() - Number(notesTimeframe) * 24 * 60 * 60 * 1000);
+            const filtered = [...(coachNotes ?? [])]
+              .reverse()
+              .filter(n => !cutoff || new Date(n.updatedAt) >= cutoff);
+            if (filtered.length === 0) return (
+              <p className="text-muted-foreground text-sm text-center py-6">
+                {(coachNotes?.length ?? 0) === 0 ? "No notes yet. Add your first note above." : "No notes in this timeframe."}
+              </p>
+            );
+            return (
+              <div className="space-y-3">
+                {filtered.map(note => (
               <Card key={note.id} className="border-border/60">
                 <CardContent className="pt-3 pb-3">
                   {editingNoteId === note.id ? (
@@ -2064,7 +2090,9 @@ export function ClientProfile() {
                 </CardContent>
               </Card>
             ))}
-          </div>
+              </div>
+            );
+          })()}
         </TabsContent>
 
         {/* Call Log */}
