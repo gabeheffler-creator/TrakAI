@@ -89,7 +89,7 @@ function RejectionCard({
   const [suggestOpen, setSuggestOpen] = useState(false);
   const leave = useLeaveTask();
 
-  const canAct = task.status === "rejected" && !task.altStatus;
+  const canAct = task.status === "rejected" && task.altStatus !== "left_alone" && task.altStatus !== "accepted";
 
   return (
     <>
@@ -99,18 +99,16 @@ function RejectionCard({
         {canAct && (
           <div className="flex gap-2 pt-1 flex-wrap">
             <Button
-              size="sm"
               variant="outline"
-              className="h-8 text-xs border-violet-300 text-violet-700 hover:bg-violet-50"
+              className="h-11 text-sm border-violet-300 text-violet-700 hover:bg-violet-50 px-3 gap-1.5"
               onClick={() => setSuggestOpen(true)}
             >
-              <Lightbulb className="w-3 h-3 mr-1" />
+              <Lightbulb className="w-4 h-4" />
               Suggest an Alternative
             </Button>
             <Button
-              size="sm"
               variant="ghost"
-              className="h-8 text-xs text-muted-foreground"
+              className="h-11 text-sm text-muted-foreground px-3"
               disabled={leave.isPending}
               onClick={() => {
                 leave.mutate({ clientId, taskId: task.id }, { onSuccess: onActionDone });
@@ -316,12 +314,11 @@ function ConversationPanel({ clientId }: { clientId: number }) {
       <div className="px-4 py-2 border-b border-border flex items-center justify-between flex-shrink-0 bg-background">
         <span className="text-sm text-muted-foreground">Conversation</span>
         <Button
-          size="sm"
           variant="outline"
-          className="h-8 text-xs gap-1.5 border-violet-300 text-violet-700 hover:bg-violet-50"
+          className="h-11 text-sm gap-1.5 border-violet-300 text-violet-700 hover:bg-violet-50 px-3"
           onClick={() => setAssignOpen(true)}
         >
-          <ClipboardList className="w-3.5 h-3.5" />
+          <ClipboardList className="w-4 h-4" />
           Assign Task
         </Button>
       </div>

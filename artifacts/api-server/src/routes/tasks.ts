@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { clientTasksTable, messagesTable, clientsTable } from "@workspace/db";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { requireClientOwnership, requireCoachAuth } from "../middlewares/auth";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { z } from "zod/v4";
@@ -77,7 +77,7 @@ router.get("/clients/:clientId/tasks/active", requireClientOwnership(), async (r
     const clientId = Number(req.params.clientId);
     const [task] = await db.select().from(clientTasksTable)
       .where(and(eq(clientTasksTable.clientId, clientId), eq(clientTasksTable.status, "accepted")))
-      .orderBy(clientTasksTable.createdAt)
+      .orderBy(desc(clientTasksTable.createdAt))
       .limit(1);
     res.json(task ? serializeTask(task) : null);
   } catch (err) {

@@ -97,17 +97,15 @@ function ClientTaskCard({
         {canAct && (
           <div className="flex gap-2 pt-1">
             <Button
-              size="sm"
-              className="h-9 text-sm flex-1"
+              className="h-11 text-sm flex-1"
               disabled={acceptTask.isPending}
               onClick={handleAccept}
             >
               Accept
             </Button>
             <Button
-              size="sm"
               variant="outline"
-              className="h-9 text-sm flex-1"
+              className="h-11 text-sm flex-1"
               onClick={() => setRejectOpen(true)}
             >
               Reject
