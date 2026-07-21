@@ -51,8 +51,12 @@ router.patch("/clients/:clientId/call-logs/:callId", requireClientOwnership(), r
     const { clientId, callId } = UpdateCallLogParams.parse({ clientId: Number(req.params.clientId), callId: Number(req.params.callId) });
     const body = UpdateCallLogBody.parse(req.body);
     const patchDateStr = body.date instanceof Date ? body.date.toISOString().split("T")[0] : body.date ? String(body.date) : undefined;
+    const patch: Record<string, unknown> = {};
+    if (patchDateStr !== undefined) patch.date = patchDateStr;
+    if (body.durationMinutes !== undefined) patch.durationMinutes = body.durationMinutes;
+    if (body.notes !== undefined) patch.notes = body.notes;
     const [log] = await db.update(callLogsTable)
-      .set({ date: patchDateStr, durationMinutes: body.durationMinutes ?? null, notes: body.notes ?? null })
+      .set(patch)
       .where(and(eq(callLogsTable.id, callId), eq(callLogsTable.clientId, clientId)))
       .returning();
     if (!log) { res.status(404).json({ error: "Call log not found" }); return; }

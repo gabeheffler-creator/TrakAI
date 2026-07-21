@@ -843,8 +843,8 @@ export function ClientProfile() {
     });
   };
 
-  const handleUpdateCall = (callId: number, date: string) => {
-    updateCall.mutate({ clientId, callId, data: { date, notes: editingCallNotes || undefined } }, {
+  const handleUpdateCall = (callId: number, date: string, durationMinutes: number | null) => {
+    updateCall.mutate({ clientId, callId, data: { date, notes: editingCallNotes || undefined, durationMinutes: durationMinutes ?? undefined } }, {
       onSuccess: () => { refetchCallLogs(); setEditingCallId(null); },
       onError: () => toast({ title: "Failed to update call", variant: "destructive" }),
     });
@@ -2153,7 +2153,7 @@ export function ClientProfile() {
                       <div className="space-y-2">
                         <Textarea value={editingCallNotes} onChange={e => setEditingCallNotes(e.target.value)} className="resize-none text-sm min-h-[80px]" autoFocus placeholder="Add notes about this call..." />
                         <div className="flex gap-2">
-                          <Button size="sm" onClick={() => handleUpdateCall(entry.id, format(entry.date, "yyyy-MM-dd"))} disabled={updateCall.isPending}><Check className="w-3.5 h-3.5 mr-1" /> Save</Button>
+                          <Button size="sm" onClick={() => handleUpdateCall(entry.id, format(entry.date, "yyyy-MM-dd"), entry.durationMinutes)} disabled={updateCall.isPending}><Check className="w-3.5 h-3.5 mr-1" /> Save</Button>
                           <Button size="sm" variant="ghost" onClick={() => setEditingCallId(null)}>Cancel</Button>
                         </div>
                       </div>
