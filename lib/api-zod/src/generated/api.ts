@@ -1443,6 +1443,19 @@ export const ListMessagesResponseItem = zod.object({
   "clientId": zod.number(),
   "sender": zod.enum(['coach', 'client']),
   "content": zod.string(),
+  "messageType": zod.enum(['text', 'task_assigned', 'task_rejected', 'task_alternative']).optional(),
+  "taskId": zod.number().nullish(),
+  "task": zod.union([zod.object({
+  "id": zod.number(),
+  "clientId": zod.number(),
+  "text": zod.string(),
+  "status": zod.enum(['pending', 'accepted', 'rejected', 'completed']),
+  "rejectionReason": zod.string().nullish(),
+  "alternativeText": zod.string().nullish(),
+  "altStatus": zod.union([zod.literal('pending'),zod.literal('accepted'),zod.literal('rejected'),zod.literal('left_alone'),zod.literal(null)]).nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}),zod.null()]).optional(),
   "readAt": zod.coerce.date().nullish(),
   "createdAt": zod.coerce.date()
 })
@@ -1499,6 +1512,176 @@ export const SavePushSubscriptionBody = zod.object({
   "auth": zod.string(),
   "role": zod.enum(['coach', 'client']),
   "clientId": zod.number().optional()
+})
+
+
+/**
+ * @summary Coach assigns a task to a client
+ */
+export const AssignTaskParams = zod.object({
+  "clientId": zod.coerce.number()
+})
+
+export const assignTaskBodyTextMax = 2000;
+
+
+
+export const AssignTaskBody = zod.object({
+  "text": zod.string().min(1).max(assignTaskBodyTextMax)
+})
+
+
+/**
+ * @summary Get the client's current active (accepted) task
+ */
+export const GetActiveTaskParams = zod.object({
+  "clientId": zod.coerce.number()
+})
+
+export const GetActiveTaskResponse = zod.union([zod.object({
+  "id": zod.number(),
+  "clientId": zod.number(),
+  "text": zod.string(),
+  "status": zod.enum(['pending', 'accepted', 'rejected', 'completed']),
+  "rejectionReason": zod.string().nullish(),
+  "alternativeText": zod.string().nullish(),
+  "altStatus": zod.union([zod.literal('pending'),zod.literal('accepted'),zod.literal('rejected'),zod.literal('left_alone'),zod.literal(null)]).nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}),zod.null()])
+
+
+/**
+ * @summary Client accepts a task
+ */
+export const AcceptTaskParams = zod.object({
+  "clientId": zod.coerce.number(),
+  "taskId": zod.coerce.number()
+})
+
+export const AcceptTaskResponse = zod.object({
+  "id": zod.number(),
+  "clientId": zod.number(),
+  "text": zod.string(),
+  "status": zod.enum(['pending', 'accepted', 'rejected', 'completed']),
+  "rejectionReason": zod.string().nullish(),
+  "alternativeText": zod.string().nullish(),
+  "altStatus": zod.union([zod.literal('pending'),zod.literal('accepted'),zod.literal('rejected'),zod.literal('left_alone'),zod.literal(null)]).nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Client rejects a task with a reason
+ */
+export const RejectTaskParams = zod.object({
+  "clientId": zod.coerce.number(),
+  "taskId": zod.coerce.number()
+})
+
+export const rejectTaskBodyReasonMax = 2000;
+
+
+
+export const RejectTaskBody = zod.object({
+  "reason": zod.string().min(1).max(rejectTaskBodyReasonMax)
+})
+
+export const RejectTaskResponse = zod.object({
+  "id": zod.number(),
+  "clientId": zod.number(),
+  "text": zod.string(),
+  "status": zod.enum(['pending', 'accepted', 'rejected', 'completed']),
+  "rejectionReason": zod.string().nullish(),
+  "alternativeText": zod.string().nullish(),
+  "altStatus": zod.union([zod.literal('pending'),zod.literal('accepted'),zod.literal('rejected'),zod.literal('left_alone'),zod.literal(null)]).nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Client marks a task as complete
+ */
+export const CompleteTaskParams = zod.object({
+  "clientId": zod.coerce.number(),
+  "taskId": zod.coerce.number()
+})
+
+export const CompleteTaskResponse = zod.object({
+  "id": zod.number(),
+  "clientId": zod.number(),
+  "text": zod.string(),
+  "status": zod.enum(['pending', 'accepted', 'rejected', 'completed']),
+  "rejectionReason": zod.string().nullish(),
+  "alternativeText": zod.string().nullish(),
+  "altStatus": zod.union([zod.literal('pending'),zod.literal('accepted'),zod.literal('rejected'),zod.literal('left_alone'),zod.literal(null)]).nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Coach suggests an alternative task
+ */
+export const SuggestAlternativeTaskParams = zod.object({
+  "clientId": zod.coerce.number(),
+  "taskId": zod.coerce.number()
+})
+
+export const suggestAlternativeTaskBodyAlternativeTextMax = 2000;
+
+
+
+export const SuggestAlternativeTaskBody = zod.object({
+  "alternativeText": zod.string().min(1).max(suggestAlternativeTaskBodyAlternativeTextMax)
+})
+
+export const SuggestAlternativeTaskResponse = zod.object({
+  "id": zod.number(),
+  "clientId": zod.number(),
+  "text": zod.string(),
+  "status": zod.enum(['pending', 'accepted', 'rejected', 'completed']),
+  "rejectionReason": zod.string().nullish(),
+  "alternativeText": zod.string().nullish(),
+  "altStatus": zod.union([zod.literal('pending'),zod.literal('accepted'),zod.literal('rejected'),zod.literal('left_alone'),zod.literal(null)]).nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Coach leaves a rejected task alone
+ */
+export const LeaveTaskParams = zod.object({
+  "clientId": zod.coerce.number(),
+  "taskId": zod.coerce.number()
+})
+
+export const LeaveTaskResponse = zod.object({
+  "id": zod.number(),
+  "clientId": zod.number(),
+  "text": zod.string(),
+  "status": zod.enum(['pending', 'accepted', 'rejected', 'completed']),
+  "rejectionReason": zod.string().nullish(),
+  "alternativeText": zod.string().nullish(),
+  "altStatus": zod.union([zod.literal('pending'),zod.literal('accepted'),zod.literal('rejected'),zod.literal('left_alone'),zod.literal(null)]).nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Get 3 AI-generated alternative task suggestions
+ */
+export const GetTaskAiAlternativesParams = zod.object({
+  "clientId": zod.coerce.number(),
+  "taskId": zod.coerce.number()
+})
+
+export const GetTaskAiAlternativesResponse = zod.object({
+  "alternatives": zod.array(zod.string())
 })
 
 

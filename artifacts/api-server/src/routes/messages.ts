@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { messagesTable, pushSubscriptionsTable, clientsTable } from "@workspace/db";
+import { messagesTable, pushSubscriptionsTable, clientsTable, clientTasksTable } from "@workspace/db";
 import { eq, isNull, and, sql, count, desc, inArray } from "drizzle-orm";
 import webpush from "web-push";
 import {
@@ -70,11 +70,35 @@ router.get("/clients/:clientId/messages", requireClientOwnership(), async (req, 
     const rows = await db.select().from(messagesTable)
       .where(eq(messagesTable.clientId, clientId))
       .orderBy(messagesTable.createdAt);
-    res.json(rows.map(m => ({
-      ...m,
-      createdAt: m.createdAt.toISOString(),
-      readAt: m.readAt?.toISOString() ?? null,
-    })));
+    // Fetch tasks for messages that reference them
+    const taskIds = [...new Set(rows.map(r => r.taskId).filter((id): id is number => id != null))];
+    const tasks = taskIds.length > 0
+      ? await db.select().from(clientTasksTable).where(
+          inArray(clientTasksTable.id, taskIds)
+        )
+      : [];
+    const taskMap = new Map(tasks.map(t => [t.id, t]));
+    res.json(rows.map(m => {
+      const task = m.taskId != null ? taskMap.get(m.taskId) ?? null : null;
+      return {
+        ...m,
+        messageType: m.messageType ?? "text",
+        taskId: m.taskId ?? null,
+        task: task ? {
+          id: task.id,
+          clientId: task.clientId,
+          text: task.text,
+          status: task.status,
+          rejectionReason: task.rejectionReason ?? null,
+          alternativeText: task.alternativeText ?? null,
+          altStatus: task.altStatus ?? null,
+          createdAt: task.createdAt.toISOString(),
+          updatedAt: task.updatedAt.toISOString(),
+        } : null,
+        createdAt: m.createdAt.toISOString(),
+        readAt: m.readAt?.toISOString() ?? null,
+      };
+    }));
   } catch (err) {
     req.log.error(err);
     res.status(500).json({ error: "Failed to list messages" });

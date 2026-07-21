@@ -5,10 +5,15 @@ import {
   useSendMessage,
   useMarkMessagesRead,
   getListMessagesQueryKey,
+  useAcceptTask,
+  useRejectTask,
+  type ClientTask,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -35,6 +40,116 @@ function formatTime(iso: string) {
 
 const msgSchema = z.object({ content: z.string().min(1) });
 
+// ── Task card for client messages ─────────────────────────────────────────────
+
+function ClientTaskCard({
+  task,
+  messageType,
+  clientId,
+  onAction,
+}: {
+  task: ClientTask;
+  messageType: string;
+  clientId: number;
+  onAction: () => void;
+}) {
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+  const acceptTask = useAcceptTask();
+  const rejectTask = useRejectTask();
+
+  const isAlt = messageType === "task_alternative";
+  const label = isAlt ? "Alternative" : "Task";
+  const text = isAlt ? (task.alternativeText ?? task.text) : task.text;
+
+  // Determine if action buttons should show
+  const isPendingMain = !isAlt && task.status === "pending";
+  const isPendingAlt = isAlt && task.status === "rejected" && task.altStatus === "pending";
+  const canAct = isPendingMain || isPendingAlt;
+
+  const isAccepted = task.status === "accepted" || task.altStatus === "accepted";
+  const isRejected = (isPendingMain && task.status === "rejected") || (isPendingAlt && task.altStatus === "rejected");
+  const isCompleted = task.status === "completed";
+
+  const handleAccept = () => {
+    acceptTask.mutate({ clientId, taskId: task.id }, { onSuccess: onAction });
+  };
+
+  const handleReject = () => {
+    const r = rejectReason.trim();
+    if (!r) return;
+    rejectTask.mutate({ clientId, taskId: task.id, data: { reason: r } }, {
+      onSuccess: () => { setRejectOpen(false); setRejectReason(""); onAction(); },
+    });
+  };
+
+  return (
+    <>
+      <div className={cn(
+        "rounded-xl border px-4 py-3 space-y-2 max-w-[85%]",
+        isAlt
+          ? "border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800"
+          : "border-violet-200 bg-violet-50 dark:bg-violet-950/30 dark:border-violet-800"
+      )}>
+        <p className={cn("text-[10px] font-bold uppercase tracking-widest", isAlt ? "text-amber-600" : "text-violet-600")}>{label}</p>
+        <p className="text-sm leading-relaxed text-foreground">{text}</p>
+
+        {canAct && (
+          <div className="flex gap-2 pt-1">
+            <Button
+              size="sm"
+              className="h-9 text-sm flex-1"
+              disabled={acceptTask.isPending}
+              onClick={handleAccept}
+            >
+              Accept
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-9 text-sm flex-1"
+              onClick={() => setRejectOpen(true)}
+            >
+              Reject
+            </Button>
+          </div>
+        )}
+
+        {isAccepted && !isCompleted && <p className="text-xs text-emerald-600 font-medium">✓ Accepted — check your home screen</p>}
+        {isCompleted && <p className="text-xs text-emerald-700 font-medium">✓ Completed</p>}
+        {(task.status === "rejected" && !isAlt) && <p className="text-xs text-rose-500 font-medium">Rejected</p>}
+        {(task.altStatus === "rejected" && isAlt) && <p className="text-xs text-rose-500 font-medium">Alternative rejected</p>}
+        {task.altStatus === "left_alone" && <p className="text-xs text-muted-foreground font-medium">Coach left this one alone</p>}
+      </div>
+
+      <Dialog open={rejectOpen} onOpenChange={v => { if (!v) { setRejectOpen(false); setRejectReason(""); } }}>
+        <DialogContent className="max-w-sm w-full">
+          <DialogHeader>
+            <DialogTitle>Why?</DialogTitle>
+          </DialogHeader>
+          <Textarea
+            placeholder="Tell your coach why you can't do this…"
+            value={rejectReason}
+            onChange={e => setRejectReason(e.target.value)}
+            rows={4}
+            className="resize-none"
+            autoFocus
+          />
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => { setRejectOpen(false); setRejectReason(""); }}>Cancel</Button>
+            <Button
+              onClick={handleReject}
+              disabled={!rejectReason.trim() || rejectTask.isPending}
+            >
+              Send
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 export function MessagesPage() {
   const { clientId } = useClientId();
   const qc = useQueryClient();
@@ -58,6 +173,8 @@ export function MessagesPage() {
     resolver: zodResolver(msgSchema),
     defaultValues: { content: "" },
   });
+
+  const invalidate = () => qc.invalidateQueries({ queryKey: getListMessagesQueryKey(clientId!) });
 
   useEffect(() => {
     if (!clientId) return;
@@ -152,6 +269,32 @@ export function MessagesPage() {
             !prev ||
             Math.abs(parseISO(m.createdAt).getTime() - parseISO(prev.createdAt).getTime()) >
               5 * 60 * 1000;
+          const mt = (m as any).messageType as string | undefined;
+          const task = (m as any).task as ClientTask | null | undefined;
+
+          // Task / alternative cards — full-width, centered
+          if ((mt === "task_assigned" || mt === "task_alternative") && task) {
+            return (
+              <div key={m.id} data-testid={`msg-${m.id}`}>
+                {showTime && (
+                  <p className="text-center text-xs text-muted-foreground my-3">{formatTime(m.createdAt)}</p>
+                )}
+                <div className="flex justify-start items-end gap-2">
+                  <div className="w-7 h-7 rounded-full bg-violet-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 mb-0.5">
+                    C
+                  </div>
+                  <ClientTaskCard
+                    task={task}
+                    messageType={mt}
+                    clientId={clientId}
+                    onAction={invalidate}
+                  />
+                </div>
+              </div>
+            );
+          }
+
+          // Rejection messages show as normal client bubble (just the text)
           const emojiOnly = isEmojiOnly(m.content);
 
           return (

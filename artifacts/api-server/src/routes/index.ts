@@ -23,6 +23,7 @@ import surveyRouter from "./survey";
 import inviteRouter from "./invite";
 import nutritionGoalsRouter from "./nutrition_goals";
 import coachSettingsRouter from "./coach_settings";
+import tasksRouter from "./tasks";
 
 const router: IRouter = Router();
 
@@ -50,5 +51,6 @@ router.use(surveyRouter);
 router.use(inviteRouter);
 router.use(nutritionGoalsRouter);
 router.use(coachSettingsRouter);
+router.use(tasksRouter);
 
 export default router;

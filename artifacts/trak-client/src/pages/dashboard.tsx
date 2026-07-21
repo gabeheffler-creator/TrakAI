@@ -3,22 +3,35 @@ import { useClientId } from "@/hooks/use-client-id";
 import { useUnitSystem } from "@/hooks/use-unit-system";
 import { useVideoCallStatus } from "@/hooks/use-video-call-status";
 import { VideoCall } from "@/components/video-call";
-import { useGetClientDashboard, getGetClientDashboardQueryKey } from "@workspace/api-client-react";
+import {
+  useGetClientDashboard,
+  getGetClientDashboardQueryKey,
+  useGetActiveTask,
+  getGetActiveTaskQueryKey,
+  useCompleteTask,
+} from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { Link } from "wouter";
-import { Dumbbell, ClipboardList, TrendingUp, ChevronRight, Video } from "lucide-react";
+import { Dumbbell, ClipboardList, TrendingUp, ChevronRight, Video, CheckCircle2 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { QueryErrorState } from "@/components/query-error-state";
 
 export function Dashboard() {
   const { clientId } = useClientId();
+  const qc = useQueryClient();
   const { units, weightLabel } = useUnitSystem();
   const [videoCallOpen, setVideoCallOpen] = useState(false);
   const callActive = useVideoCallStatus(clientId);
   const { data: dashboard, isLoading, isError, refetch, isFetching } = useGetClientDashboard(clientId!, {
     query: { enabled: !!clientId, queryKey: getGetClientDashboardQueryKey(clientId!) }
   });
+  const { data: activeTask } = useGetActiveTask(clientId!, {
+    query: { enabled: !!clientId, queryKey: getGetActiveTaskQueryKey(clientId!), refetchInterval: 10000 }
+  });
+  const completeTask = useCompleteTask();
 
   if (!clientId) {
     return (
@@ -117,6 +130,37 @@ export function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {activeTask && (
+        <Card className="border-violet-200 bg-violet-50 dark:bg-violet-950/30 dark:border-violet-800">
+          <CardHeader className="pb-2 pt-4 px-4">
+            <CardTitle className="text-sm font-bold text-violet-700 dark:text-violet-300 flex items-center gap-2">
+              <ClipboardList className="w-4 h-4" />
+              Your Task
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4 space-y-3">
+            <p className="text-sm leading-relaxed text-foreground">{activeTask.text}</p>
+            <Button
+              className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700"
+              disabled={completeTask.isPending}
+              onClick={() => {
+                completeTask.mutate(
+                  { clientId: clientId!, taskId: activeTask.id },
+                  {
+                    onSuccess: () => {
+                      qc.invalidateQueries({ queryKey: getGetActiveTaskQueryKey(clientId!) });
+                    },
+                  }
+                );
+              }}
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              Mark Complete
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       <Link
         href="/workout"

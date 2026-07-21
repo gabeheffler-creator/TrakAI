@@ -21,7 +21,9 @@ import type {
 
 import type {
   ActivityHeatmapEntry,
+  AiAlternativesResult,
   AiProgramInput,
+  AssignTaskInput,
   Assignment,
   AssignmentInput,
   AssignmentUpdate,
@@ -36,6 +38,7 @@ import type {
   ClientGoalInput,
   ClientInput,
   ClientStatusUpdate,
+  ClientTask,
   ClientUpdate,
   CoachDashboard,
   CoachNote,
@@ -77,10 +80,12 @@ import type {
   ProgressPhoto,
   ProgressPhotoInput,
   PushSubscriptionInput,
+  RejectTaskInput,
   SetLog,
   SetLogInput,
   SleepLog,
   SleepLogInput,
+  SuggestAlternativeInput,
   SyncProgramToClientsInput,
   SyncProgramToClientsResult,
   UnreadCount,
@@ -5570,6 +5575,601 @@ export const useSavePushSubscription = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getSavePushSubscriptionMutationOptions(options));
     }
+
+export const getAssignTaskUrl = (clientId: number,) => {
+
+
+
+
+  return `/api/clients/${clientId}/tasks`
+}
+
+/**
+ * @summary Coach assigns a task to a client
+ */
+export const assignTask = async (clientId: number,
+    assignTaskInput: AssignTaskInput, options?: RequestInit): Promise<ClientTask> => {
+
+  return customFetch<ClientTask>(getAssignTaskUrl(clientId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      assignTaskInput,)
+  }
+);}
+
+
+
+
+export const getAssignTaskMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof assignTask>>, TError,{clientId: number;data: BodyType<AssignTaskInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof assignTask>>, TError,{clientId: number;data: BodyType<AssignTaskInput>}, TContext> => {
+
+const mutationKey = ['assignTask'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof assignTask>>, {clientId: number;data: BodyType<AssignTaskInput>}> = (props) => {
+          const {clientId,data} = props ?? {};
+
+          return  assignTask(clientId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AssignTaskMutationResult = NonNullable<Awaited<ReturnType<typeof assignTask>>>
+    export type AssignTaskMutationBody = BodyType<AssignTaskInput>
+    export type AssignTaskMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Coach assigns a task to a client
+ */
+export const useAssignTask = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof assignTask>>, TError,{clientId: number;data: BodyType<AssignTaskInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof assignTask>>,
+        TError,
+        {clientId: number;data: BodyType<AssignTaskInput>},
+        TContext
+      > => {
+      return useMutation(getAssignTaskMutationOptions(options));
+    }
+
+export const getGetActiveTaskUrl = (clientId: number,) => {
+
+
+
+
+  return `/api/clients/${clientId}/tasks/active`
+}
+
+/**
+ * @summary Get the client's current active (accepted) task
+ */
+export const getActiveTask = async (clientId: number, options?: RequestInit): Promise<ClientTask | null> => {
+
+  return customFetch<ClientTask | null>(getGetActiveTaskUrl(clientId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetActiveTaskQueryKey = (clientId: number,) => {
+    return [
+    `/api/clients/${clientId}/tasks/active`
+    ] as const;
+    }
+
+
+export const getGetActiveTaskQueryOptions = <TData = Awaited<ReturnType<typeof getActiveTask>>, TError = ErrorType<unknown>>(clientId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getActiveTask>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetActiveTaskQueryKey(clientId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getActiveTask>>> = ({ signal }) => getActiveTask(clientId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(clientId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getActiveTask>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetActiveTaskQueryResult = NonNullable<Awaited<ReturnType<typeof getActiveTask>>>
+export type GetActiveTaskQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get the client's current active (accepted) task
+ */
+
+export function useGetActiveTask<TData = Awaited<ReturnType<typeof getActiveTask>>, TError = ErrorType<unknown>>(
+ clientId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getActiveTask>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetActiveTaskQueryOptions(clientId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getAcceptTaskUrl = (clientId: number,
+    taskId: number,) => {
+
+
+
+
+  return `/api/clients/${clientId}/tasks/${taskId}/accept`
+}
+
+/**
+ * @summary Client accepts a task
+ */
+export const acceptTask = async (clientId: number,
+    taskId: number, options?: RequestInit): Promise<ClientTask> => {
+
+  return customFetch<ClientTask>(getAcceptTaskUrl(clientId,taskId),
+  {
+    ...options,
+    method: 'PATCH'
+
+
+  }
+);}
+
+
+
+
+export const getAcceptTaskMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acceptTask>>, TError,{clientId: number;taskId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof acceptTask>>, TError,{clientId: number;taskId: number}, TContext> => {
+
+const mutationKey = ['acceptTask'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof acceptTask>>, {clientId: number;taskId: number}> = (props) => {
+          const {clientId,taskId} = props ?? {};
+
+          return  acceptTask(clientId,taskId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AcceptTaskMutationResult = NonNullable<Awaited<ReturnType<typeof acceptTask>>>
+
+    export type AcceptTaskMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Client accepts a task
+ */
+export const useAcceptTask = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acceptTask>>, TError,{clientId: number;taskId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof acceptTask>>,
+        TError,
+        {clientId: number;taskId: number},
+        TContext
+      > => {
+      return useMutation(getAcceptTaskMutationOptions(options));
+    }
+
+export const getRejectTaskUrl = (clientId: number,
+    taskId: number,) => {
+
+
+
+
+  return `/api/clients/${clientId}/tasks/${taskId}/reject`
+}
+
+/**
+ * @summary Client rejects a task with a reason
+ */
+export const rejectTask = async (clientId: number,
+    taskId: number,
+    rejectTaskInput: RejectTaskInput, options?: RequestInit): Promise<ClientTask> => {
+
+  return customFetch<ClientTask>(getRejectTaskUrl(clientId,taskId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      rejectTaskInput,)
+  }
+);}
+
+
+
+
+export const getRejectTaskMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rejectTask>>, TError,{clientId: number;taskId: number;data: BodyType<RejectTaskInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof rejectTask>>, TError,{clientId: number;taskId: number;data: BodyType<RejectTaskInput>}, TContext> => {
+
+const mutationKey = ['rejectTask'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof rejectTask>>, {clientId: number;taskId: number;data: BodyType<RejectTaskInput>}> = (props) => {
+          const {clientId,taskId,data} = props ?? {};
+
+          return  rejectTask(clientId,taskId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RejectTaskMutationResult = NonNullable<Awaited<ReturnType<typeof rejectTask>>>
+    export type RejectTaskMutationBody = BodyType<RejectTaskInput>
+    export type RejectTaskMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Client rejects a task with a reason
+ */
+export const useRejectTask = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rejectTask>>, TError,{clientId: number;taskId: number;data: BodyType<RejectTaskInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof rejectTask>>,
+        TError,
+        {clientId: number;taskId: number;data: BodyType<RejectTaskInput>},
+        TContext
+      > => {
+      return useMutation(getRejectTaskMutationOptions(options));
+    }
+
+export const getCompleteTaskUrl = (clientId: number,
+    taskId: number,) => {
+
+
+
+
+  return `/api/clients/${clientId}/tasks/${taskId}/complete`
+}
+
+/**
+ * @summary Client marks a task as complete
+ */
+export const completeTask = async (clientId: number,
+    taskId: number, options?: RequestInit): Promise<ClientTask> => {
+
+  return customFetch<ClientTask>(getCompleteTaskUrl(clientId,taskId),
+  {
+    ...options,
+    method: 'PATCH'
+
+
+  }
+);}
+
+
+
+
+export const getCompleteTaskMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeTask>>, TError,{clientId: number;taskId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof completeTask>>, TError,{clientId: number;taskId: number}, TContext> => {
+
+const mutationKey = ['completeTask'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof completeTask>>, {clientId: number;taskId: number}> = (props) => {
+          const {clientId,taskId} = props ?? {};
+
+          return  completeTask(clientId,taskId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CompleteTaskMutationResult = NonNullable<Awaited<ReturnType<typeof completeTask>>>
+
+    export type CompleteTaskMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Client marks a task as complete
+ */
+export const useCompleteTask = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeTask>>, TError,{clientId: number;taskId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof completeTask>>,
+        TError,
+        {clientId: number;taskId: number},
+        TContext
+      > => {
+      return useMutation(getCompleteTaskMutationOptions(options));
+    }
+
+export const getSuggestAlternativeTaskUrl = (clientId: number,
+    taskId: number,) => {
+
+
+
+
+  return `/api/clients/${clientId}/tasks/${taskId}/suggest`
+}
+
+/**
+ * @summary Coach suggests an alternative task
+ */
+export const suggestAlternativeTask = async (clientId: number,
+    taskId: number,
+    suggestAlternativeInput: SuggestAlternativeInput, options?: RequestInit): Promise<ClientTask> => {
+
+  return customFetch<ClientTask>(getSuggestAlternativeTaskUrl(clientId,taskId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      suggestAlternativeInput,)
+  }
+);}
+
+
+
+
+export const getSuggestAlternativeTaskMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof suggestAlternativeTask>>, TError,{clientId: number;taskId: number;data: BodyType<SuggestAlternativeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof suggestAlternativeTask>>, TError,{clientId: number;taskId: number;data: BodyType<SuggestAlternativeInput>}, TContext> => {
+
+const mutationKey = ['suggestAlternativeTask'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof suggestAlternativeTask>>, {clientId: number;taskId: number;data: BodyType<SuggestAlternativeInput>}> = (props) => {
+          const {clientId,taskId,data} = props ?? {};
+
+          return  suggestAlternativeTask(clientId,taskId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SuggestAlternativeTaskMutationResult = NonNullable<Awaited<ReturnType<typeof suggestAlternativeTask>>>
+    export type SuggestAlternativeTaskMutationBody = BodyType<SuggestAlternativeInput>
+    export type SuggestAlternativeTaskMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Coach suggests an alternative task
+ */
+export const useSuggestAlternativeTask = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof suggestAlternativeTask>>, TError,{clientId: number;taskId: number;data: BodyType<SuggestAlternativeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof suggestAlternativeTask>>,
+        TError,
+        {clientId: number;taskId: number;data: BodyType<SuggestAlternativeInput>},
+        TContext
+      > => {
+      return useMutation(getSuggestAlternativeTaskMutationOptions(options));
+    }
+
+export const getLeaveTaskUrl = (clientId: number,
+    taskId: number,) => {
+
+
+
+
+  return `/api/clients/${clientId}/tasks/${taskId}/leave`
+}
+
+/**
+ * @summary Coach leaves a rejected task alone
+ */
+export const leaveTask = async (clientId: number,
+    taskId: number, options?: RequestInit): Promise<ClientTask> => {
+
+  return customFetch<ClientTask>(getLeaveTaskUrl(clientId,taskId),
+  {
+    ...options,
+    method: 'PATCH'
+
+
+  }
+);}
+
+
+
+
+export const getLeaveTaskMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof leaveTask>>, TError,{clientId: number;taskId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof leaveTask>>, TError,{clientId: number;taskId: number}, TContext> => {
+
+const mutationKey = ['leaveTask'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof leaveTask>>, {clientId: number;taskId: number}> = (props) => {
+          const {clientId,taskId} = props ?? {};
+
+          return  leaveTask(clientId,taskId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LeaveTaskMutationResult = NonNullable<Awaited<ReturnType<typeof leaveTask>>>
+
+    export type LeaveTaskMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Coach leaves a rejected task alone
+ */
+export const useLeaveTask = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof leaveTask>>, TError,{clientId: number;taskId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof leaveTask>>,
+        TError,
+        {clientId: number;taskId: number},
+        TContext
+      > => {
+      return useMutation(getLeaveTaskMutationOptions(options));
+    }
+
+export const getGetTaskAiAlternativesUrl = (clientId: number,
+    taskId: number,) => {
+
+
+
+
+  return `/api/clients/${clientId}/tasks/${taskId}/ai-alternatives`
+}
+
+/**
+ * @summary Get 3 AI-generated alternative task suggestions
+ */
+export const getTaskAiAlternatives = async (clientId: number,
+    taskId: number, options?: RequestInit): Promise<AiAlternativesResult> => {
+
+  return customFetch<AiAlternativesResult>(getGetTaskAiAlternativesUrl(clientId,taskId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTaskAiAlternativesQueryKey = (clientId: number,
+    taskId: number,) => {
+    return [
+    `/api/clients/${clientId}/tasks/${taskId}/ai-alternatives`
+    ] as const;
+    }
+
+
+export const getGetTaskAiAlternativesQueryOptions = <TData = Awaited<ReturnType<typeof getTaskAiAlternatives>>, TError = ErrorType<unknown>>(clientId: number,
+    taskId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTaskAiAlternatives>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTaskAiAlternativesQueryKey(clientId,taskId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTaskAiAlternatives>>> = ({ signal }) => getTaskAiAlternatives(clientId,taskId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(clientId && taskId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTaskAiAlternatives>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetTaskAiAlternativesQueryResult = NonNullable<Awaited<ReturnType<typeof getTaskAiAlternatives>>>
+export type GetTaskAiAlternativesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get 3 AI-generated alternative task suggestions
+ */
+
+export function useGetTaskAiAlternatives<TData = Awaited<ReturnType<typeof getTaskAiAlternatives>>, TError = ErrorType<unknown>>(
+ clientId: number,
+    taskId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTaskAiAlternatives>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetTaskAiAlternativesQueryOptions(clientId,taskId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getListCoachNotesUrl = (clientId: number,) => {
 

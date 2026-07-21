@@ -913,14 +913,94 @@ export const MessageSender = {
   client: 'client',
 } as const;
 
+export type MessageMessageType = typeof MessageMessageType[keyof typeof MessageMessageType];
+
+
+export const MessageMessageType = {
+  text: 'text',
+  task_assigned: 'task_assigned',
+  task_rejected: 'task_rejected',
+  task_alternative: 'task_alternative',
+} as const;
+
+export type ClientTaskStatus = typeof ClientTaskStatus[keyof typeof ClientTaskStatus];
+
+
+export const ClientTaskStatus = {
+  pending: 'pending',
+  accepted: 'accepted',
+  rejected: 'rejected',
+  completed: 'completed',
+} as const;
+
+/**
+ * @nullable
+ */
+export type ClientTaskAltStatus = typeof ClientTaskAltStatus[keyof typeof ClientTaskAltStatus] | null;
+
+
+export const ClientTaskAltStatus = {
+  pending: 'pending',
+  accepted: 'accepted',
+  rejected: 'rejected',
+  left_alone: 'left_alone',
+} as const;
+
+export interface ClientTask {
+  id: number;
+  clientId: number;
+  text: string;
+  status: ClientTaskStatus;
+  /** @nullable */
+  rejectionReason?: string | null;
+  /** @nullable */
+  alternativeText?: string | null;
+  /** @nullable */
+  altStatus?: ClientTaskAltStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Message {
   id: number;
   clientId: number;
   sender: MessageSender;
   content: string;
+  messageType?: MessageMessageType;
+  /** @nullable */
+  taskId?: number | null;
+  task?: ClientTask | null;
   /** @nullable */
   readAt?: string | null;
   createdAt: string;
+}
+
+export interface AssignTaskInput {
+  /**
+     * @minLength 1
+     * @maxLength 2000
+     */
+  text: string;
+}
+
+export interface RejectTaskInput {
+  /**
+     * @minLength 1
+     * @maxLength 2000
+     */
+  reason: string;
+}
+
+export interface SuggestAlternativeInput {
+  /**
+     * @minLength 1
+     * @maxLength 2000
+     */
+  alternativeText: string;
+}
+
+export interface AiAlternativesResult {
+  alternatives: string[];
 }
 
 export type UnreadCountByClient = {[key: string]: number};

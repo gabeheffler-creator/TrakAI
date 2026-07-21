@@ -30,6 +30,8 @@ tags:
     description: Coach assignments
   - name: messages
     description: In-app messaging
+  - name: tasks
+    description: Coach-assigned tasks
   - name: invites
     description: Client invite links
   - name: dashboard
@@ -1663,6 +1665,209 @@ paths:
         "201":
           description: Saved
 
+  # ── Client Tasks ──────────────────────────────────────────────────────────
+  /clients/{clientId}/tasks:
+    post:
+      operationId: assignTask
+      tags: [tasks]
+      summary: Coach assigns a task to a client
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssignTaskInput"
+      responses:
+        "201":
+          description: Task assigned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientTask"
+
+  /clients/{clientId}/tasks/active:
+    get:
+      operationId: getActiveTask
+      tags: [tasks]
+      summary: Get the client's current active (accepted) task
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Active task or null
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/ClientTask"
+                  - type: "null"
+
+  /clients/{clientId}/tasks/{taskId}/accept:
+    patch:
+      operationId: acceptTask
+      tags: [tasks]
+      summary: Client accepts a task
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated task
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientTask"
+
+  /clients/{clientId}/tasks/{taskId}/reject:
+    patch:
+      operationId: rejectTask
+      tags: [tasks]
+      summary: Client rejects a task with a reason
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RejectTaskInput"
+      responses:
+        "200":
+          description: Updated task
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientTask"
+
+  /clients/{clientId}/tasks/{taskId}/complete:
+    patch:
+      operationId: completeTask
+      tags: [tasks]
+      summary: Client marks a task as complete
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated task
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientTask"
+
+  /clients/{clientId}/tasks/{taskId}/suggest:
+    patch:
+      operationId: suggestAlternativeTask
+      tags: [tasks]
+      summary: Coach suggests an alternative task
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SuggestAlternativeInput"
+      responses:
+        "200":
+          description: Updated task
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientTask"
+
+  /clients/{clientId}/tasks/{taskId}/leave:
+    patch:
+      operationId: leaveTask
+      tags: [tasks]
+      summary: Coach leaves a rejected task alone
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated task
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientTask"
+
+  /clients/{clientId}/tasks/{taskId}/ai-alternatives:
+    get:
+      operationId: getTaskAiAlternatives
+      tags: [tasks]
+      summary: Get 3 AI-generated alternative task suggestions
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Three AI-generated alternatives
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiAlternativesResult"
+
   # ── Coach Notes ───────────────────────────────────────────────────────────
   /clients/{clientId}/coach-notes:
     get:
@@ -3111,12 +3316,84 @@ components:
           enum: [coach, client]
         content:
           type: string
+        messageType:
+          type: string
+          enum: [text, task_assigned, task_rejected, task_alternative]
+        taskId:
+          type: ["integer", "null"]
+        task:
+          oneOf:
+            - $ref: "#/components/schemas/ClientTask"
+            - type: "null"
         readAt:
           type: ["string", "null"]
           format: date-time
         createdAt:
           type: string
           format: date-time
+
+    ClientTask:
+      type: object
+      required: [id, clientId, text, status, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        clientId:
+          type: integer
+        text:
+          type: string
+        status:
+          type: string
+          enum: [pending, accepted, rejected, completed]
+        rejectionReason:
+          type: ["string", "null"]
+        alternativeText:
+          type: ["string", "null"]
+        altStatus:
+          type: ["string", "null"]
+          enum: [pending, accepted, rejected, left_alone, null]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    AssignTaskInput:
+      type: object
+      required: [text]
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 2000
+
+    RejectTaskInput:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 2000
+
+    SuggestAlternativeInput:
+      type: object
+      required: [alternativeText]
+      properties:
+        alternativeText:
+          type: string
+          minLength: 1
+          maxLength: 2000
+
+    AiAlternativesResult:
+      type: object
+      required: [alternatives]
+      properties:
+        alternatives:
+          type: array
+          items:
+            type: string
 
     UnreadCount:
       type: object

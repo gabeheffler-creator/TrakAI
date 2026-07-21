@@ -5,6 +5,8 @@
  * Trak fitness coaching platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { ClientTask } from './clientTask';
+import type { MessageMessageType } from './messageMessageType';
 import type { MessageSender } from './messageSender';
 
 export interface Message {
@@ -12,6 +14,10 @@ export interface Message {
   clientId: number;
   sender: MessageSender;
   content: string;
+  messageType?: MessageMessageType;
+  /** @nullable */
+  taskId?: number | null;
+  task?: ClientTask | null;
   /** @nullable */
   readAt?: Date | null;
   createdAt: Date;
