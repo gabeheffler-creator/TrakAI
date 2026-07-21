@@ -89,7 +89,11 @@ function RejectionCard({
   const [suggestOpen, setSuggestOpen] = useState(false);
   const leave = useLeaveTask();
 
-  const canAct = task.status === "rejected" && !task.altStatus;
+  const canAct =
+    task.status === "rejected" &&
+    task.altStatus !== "pending" &&
+    task.altStatus !== "left_alone" &&
+    task.altStatus !== "accepted";
 
   return (
     <>
