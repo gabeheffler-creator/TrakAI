@@ -33,6 +33,7 @@ import {
   useDeleteCoachNote,
   useListCallLogs,
   useCreateCallLog,
+  useUpdateCallLog,
   useDeleteCallLog,
   useGenerateInviteLink,
   useCreateClientGoal,
@@ -788,6 +789,7 @@ export function ClientProfile() {
   const updateNote = useUpdateCoachNote();
   const deleteNote = useDeleteCoachNote();
   const createCall = useCreateCallLog();
+  const updateCall = useUpdateCallLog();
   const deleteCall = useDeleteCallLog();
 
   // Coach notes state
@@ -801,6 +803,8 @@ export function ClientProfile() {
   const [callDate, setCallDate] = useState(new Date().toISOString().split("T")[0]);
   const [callDuration, setCallDuration] = useState("");
   const [callNotes, setCallNotes] = useState("");
+  const [editingCallId, setEditingCallId] = useState<number | null>(null);
+  const [editingCallNotes, setEditingCallNotes] = useState("");
 
   // Video call state
   const [videoCallOpen, setVideoCallOpen] = useState(false);
@@ -836,6 +840,13 @@ export function ClientProfile() {
     deleteNote.mutate({ clientId, noteId }, {
       onSuccess: () => refetchNotes(),
       onError: () => toast({ title: "Failed to delete note", variant: "destructive" }),
+    });
+  };
+
+  const handleUpdateCall = (callId: number, date: string) => {
+    updateCall.mutate({ clientId, callId, data: { date, notes: editingCallNotes || undefined } }, {
+      onSuccess: () => { refetchCallLogs(); setEditingCallId(null); },
+      onError: () => toast({ title: "Failed to update call", variant: "destructive" }),
     });
   };
 
@@ -2129,21 +2140,36 @@ export function ClientProfile() {
               return (
                 <Card key={`${entry.kind}-${entry.id}`} className="border-border/60">
                   <CardContent className="pt-3 pb-3">
-                    <div className="flex items-start gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                          <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full ${isAuto ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300" : "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"}`}>
-                            {isAuto ? "Call" : "Manual"}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {format(entry.date, "MMM d, yyyy")}
-                            {entry.durationMinutes != null ? ` · ${entry.durationMinutes} min` : ""}
-                          </span>
-                        </div>
-                        {entry.notes && <p className="text-sm whitespace-pre-wrap">{entry.notes}</p>}
-                      </div>
-                      <button onClick={() => handleDeleteCall(entry.id)} className="p-1.5 text-muted-foreground hover:text-destructive transition-colors rounded flex-shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
+                    <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                      <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full ${isAuto ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300" : "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"}`}>
+                        {isAuto ? "Call" : "Manual"}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {format(entry.date, "MMM d, yyyy")}
+                        {entry.durationMinutes != null ? ` · ${entry.durationMinutes} min` : ""}
+                      </span>
                     </div>
+                    {editingCallId === entry.id ? (
+                      <div className="space-y-2">
+                        <Textarea value={editingCallNotes} onChange={e => setEditingCallNotes(e.target.value)} className="resize-none text-sm min-h-[80px]" autoFocus placeholder="Add notes about this call..." />
+                        <div className="flex gap-2">
+                          <Button size="sm" onClick={() => handleUpdateCall(entry.id, format(entry.date, "yyyy-MM-dd"))} disabled={updateCall.isPending}><Check className="w-3.5 h-3.5 mr-1" /> Save</Button>
+                          <Button size="sm" variant="ghost" onClick={() => setEditingCallId(null)}>Cancel</Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex gap-3">
+                        <div className="flex-1 min-w-0">
+                          {entry.notes
+                            ? <p className="text-sm whitespace-pre-wrap">{entry.notes}</p>
+                            : <p className="text-sm text-muted-foreground italic">No notes</p>}
+                        </div>
+                        <div className="flex gap-1 flex-shrink-0">
+                          <button onClick={() => { setEditingCallId(entry.id); setEditingCallNotes(entry.notes ?? ""); }} className="p-1.5 text-muted-foreground hover:text-foreground transition-colors rounded"><Pencil className="w-3.5 h-3.5" /></button>
+                          <button onClick={() => handleDeleteCall(entry.id)} className="p-1.5 text-muted-foreground hover:text-destructive transition-colors rounded"><Trash2 className="w-3.5 h-3.5" /></button>
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               );
