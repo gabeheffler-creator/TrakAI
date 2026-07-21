@@ -45,11 +45,13 @@ const msgSchema = z.object({ content: z.string().min(1) });
 function ClientTaskCard({
   task,
   messageType,
+  content,
   clientId,
   onAction,
 }: {
   task: ClientTask;
   messageType: string;
+  content: string;
   clientId: number;
   onAction: () => void;
 }) {
@@ -60,7 +62,6 @@ function ClientTaskCard({
 
   const isAlt = messageType === "task_alternative";
   const label = isAlt ? "Alternative" : "Task";
-  const text = isAlt ? (task.alternativeText ?? task.text) : task.text;
 
   // Determine if action buttons should show
   const isPendingMain = !isAlt && task.status === "pending";
@@ -92,7 +93,7 @@ function ClientTaskCard({
           : "border-violet-200 bg-violet-50 dark:bg-violet-950/30 dark:border-violet-800"
       )}>
         <p className={cn("text-[10px] font-bold uppercase tracking-widest", isAlt ? "text-amber-600" : "text-violet-600")}>{label}</p>
-        <p className="text-sm leading-relaxed text-foreground">{text}</p>
+        <p className="text-sm leading-relaxed text-foreground">{content}</p>
 
         {canAct && (
           <div className="flex gap-2 pt-1">
@@ -284,6 +285,7 @@ export function MessagesPage() {
                   <ClientTaskCard
                     task={task}
                     messageType={mt}
+                    content={m.content}
                     clientId={clientId}
                     onAction={invalidate}
                   />

@@ -52,10 +52,9 @@ function initials(name: string): string {
 
 // ── Task card rendered inside the conversation thread ─────────────────────────
 
-function TaskCard({ task, messageType }: { task: ClientTask; messageType: string }) {
+function TaskCard({ task, messageType, content }: { task: ClientTask; messageType: string; content: string }) {
   const isAlt = messageType === "task_alternative";
   const label = isAlt ? "Alternative" : "Task";
-  const text = isAlt ? (task.alternativeText ?? task.text) : task.text;
 
   return (
     <div className={cn(
@@ -63,7 +62,7 @@ function TaskCard({ task, messageType }: { task: ClientTask; messageType: string
       isAlt ? "border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800" : "border-violet-200 bg-violet-50 dark:bg-violet-950/30 dark:border-violet-800"
     )}>
       <p className={cn("text-[10px] font-bold uppercase tracking-widest", isAlt ? "text-amber-600" : "text-violet-600")}>{label}</p>
-      <p className="text-sm leading-relaxed text-foreground">{text}</p>
+      <p className="text-sm leading-relaxed text-foreground">{content}</p>
       {task.status === "accepted" && <p className="text-xs text-emerald-600 font-medium mt-1">✓ Accepted</p>}
       {task.status === "completed" && <p className="text-xs text-emerald-700 font-medium mt-1">✓ Completed</p>}
       {task.status === "rejected" && !task.altStatus && <p className="text-xs text-rose-500 font-medium mt-1">Rejected — awaiting your response</p>}
@@ -345,7 +344,7 @@ function ConversationPanel({ clientId }: { clientId: number }) {
             return (
               <div key={m.id} className="flex justify-start">
                 <div className="space-y-1">
-                  <TaskCard task={task} messageType={mt} />
+                  <TaskCard task={task} messageType={mt} content={m.content} />
                   <p className="text-[10px] text-muted-foreground pl-1">
                     {formatDistanceToNow(parseISO(m.createdAt), { addSuffix: true })}
                   </p>
