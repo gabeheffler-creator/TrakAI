@@ -270,7 +270,7 @@ export function MessagesPage() {
           const mt = (m as any).messageType as string | undefined;
           const task = (m as any).task as ClientTask | null | undefined;
 
-          // Task / alternative cards — full-width, centered
+          // Task / alternative cards — rendered as cards from coach
           if ((mt === "task_assigned" || mt === "task_alternative") && task) {
             return (
               <div key={m.id} data-testid={`msg-${m.id}`}>
@@ -292,7 +292,30 @@ export function MessagesPage() {
             );
           }
 
-          // Rejection messages show as normal client bubble (just the text)
+          // Rejection card — sent by client, shown as inline card
+          if (mt === "task_rejected" && task) {
+            return (
+              <div key={m.id} data-testid={`msg-${m.id}`}>
+                {showTime && (
+                  <p className="text-center text-xs text-muted-foreground my-3">{formatTime(m.createdAt)}</p>
+                )}
+                <div className="flex justify-end">
+                  <div className="rounded-xl border border-rose-200 bg-rose-50 dark:bg-rose-950/30 dark:border-rose-800 px-4 py-3 space-y-1 max-w-[85%]">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-rose-600">You rejected this task</p>
+                    <p className="text-sm leading-relaxed text-foreground">{m.content}</p>
+                    {task.altStatus === "pending" && (
+                      <p className="text-xs text-amber-600 font-medium mt-1">Alternative incoming…</p>
+                    )}
+                    {task.altStatus === "left_alone" && (
+                      <p className="text-xs text-muted-foreground font-medium mt-1">Coach left this alone</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          // Regular chat bubbles
           const emojiOnly = isEmojiOnly(m.content);
 
           return (

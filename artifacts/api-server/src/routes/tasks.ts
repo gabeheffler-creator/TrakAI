@@ -109,6 +109,14 @@ router.patch("/clients/:clientId/tasks/:taskId/accept", requireClientOwnership()
     const [updated] = await db.update(clientTasksTable).set(updates)
       .where(eq(clientTasksTable.id, taskId)).returning();
 
+    await db.insert(messagesTable).values({
+      clientId,
+      sender: "client",
+      content: isAlt ? "Alternative accepted ✓" : "Task accepted ✓",
+      messageType: "text",
+      taskId,
+    });
+
     res.json(serializeTask(updated));
   } catch (err) {
     req.log.error(err);
@@ -175,6 +183,14 @@ router.patch("/clients/:clientId/tasks/:taskId/complete", requireClientOwnership
       .set({ status: "completed", updatedAt: new Date() })
       .where(eq(clientTasksTable.id, taskId)).returning();
 
+    await db.insert(messagesTable).values({
+      clientId,
+      sender: "client",
+      content: "Task completed ✓",
+      messageType: "text",
+      taskId,
+    });
+
     res.json(serializeTask(updated));
   } catch (err) {
     req.log.error(err);
@@ -237,6 +253,14 @@ router.patch("/clients/:clientId/tasks/:taskId/leave", requireCoachAuth, async (
       altStatus: "left_alone",
       updatedAt: new Date(),
     }).where(eq(clientTasksTable.id, taskId)).returning();
+
+    await db.insert(messagesTable).values({
+      clientId,
+      sender: "coach",
+      content: "I'll leave this one — no alternative needed.",
+      messageType: "text",
+      taskId,
+    });
 
     res.json(serializeTask(updated));
   } catch (err) {
