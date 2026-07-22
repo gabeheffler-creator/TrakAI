@@ -458,12 +458,12 @@ export function ProgramBuilder() {
               <div className="flex items-center gap-2">
                 <Input
                   type="number"
-                  min={5}
+                  min={0}
                   max={50}
                   value={sleepAdjustPercent ?? program.sleepAdjustPercent ?? 20}
                   onChange={e => setSleepAdjustPercent(Number(e.target.value))}
                   onBlur={() => {
-                    const pct = Math.min(50, Math.max(5, sleepAdjustPercent ?? program.sleepAdjustPercent ?? 20));
+                    const pct = Math.min(50, Math.max(0, sleepAdjustPercent ?? program.sleepAdjustPercent ?? 20));
                     setSleepAdjustPercent(pct);
                     updateSleepAdjustment.mutate(
                       { programId, data: { sleepAdjustEnabled: sleepAdjustEnabled ?? program.sleepAdjustEnabled ?? true, sleepAdjustPercent: pct } },

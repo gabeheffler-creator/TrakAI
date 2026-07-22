@@ -420,6 +420,7 @@ export function WorkoutPage() {
   const [energy, setEnergy] = useState<number | null>(null);
   const [isAdjusted, setIsAdjusted] = useState(false);
   const [adjustPercent, setAdjustPercent] = useState(20);
+  const [effectiveRestSeconds, setEffectiveRestSeconds] = useState<(number | null)[]>([]);
 
   const { data: assignment, isError: assignmentError, refetch: refetchAssignment, isFetching: assignmentFetching } = useGetClientProgramAssignment(clientId!, {
     query: { enabled: !!clientId, queryKey: getGetClientProgramAssignmentQueryKey(clientId!) }
@@ -487,6 +488,12 @@ export function WorkoutPage() {
       }));
     });
     setSets(initial);
+    setEffectiveRestSeconds(dayExercises.map(ex => {
+      if (!ex.restSeconds) return null;
+      return applyAdjust
+        ? Math.round(ex.restSeconds * (1 + adjustPct / 100))
+        : ex.restSeconds;
+    }));
   }, []);
 
   const handleBeginWorkout = () => {
@@ -753,6 +760,7 @@ export function WorkoutPage() {
     setEnergy(null);
     setIsAdjusted(false);
     setAdjustPercent(20);
+    setEffectiveRestSeconds([]);
     setShowEarlyExit(false);
     setEarlyExitReason("");
     setShowCancelConfirm(false);
@@ -1087,14 +1095,18 @@ export function WorkoutPage() {
                           {ex.sets} × {ex.reps}{ex.restSeconds ? ` · ${ex.restSeconds}s rest` : ""}
                         </span>
                       </div>
-                      {isAdjusted && (
+                      {isAdjusted ? (
                         <div className="ml-6 mt-1.5 inline-flex items-center gap-1.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg px-2 py-1">
                           <Moon className="w-3 h-3 text-amber-500 flex-shrink-0" />
                           <span className="text-[11px] font-medium text-amber-700 dark:text-amber-300">
                             Today: {Math.max(1, Math.round(ex.sets * (1 - adjustPercent / 100)))} × {ex.reps}
-                            {ex.restSeconds ? ` · ${Math.round(ex.restSeconds * (1 + adjustPercent / 100))}s rest` : ""}
+                            {effectiveRestSeconds[exIdx] != null ? ` · ${effectiveRestSeconds[exIdx]}s rest` : ""}
                           </span>
                         </div>
+                      ) : (
+                        <p className="ml-6 mt-1 text-[11px] text-muted-foreground">
+                          Target: {ex.sets} × {ex.reps}{ex.restSeconds ? ` · ${ex.restSeconds}s rest` : ""}
+                        </p>
                       )}
                     </div>
 
@@ -1448,14 +1460,18 @@ export function WorkoutPage() {
                 {currentEx.sets} sets × {currentEx.reps} reps
                 {currentEx.restSeconds ? ` · ${currentEx.restSeconds}s rest` : ""}
               </p>
-              {isAdjusted && (
+              {isAdjusted ? (
                 <div className="mt-2 inline-flex items-center gap-1.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg px-2.5 py-1.5">
                   <Moon className="w-3 h-3 text-amber-500 flex-shrink-0" />
                   <span className="text-[11px] font-medium text-amber-700 dark:text-amber-300">
                     Today: {Math.max(1, Math.round(currentEx.sets * (1 - adjustPercent / 100)))} × {currentEx.reps}
-                    {currentEx.restSeconds ? ` · ${Math.round(currentEx.restSeconds * (1 + adjustPercent / 100))}s rest` : ""}
+                    {effectiveRestSeconds[currentExIdx] != null ? ` · ${effectiveRestSeconds[currentExIdx]}s rest` : ""}
                   </span>
                 </div>
+              ) : (
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Target: {currentEx.sets} × {currentEx.reps}{currentEx.restSeconds ? ` · ${currentEx.restSeconds}s rest` : ""}
+                </p>
               )}
             </div>
 
