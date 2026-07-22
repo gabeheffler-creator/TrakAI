@@ -143,18 +143,7 @@ function ClientCard({ client }: { client: Client }) {
     <Card className={cn("h-full transition-colors", isActive ? "hover:border-primary" : "opacity-60 grayscale")}>
       <Link href={`/clients/${client.id}`} className="block cursor-pointer" data-testid={`link-client-${client.id}`}>
         <CardHeader className="pb-2">
-          <CardTitle className="truncate text-base flex items-center gap-2">
-            {client.name}
-            {client.hasStalePendingTask && (
-              <span
-                title="Has a task pending for 24+ hours"
-                className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded-full shrink-0"
-                data-testid={`badge-stale-task-${client.id}`}
-              >
-                <Clock className="w-3 h-3" /> Task pending
-              </span>
-            )}
-          </CardTitle>
+          <CardTitle className="truncate text-base">{client.name}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 pb-2">
           <div className="text-sm text-muted-foreground truncate">{client.email}</div>
@@ -169,7 +158,16 @@ function ClientCard({ client }: { client: Client }) {
           </div>
         </CardContent>
       </Link>
-      <CardContent className="pt-0">
+      <CardContent className="pt-0 space-y-2">
+        {client.hasStalePendingTask && (
+          <Link
+            href={`/clients/${client.id}?tab=tasks`}
+            className="flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 px-2.5 py-1.5 rounded-md w-full transition-colors"
+            data-testid={`badge-stale-task-${client.id}`}
+          >
+            <Clock className="w-3 h-3 shrink-0" /> Task pending 24h+ — click to review
+          </Link>
+        )}
         {isActive ? (
           <>
             <Button
