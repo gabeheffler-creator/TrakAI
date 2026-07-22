@@ -278,7 +278,7 @@ function AssignTaskDialog({
   );
 }
 
-function ConversationPanel({ clientId, onBack }: { clientId: number; onBack: () => void }) {
+function ConversationPanel({ clientId, clientName, onBack }: { clientId: number; clientName: string | undefined; onBack: () => void }) {
   const qc = useQueryClient();
   const [input, setInput] = useState("");
   const [assignOpen, setAssignOpen] = useState(false);
@@ -317,21 +317,24 @@ function ConversationPanel({ clientId, onBack }: { clientId: number; onBack: () 
 
   return (
     <div className="flex flex-col h-full">
-      {/* Conversation header with back arrow and Assign Task button */}
+      {/* Conversation header with back arrow, client name, and Assign Task button */}
       <div className="px-4 py-2 border-b border-border flex items-center justify-between flex-shrink-0 bg-background">
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8"
+          className="h-8 w-8 flex-shrink-0"
           onClick={onBack}
           data-testid="button-back-to-conversations"
           aria-label="Back to conversations"
         >
           <ArrowLeft className="w-4 h-4" />
         </Button>
+        {clientName && (
+          <span className="flex-1 text-center font-semibold text-sm truncate px-2">{clientName}</span>
+        )}
         <Button
           variant="outline"
-          className="h-11 text-sm gap-1.5 border-violet-300 text-violet-700 hover:bg-violet-50 px-3"
+          className="h-11 text-sm gap-1.5 border-violet-300 text-violet-700 hover:bg-violet-50 px-3 flex-shrink-0"
           onClick={() => setAssignOpen(true)}
           data-testid="button-assign-task"
         >
@@ -505,7 +508,7 @@ export function Messages() {
       </div>
 
       <div className={cn("flex-1 flex flex-col", activeClientId ? "flex" : "hidden sm:flex")}>
-        {activeClientId ? <ConversationPanel clientId={activeClientId} onBack={() => navigate("/messages")} /> : <EmptyState />}
+        {activeClientId ? <ConversationPanel clientId={activeClientId} clientName={conversations?.find(c => c.clientId === activeClientId)?.name} onBack={() => navigate("/messages")} /> : <EmptyState />}
       </div>
     </div>
   );
