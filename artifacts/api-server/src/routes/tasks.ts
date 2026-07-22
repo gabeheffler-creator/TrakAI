@@ -5,15 +5,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { requireClientOwnership, requireCoachAuth } from "../middlewares/auth";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { z } from "zod/v4";
-import webpush from "web-push";
-
-if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
-  webpush.setVapidDetails(
-    process.env.VAPID_EMAIL ?? "mailto:admin@trakcoach.app",
-    process.env.VAPID_PUBLIC_KEY,
-    process.env.VAPID_PRIVATE_KEY,
-  );
-}
+import { sendPushToSubs } from "../lib/push";
 
 const router = Router();
 
@@ -66,18 +58,7 @@ async function sendTaskPush(
     tag: `task-${clientId}`,
     url: "/client/messages",
   });
-  for (const sub of subs) {
-    webpush.sendNotification(
-      { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-      payload,
-    ).catch((err: { statusCode?: number }) => {
-      if (err.statusCode === 410) {
-        db.delete(pushSubscriptionsTable).where(eq(pushSubscriptionsTable.endpoint, sub.endpoint)).catch(() => {});
-      } else {
-        log.warn({ err }, "Task push send failed");
-      }
-    });
-  }
+  await sendPushToSubs(subs, payload, log);
 }
 
 // GET /api/clients/:clientId/tasks — list all tasks for a client (coach only, newest first)

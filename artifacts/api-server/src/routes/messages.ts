@@ -2,7 +2,6 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { messagesTable, pushSubscriptionsTable, clientsTable, clientTasksTable } from "@workspace/db";
 import { eq, isNull, and, sql, count, desc, inArray } from "drizzle-orm";
-import webpush from "web-push";
 import {
   ListMessagesParams,
   SendMessageParams,
@@ -12,14 +11,7 @@ import {
   SavePushSubscriptionBody,
 } from "@workspace/api-zod";
 import { requireCoachAuth, requireClientOwnership } from "../middlewares/auth";
-
-if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
-  webpush.setVapidDetails(
-    process.env.VAPID_EMAIL ?? "mailto:admin@trakcoach.app",
-    process.env.VAPID_PUBLIC_KEY,
-    process.env.VAPID_PRIVATE_KEY,
-  );
-}
+import { sendPushToSubs } from "../lib/push";
 
 const router = Router();
 
@@ -221,18 +213,7 @@ async function sendPushForMessage(clientId: number, sender: string, content: str
     url: sender === "coach" ? "/client/messages" : `/messages/${clientId}`,
   });
 
-  for (const sub of subs) {
-    webpush.sendNotification(
-      { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-      payload,
-    ).catch(err => {
-      if (err.statusCode === 410) {
-        db.delete(pushSubscriptionsTable).where(eq(pushSubscriptionsTable.endpoint, sub.endpoint)).catch(() => {});
-      } else {
-        log.warn({ err }, "Push send failed");
-      }
-    });
-  }
+  await sendPushToSubs(subs, payload, log);
 }
 
 export default router;
