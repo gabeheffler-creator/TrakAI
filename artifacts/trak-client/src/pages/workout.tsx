@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useWorkoutPrefs } from "@/hooks/use-workout-prefs";
 import { useClientId } from "@/hooks/use-client-id";
@@ -384,6 +384,47 @@ const EXIT_ANIMS = [
   { anim: "ex-peel-tr",     origin: "top right"     },
 ] as const;
 
+function RestTimerOverlay({ secondsLeft, total, onSkip }: { secondsLeft: number; total: number; onSkip: () => void }) {
+  const circumference = 2 * Math.PI * 54;
+  const progress = total > 0 ? secondsLeft / total : 0;
+  return createPortal(
+    <div className="fixed inset-0 z-[70] flex flex-col items-center justify-center bg-background/95 backdrop-blur-sm">
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-10">Rest</p>
+      <div className="relative mb-10">
+        <svg viewBox="0 0 120 120" className="w-52 h-52 -rotate-90">
+          <circle
+            cx="60" cy="60" r="54"
+            fill="none" stroke="currentColor" strokeWidth="7"
+            className="text-muted/20"
+          />
+          <circle
+            cx="60" cy="60" r="54"
+            fill="none" stroke="currentColor" strokeWidth="7"
+            strokeLinecap="round"
+            className="text-primary"
+            strokeDasharray={circumference}
+            strokeDashoffset={circumference * (1 - progress)}
+            style={{ transition: "stroke-dashoffset 1s linear" }}
+          />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center rotate-0">
+          <span className="text-6xl font-black tabular-nums leading-none">{secondsLeft}</span>
+          <span className="text-xs text-muted-foreground mt-1">seconds</span>
+        </div>
+      </div>
+      <Button
+        size="lg"
+        variant="outline"
+        className="w-44 h-12 text-base font-semibold"
+        onClick={onSkip}
+      >
+        Skip Rest
+      </Button>
+    </div>,
+    document.body
+  );
+}
+
 export function WorkoutPage() {
   const { clientId } = useClientId();
   const qc = useQueryClient();
@@ -421,6 +462,10 @@ export function WorkoutPage() {
   const [isAdjusted, setIsAdjusted] = useState(false);
   const [adjustPercent, setAdjustPercent] = useState(20);
   const [effectiveRestSeconds, setEffectiveRestSeconds] = useState<(number | null)[]>([]);
+  const [showRestTimer, setShowRestTimer] = useState(false);
+  const [restSecondsLeft, setRestSecondsLeft] = useState(0);
+  const [restTotalSeconds, setRestTotalSeconds] = useState(0);
+  const restIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { data: assignment, isError: assignmentError, refetch: refetchAssignment, isFetching: assignmentFetching } = useGetClientProgramAssignment(clientId!, {
     query: { enabled: !!clientId, queryKey: getGetClientProgramAssignmentQueryKey(clientId!) }
@@ -467,6 +512,44 @@ export function WorkoutPage() {
 
   const currentEx = exercises[currentExIdx];
   const currentSets = sets[currentExIdx] ?? [];
+
+  const stopRestTimer = useCallback(() => {
+    if (restIntervalRef.current) {
+      clearInterval(restIntervalRef.current);
+      restIntervalRef.current = null;
+    }
+    setShowRestTimer(false);
+    setRestSecondsLeft(0);
+  }, []);
+
+  const startRestTimer = useCallback((seconds: number) => {
+    if (restIntervalRef.current) {
+      clearInterval(restIntervalRef.current);
+      restIntervalRef.current = null;
+    }
+    const secs = Math.max(1, seconds);
+    setRestTotalSeconds(secs);
+    setRestSecondsLeft(secs);
+    setShowRestTimer(true);
+    restIntervalRef.current = setInterval(() => {
+      setRestSecondsLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(restIntervalRef.current!);
+          restIntervalRef.current = null;
+          playRing();
+          setShowRestTimer(false);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (restIntervalRef.current) clearInterval(restIntervalRef.current);
+    };
+  }, []);
 
   const initSets = useCallback((dayExercises: typeof exercises, applyAdjust: boolean, adjustPct: number) => {
     const initial: SetState[][] = dayExercises.map(ex => {
@@ -576,6 +659,13 @@ export function WorkoutPage() {
       );
       return next;
     });
+
+    const exSets = sets[exIdx] ?? [];
+    const isLastSetOfExercise = setIdx >= exSets.length - 1;
+    if (!isLastSetOfExercise) {
+      const restSec = effectiveRestSeconds[exIdx] ?? 60;
+      startRestTimer(restSec);
+    }
   };
 
   const handleRpeConfirm = (rpe: number) => {
@@ -761,11 +851,12 @@ export function WorkoutPage() {
     setIsAdjusted(false);
     setAdjustPercent(20);
     setEffectiveRestSeconds([]);
+    stopRestTimer();
     setShowEarlyExit(false);
     setEarlyExitReason("");
     setShowCancelConfirm(false);
     setIsExitingWorkout(false);
-  }, []);
+  }, [stopRestTimer]);
 
   const handleWorkoutExit = useCallback((dest = "/") => {
     setIsExitingWorkout(true);
@@ -1041,6 +1132,13 @@ export function WorkoutPage() {
           onSelect={handleRpeConfirm}
           onCancel={() => { playSwipe(); closeRpeSheet(); }}
         />
+        {showRestTimer && (
+          <RestTimerOverlay
+            secondsLeft={restSecondsLeft}
+            total={restTotalSeconds}
+            onSkip={stopRestTimer}
+          />
+        )}
 
         <div className={cn("fixed inset-0 z-[60] overflow-hidden", exitSlide)}>
           <div className="absolute inset-0 bg-background flex flex-col">
@@ -1408,6 +1506,13 @@ export function WorkoutPage() {
     return (
       <>
         <RpeBottomSheet open={rpeSheetOpen} onSelect={handleRpeConfirm} onCancel={() => { playSwipe(); closeRpeSheet(); }} />
+        {showRestTimer && (
+          <RestTimerOverlay
+            secondsLeft={restSecondsLeft}
+            total={restTotalSeconds}
+            onSkip={stopRestTimer}
+          />
+        )}
         {swapModal && (
           <SwapModal
             currentExercise={{ exerciseName: currentEx.exerciseName, muscleGroup: currentEx.muscleGroup }}
