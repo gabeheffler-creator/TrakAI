@@ -1,10 +1,19 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { clientTasksTable, messagesTable, clientsTable } from "@workspace/db";
+import { clientTasksTable, messagesTable, clientsTable, pushSubscriptionsTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
 import { requireClientOwnership, requireCoachAuth } from "../middlewares/auth";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { z } from "zod/v4";
+import webpush from "web-push";
+
+if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(
+    process.env.VAPID_EMAIL ?? "mailto:admin@trakcoach.app",
+    process.env.VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY,
+  );
+}
 
 const router = Router();
 
@@ -37,6 +46,38 @@ async function verifyClientOwnsTask(clientId: number, taskId: number) {
   const [task] = await db.select().from(clientTasksTable)
     .where(and(eq(clientTasksTable.id, taskId), eq(clientTasksTable.clientId, clientId)));
   return task ?? null;
+}
+
+async function sendTaskPush(
+  clientId: number,
+  title: string,
+  body: string,
+  log: import("pino").Logger,
+) {
+  if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) return;
+  const [client] = await db.select().from(clientsTable).where(eq(clientsTable.id, clientId));
+  if (!client || client.status === "inactive") return;
+  const subs = await db.select().from(pushSubscriptionsTable).where(
+    and(eq(pushSubscriptionsTable.role, "client"), eq(pushSubscriptionsTable.clientId, clientId))
+  );
+  const payload = JSON.stringify({
+    title,
+    body: body.slice(0, 80),
+    tag: `task-${clientId}`,
+    url: "/client/messages",
+  });
+  for (const sub of subs) {
+    webpush.sendNotification(
+      { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+      payload,
+    ).catch((err: { statusCode?: number }) => {
+      if (err.statusCode === 410) {
+        db.delete(pushSubscriptionsTable).where(eq(pushSubscriptionsTable.endpoint, sub.endpoint)).catch(() => {});
+      } else {
+        log.warn({ err }, "Task push send failed");
+      }
+    });
+  }
 }
 
 // GET /api/clients/:clientId/tasks — list all tasks for a client (coach only, newest first)
@@ -82,6 +123,8 @@ router.post("/clients/:clientId/tasks", requireCoachAuth, async (req, res) => {
       messageType: "task_assigned",
       taskId: task.id,
     });
+
+    void sendTaskPush(clientId, "New task from your coach", body.text, req.log).catch(() => {});
 
     res.status(201).json(serializeTask(task));
   } catch (err) {
@@ -246,6 +289,8 @@ router.patch("/clients/:clientId/tasks/:taskId/suggest", requireCoachAuth, async
       messageType: "task_alternative",
       taskId,
     });
+
+    void sendTaskPush(clientId, "Your coach has a suggestion", body.alternativeText, req.log).catch(() => {});
 
     res.json(serializeTask(updated));
   } catch (err) {
