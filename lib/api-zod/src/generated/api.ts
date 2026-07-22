@@ -471,6 +471,7 @@ export const ListExercisesResponseItem = zod.object({
   "isCompound": zod.boolean(),
   "movementPattern": zod.string().nullish(),
   "description": zod.string().nullish(),
+  "videoUrl": zod.string().nullish(),
   "createdAt": zod.coerce.date().optional()
 })
 export const ListExercisesResponse = zod.array(ListExercisesResponseItem)
@@ -488,7 +489,40 @@ export const CreateExerciseBody = zod.object({
   "muscleGroup": zod.string().min(1),
   "isCompound": zod.boolean().optional(),
   "movementPattern": zod.string().optional(),
-  "description": zod.string().optional()
+  "description": zod.string().optional(),
+  "videoUrl": zod.string().optional()
+})
+
+
+/**
+ * @summary Update an exercise
+ */
+export const UpdateExerciseParams = zod.object({
+  "exerciseId": zod.coerce.number()
+})
+
+
+
+
+
+export const UpdateExerciseBody = zod.object({
+  "name": zod.string().min(1).optional(),
+  "muscleGroup": zod.string().min(1).optional(),
+  "isCompound": zod.boolean().optional(),
+  "movementPattern": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "videoUrl": zod.string().nullish()
+})
+
+export const UpdateExerciseResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "muscleGroup": zod.string(),
+  "isCompound": zod.boolean(),
+  "movementPattern": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "videoUrl": zod.string().nullish(),
+  "createdAt": zod.coerce.date().optional()
 })
 
 

@@ -45,6 +45,7 @@ export * from './coachNote';
 export * from './coachNoteInput';
 export * from './exercise';
 export * from './exerciseInput';
+export * from './exercisePatch';
 export * from './healthStatus';
 export * from './inviteAcceptResult';
 export * from './inviteInfo';

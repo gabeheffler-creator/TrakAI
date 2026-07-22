@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { exercisesTable } from "@workspace/db";
-import { CreateExerciseBody } from "@workspace/api-zod";
-import { eq, inArray } from "drizzle-orm";
+import { CreateExerciseBody, UpdateExerciseBody } from "@workspace/api-zod";
+import { eq } from "drizzle-orm";
 import { requireCoachAuth } from "../middlewares/auth";
 
 const router = Router();
@@ -133,6 +133,19 @@ async function seedExercises() {
 
 void seedExercises();
 
+function serializeExercise(e: typeof exercisesTable.$inferSelect) {
+  return {
+    id: e.id,
+    name: e.name,
+    muscleGroup: e.muscleGroup,
+    isCompound: e.isCompound,
+    movementPattern: e.movementPattern ?? null,
+    description: e.description ?? null,
+    videoUrl: e.videoUrl ?? null,
+    createdAt: e.createdAt.toISOString(),
+  };
+}
+
 // Shared global exercise catalog — readable by any signed-in user (coach or client).
 router.get("/exercises", async (req, res) => {
   try {
@@ -141,15 +154,7 @@ router.get("/exercises", async (req, res) => {
       return;
     }
     const exercises = await db.select().from(exercisesTable).orderBy(exercisesTable.name);
-    res.json(exercises.map(e => ({
-      id: e.id,
-      name: e.name,
-      muscleGroup: e.muscleGroup,
-      isCompound: e.isCompound,
-      movementPattern: e.movementPattern ?? null,
-      description: e.description ?? null,
-      createdAt: e.createdAt.toISOString(),
-    })));
+    res.json(exercises.map(serializeExercise));
   } catch (err) {
     req.log.error(err);
     res.status(500).json({ error: "Failed to list exercises" });
@@ -165,19 +170,44 @@ router.post("/exercises", requireCoachAuth, async (req, res) => {
       isCompound: body.isCompound ?? false,
       movementPattern: body.movementPattern ?? null,
       description: body.description ?? null,
+      videoUrl: body.videoUrl ?? null,
     }).returning();
-    res.status(201).json({
-      id: exercise.id,
-      name: exercise.name,
-      muscleGroup: exercise.muscleGroup,
-      isCompound: exercise.isCompound,
-      movementPattern: exercise.movementPattern ?? null,
-      description: exercise.description ?? null,
-      createdAt: exercise.createdAt.toISOString(),
-    });
+    res.status(201).json(serializeExercise(exercise));
   } catch (err) {
     req.log.error(err);
     res.status(400).json({ error: "Failed to create exercise" });
+  }
+});
+
+router.patch("/exercises/:exerciseId", requireCoachAuth, async (req, res) => {
+  try {
+    const exerciseId = parseInt(req.params.exerciseId, 10);
+    if (isNaN(exerciseId)) {
+      res.status(400).json({ error: "Invalid exercise ID" });
+      return;
+    }
+    const body = UpdateExerciseBody.parse(req.body);
+    const updates: Partial<typeof exercisesTable.$inferInsert> = {};
+    if (body.name !== undefined) updates.name = body.name;
+    if (body.muscleGroup !== undefined) updates.muscleGroup = body.muscleGroup;
+    if (body.isCompound !== undefined) updates.isCompound = body.isCompound;
+    if ("movementPattern" in body) updates.movementPattern = body.movementPattern ?? null;
+    if ("description" in body) updates.description = body.description ?? null;
+    if ("videoUrl" in body) updates.videoUrl = body.videoUrl ?? null;
+
+    const [exercise] = await db.update(exercisesTable)
+      .set(updates)
+      .where(eq(exercisesTable.id, exerciseId))
+      .returning();
+
+    if (!exercise) {
+      res.status(404).json({ error: "Exercise not found" });
+      return;
+    }
+    res.json(serializeExercise(exercise));
+  } catch (err) {
+    req.log.error(err);
+    res.status(400).json({ error: "Failed to update exercise" });
   }
 });
 

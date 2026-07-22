@@ -435,6 +435,33 @@ paths:
               schema:
                 $ref: "#/components/schemas/Exercise"
 
+  /exercises/{exerciseId}:
+    patch:
+      operationId: updateExercise
+      tags: [exercises]
+      summary: Update an exercise
+      parameters:
+        - name: exerciseId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExercisePatch"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Exercise"
+        "404":
+          description: Not found
+
   # ── Workout Programs ──────────────────────────────────────────────────────
   /programs:
     get:
@@ -2385,6 +2412,8 @@ components:
           type: ["string", "null"]
         description:
           type: ["string", "null"]
+        videoUrl:
+          type: ["string", "null"]
         createdAt:
           type: string
           format: date-time
@@ -2405,6 +2434,26 @@ components:
           type: string
         description:
           type: string
+        videoUrl:
+          type: string
+
+    ExercisePatch:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        muscleGroup:
+          type: string
+          minLength: 1
+        isCompound:
+          type: boolean
+        movementPattern:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        videoUrl:
+          type: ["string", "null"]
 
     # ── Program ─────────────────────────────────────────────────────────────
     Program:

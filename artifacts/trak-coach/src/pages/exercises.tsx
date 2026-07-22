@@ -1,5 +1,8 @@
-import { useState } from "react";
-import { useListExercises, useCreateExercise, getListExercisesQueryKey } from "@workspace/api-client-react";
+import { useRef, useState } from "react";
+import {
+  useListExercises, useCreateExercise, useUpdateExercise,
+  getListExercisesQueryKey,
+} from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,7 +16,10 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, LayoutGrid, List, X, ChevronRight, Dumbbell } from "lucide-react";
+import {
+  Plus, Search, LayoutGrid, List, X, ChevronRight,
+  Dumbbell, Pencil, Upload, Video, Loader2,
+} from "lucide-react";
 import { QueryErrorState } from "@/components/query-error-state";
 
 type SortMode = "target" | "compound" | "movement" | "cardio" | "mobility" | "strength";
@@ -49,6 +55,7 @@ type Exercise = {
   isCompound: boolean;
   movementPattern?: string | null;
   description?: string | null;
+  videoUrl?: string | null;
 };
 
 function capitalize(s: string) {
@@ -59,27 +66,19 @@ function groupExercises(exercises: Exercise[], sortBy: SortMode): [string, Exerc
   switch (sortBy) {
     case "target": {
       const map: Record<string, Exercise[]> = {};
-      for (const e of exercises) {
-        (map[e.muscleGroup] ??= []).push(e);
-      }
+      for (const e of exercises) (map[e.muscleGroup] ??= []).push(e);
       return Object.entries(map).sort(([a], [b]) => groupOrder(a) - groupOrder(b));
     }
     case "compound": {
-      const compound: Exercise[] = [];
-      const isolation: Exercise[] = [];
-      for (const e of exercises) {
-        if (e.isCompound) compound.push(e);
-        else isolation.push(e);
-      }
+      const compound: Exercise[] = [], isolation: Exercise[] = [];
+      for (const e of exercises) (e.isCompound ? compound : isolation).push(e);
       const result: [string, Exercise[]][] = [];
       if (compound.length) result.push(["Compound", compound]);
       if (isolation.length) result.push(["Isolation", isolation]);
       return result;
     }
     case "movement": {
-      const bilateral: Exercise[] = [];
-      const unilateral: Exercise[] = [];
-      const other: Exercise[] = [];
+      const bilateral: Exercise[] = [], unilateral: Exercise[] = [], other: Exercise[] = [];
       for (const e of exercises) {
         const mp = e.movementPattern?.toLowerCase();
         if (mp === "bilateral") bilateral.push(e);
@@ -129,11 +128,185 @@ function ExerciseBadges({ exercise, size = "sm" }: { exercise: Exercise; size?: 
   );
 }
 
-function ExerciseDetailPanel({ exercise, onClose }: { exercise: Exercise; onClose: () => void }) {
+function VideoUploadButton({
+  exerciseId,
+  onUploadComplete,
+}: {
+  exerciseId: number;
+  onUploadComplete: (videoUrl: string) => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
+
+  async function handleFile(file: File) {
+    if (!file.type.startsWith("video/")) {
+      toast({ title: "Please select a video file", variant: "destructive" });
+      return;
+    }
+
+    setUploading(true);
+    setProgress(0);
+
+    try {
+      const urlRes = await fetch("/api/upload-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: file.name, contentType: file.type }),
+      });
+      if (!urlRes.ok) throw new Error("Failed to get upload URL");
+      const { uploadUrl, objectPath } = await urlRes.json() as { uploadUrl: string; objectPath: string };
+
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("PUT", uploadUrl);
+        xhr.setRequestHeader("Content-Type", file.type);
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) setProgress(Math.round((e.loaded / e.total) * 100));
+        };
+        xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`Upload failed: ${xhr.status}`)));
+        xhr.onerror = () => reject(new Error("Upload network error"));
+        xhr.send(file);
+      });
+
+      onUploadComplete(objectPath);
+    } catch (err) {
+      toast({ title: "Upload failed", description: String(err), variant: "destructive" });
+    } finally {
+      setUploading(false);
+      setProgress(0);
+    }
+  }
+
+  return (
+    <>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="video/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) handleFile(file);
+          e.target.value = "";
+        }}
+      />
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={uploading}
+        onClick={() => fileInputRef.current?.click()}
+        data-testid={`button-upload-video-${exerciseId}`}
+      >
+        {uploading ? (
+          <>
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            {progress > 0 ? `${progress}%` : "Uploading…"}
+          </>
+        ) : (
+          <>
+            <Upload className="w-4 h-4 mr-2" />
+            Upload video
+          </>
+        )}
+      </Button>
+    </>
+  );
+}
+
+function ExerciseDetailPanel({
+  exercise: initialExercise,
+  onClose,
+  onUpdate,
+}: {
+  exercise: Exercise;
+  onClose: () => void;
+  onUpdate: (updated: Exercise) => void;
+}) {
+  const [exercise, setExercise] = useState(initialExercise);
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState(exercise.name);
+  const [editMuscleGroup, setEditMuscleGroup] = useState(exercise.muscleGroup);
+  const [editIsCompound, setEditIsCompound] = useState(exercise.isCompound);
+  const [editMovement, setEditMovement] = useState(exercise.movementPattern ?? "");
+  const [editDescription, setEditDescription] = useState(exercise.description ?? "");
+
+  const updateExercise = useUpdateExercise();
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  function startEdit() {
+    setEditName(exercise.name);
+    setEditMuscleGroup(exercise.muscleGroup);
+    setEditIsCompound(exercise.isCompound);
+    setEditMovement(exercise.movementPattern ?? "");
+    setEditDescription(exercise.description ?? "");
+    setEditing(true);
+  }
+
+  function saveEdit() {
+    updateExercise.mutate(
+      {
+        exerciseId: exercise.id,
+        data: {
+          name: editName,
+          muscleGroup: editMuscleGroup,
+          isCompound: editIsCompound,
+          movementPattern: editMovement || null,
+          description: editDescription || null,
+        },
+      },
+      {
+        onSuccess: (updated) => {
+          const refreshed = { ...exercise, ...updated };
+          setExercise(refreshed);
+          onUpdate(refreshed);
+          setEditing(false);
+          qc.invalidateQueries({ queryKey: getListExercisesQueryKey() });
+          toast({ title: "Exercise saved" });
+        },
+        onError: () => toast({ title: "Save failed", variant: "destructive" }),
+      }
+    );
+  }
+
+  function handleVideoUploaded(objectPath: string) {
+    updateExercise.mutate(
+      { exerciseId: exercise.id, data: { videoUrl: objectPath } },
+      {
+        onSuccess: (updated) => {
+          const refreshed = { ...exercise, ...updated };
+          setExercise(refreshed);
+          onUpdate(refreshed);
+          qc.invalidateQueries({ queryKey: getListExercisesQueryKey() });
+          toast({ title: "Video uploaded" });
+        },
+        onError: () => toast({ title: "Failed to save video", variant: "destructive" }),
+      }
+    );
+  }
+
+  const videoSrc = exercise.videoUrl ? `/api/storage${exercise.videoUrl}` : null;
+
   return (
     <div className="fixed inset-0 z-50 bg-background overflow-y-auto" data-testid="exercise-detail-panel">
       <div className="max-w-2xl mx-auto px-6 py-8">
-        <div className="flex justify-end mb-6">
+
+        {/* Top bar */}
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex gap-2">
+            {!editing && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={startEdit}
+                data-testid="button-edit-exercise"
+              >
+                <Pencil className="w-4 h-4 mr-1.5" /> Edit
+              </Button>
+            )}
+          </div>
           <button
             onClick={onClose}
             data-testid="button-close-exercise-detail"
@@ -144,62 +317,188 @@ function ExerciseDetailPanel({ exercise, onClose }: { exercise: Exercise; onClos
           </button>
         </div>
 
+        {/* Header */}
         <div className="flex items-start gap-4 mb-8">
           <div className="w-14 h-14 rounded-2xl bg-purple-500/10 flex items-center justify-center flex-shrink-0">
             <Dumbbell className="w-7 h-7 text-purple-500" />
           </div>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">{exercise.name}</h1>
-            <p className="text-muted-foreground mt-1">{exercise.muscleGroup}</p>
+          <div className="flex-1">
+            {editing ? (
+              <Input
+                value={editName}
+                onChange={e => setEditName(e.target.value)}
+                className="text-2xl font-bold h-auto py-1"
+                data-testid="input-edit-exercise-name"
+              />
+            ) : (
+              <h1 className="text-3xl font-bold tracking-tight">{exercise.name}</h1>
+            )}
+            <p className="text-muted-foreground mt-1">{editing ? editMuscleGroup : exercise.muscleGroup}</p>
           </div>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 mb-8">
-          <div className="rounded-xl border bg-card p-4">
-            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">Type</p>
-            <p className="font-semibold text-base">{exercise.isCompound ? "Compound" : "Isolation"}</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              {exercise.isCompound
-                ? "Works multiple muscle groups simultaneously"
-                : "Targets a single muscle group in isolation"}
-            </p>
-          </div>
+        {/* Edit fields */}
+        {editing && (
+          <div className="space-y-4 mb-6">
+            <div>
+              <p className="text-sm font-medium mb-2">Muscle Group</p>
+              <div className="flex flex-wrap gap-1 mb-2">
+                {MUSCLE_GROUPS.map(mg => (
+                  <button
+                    key={mg}
+                    type="button"
+                    onClick={() => setEditMuscleGroup(mg)}
+                    className={`text-xs px-2 py-1 rounded border transition-colors ${editMuscleGroup === mg ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}
+                  >
+                    {mg}
+                  </button>
+                ))}
+              </div>
+              <Input
+                value={editMuscleGroup}
+                onChange={e => setEditMuscleGroup(e.target.value)}
+                placeholder="Or type custom group"
+                className="mt-1"
+              />
+            </div>
 
-          <div className="rounded-xl border bg-card p-4">
-            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">Movement</p>
-            <p className="font-semibold text-base">
-              {exercise.movementPattern ? capitalize(exercise.movementPattern) : "—"}
-            </p>
-            <p className="text-sm text-muted-foreground mt-1">
-              {exercise.movementPattern === "bilateral"
-                ? "Both sides of the body work together"
-                : exercise.movementPattern === "unilateral"
-                ? "Each side works independently"
-                : "Movement pattern not specified"}
-            </p>
-          </div>
+            <div>
+              <p className="text-sm font-medium mb-2">Type</p>
+              <div className="flex gap-2">
+                {[{ label: "Compound", val: true }, { label: "Isolation", val: false }].map(opt => (
+                  <button
+                    key={opt.label}
+                    type="button"
+                    onClick={() => setEditIsCompound(opt.val)}
+                    className={`flex-1 text-sm px-3 py-2 rounded border transition-colors ${editIsCompound === opt.val ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-          <div className="rounded-xl border bg-card p-4">
-            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">Target Area</p>
-            <p className="font-semibold text-base">{exercise.muscleGroup}</p>
+            <div>
+              <p className="text-sm font-medium mb-2">Movement Pattern</p>
+              <div className="flex gap-2">
+                {["bilateral", "unilateral"].map(mp => (
+                  <button
+                    key={mp}
+                    type="button"
+                    onClick={() => setEditMovement(editMovement === mp ? "" : mp)}
+                    className={`flex-1 text-sm px-3 py-2 rounded border transition-colors ${editMovement === mp ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}
+                  >
+                    {capitalize(mp)}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
+        )}
 
-          <div className="rounded-xl border bg-card p-4">
-            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">Category</p>
-            <p className="font-semibold text-base">
-              {CARDIO_GROUPS.has(exercise.muscleGroup)
-                ? "Cardio"
-                : MOBILITY_GROUPS.has(exercise.muscleGroup)
-                ? "Mobility"
-                : "Strength"}
-            </p>
+        {/* Info tiles (view mode) */}
+        {!editing && (
+          <div className="grid gap-4 sm:grid-cols-2 mb-8">
+            <div className="rounded-xl border bg-card p-4">
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">Type</p>
+              <p className="font-semibold text-base">{exercise.isCompound ? "Compound" : "Isolation"}</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {exercise.isCompound
+                  ? "Works multiple muscle groups simultaneously"
+                  : "Targets a single muscle group in isolation"}
+              </p>
+            </div>
+            <div className="rounded-xl border bg-card p-4">
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">Movement</p>
+              <p className="font-semibold text-base">
+                {exercise.movementPattern ? capitalize(exercise.movementPattern) : "—"}
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {exercise.movementPattern === "bilateral"
+                  ? "Both sides of the body work together"
+                  : exercise.movementPattern === "unilateral"
+                  ? "Each side works independently"
+                  : "Movement pattern not specified"}
+              </p>
+            </div>
+            <div className="rounded-xl border bg-card p-4">
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">Target Area</p>
+              <p className="font-semibold text-base">{exercise.muscleGroup}</p>
+            </div>
+            <div className="rounded-xl border bg-card p-4">
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">Category</p>
+              <p className="font-semibold text-base">
+                {CARDIO_GROUPS.has(exercise.muscleGroup)
+                  ? "Cardio"
+                  : MOBILITY_GROUPS.has(exercise.muscleGroup)
+                  ? "Mobility"
+                  : "Strength"}
+              </p>
+            </div>
           </div>
+        )}
+
+        {/* Description */}
+        <div className="rounded-xl border bg-card p-4 mb-4">
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">Description</p>
+          {editing ? (
+            <Textarea
+              value={editDescription}
+              onChange={e => setEditDescription(e.target.value)}
+              rows={3}
+              placeholder="Describe this exercise…"
+              data-testid="textarea-edit-exercise-description"
+            />
+          ) : (
+            <p className="text-base leading-relaxed">
+              {exercise.description || <span className="text-muted-foreground italic">No description</span>}
+            </p>
+          )}
         </div>
 
-        {exercise.description && (
-          <div className="rounded-xl border bg-card p-4">
-            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">Description</p>
-            <p className="text-base leading-relaxed">{exercise.description}</p>
+        {/* Video section */}
+        <div className="rounded-xl border bg-card p-4 mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+              <Video className="w-3.5 h-3.5" /> Video
+            </p>
+            <VideoUploadButton
+              exerciseId={exercise.id}
+              onUploadComplete={handleVideoUploaded}
+            />
+          </div>
+          {videoSrc ? (
+            <video
+              key={videoSrc}
+              src={videoSrc}
+              controls
+              className="w-full rounded-lg max-h-80 bg-black"
+              data-testid="exercise-video-player"
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground italic">No video yet — upload one using the button above.</p>
+          )}
+        </div>
+
+        {/* Edit mode actions */}
+        {editing && (
+          <div className="flex gap-3">
+            <Button
+              className="flex-1"
+              onClick={saveEdit}
+              disabled={updateExercise.isPending || !editName.trim() || !editMuscleGroup.trim()}
+              data-testid="button-save-exercise"
+            >
+              {updateExercise.isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving…</> : "Save changes"}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setEditing(false)}
+              disabled={updateExercise.isPending}
+              data-testid="button-cancel-edit-exercise"
+            >
+              Cancel
+            </Button>
           </div>
         )}
       </div>
@@ -273,14 +572,10 @@ export function Exercises() {
                       <FormLabel>Muscle Group</FormLabel>
                       <div className="flex flex-wrap gap-1 mb-2">
                         {MUSCLE_GROUPS.map(mg => (
-                          <button
-                            key={mg}
-                            type="button"
+                          <button key={mg} type="button"
                             onClick={() => form.setValue("muscleGroup", mg)}
                             className={`text-xs px-2 py-1 rounded border transition-colors ${field.value === mg ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}
-                          >
-                            {mg}
-                          </button>
+                          >{mg}</button>
                         ))}
                       </div>
                       <FormControl><Input {...field} placeholder="Or type custom group" /></FormControl>
@@ -291,20 +586,12 @@ export function Exercises() {
                     <FormItem>
                       <FormLabel>Type</FormLabel>
                       <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => form.setValue("isCompound", true)}
-                          className={`flex-1 text-sm px-3 py-2 rounded border transition-colors ${field.value ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}
-                        >
-                          Compound
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => form.setValue("isCompound", false)}
-                          className={`flex-1 text-sm px-3 py-2 rounded border transition-colors ${!field.value ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}
-                        >
-                          Isolation
-                        </button>
+                        {[{ label: "Compound", val: true }, { label: "Isolation", val: false }].map(opt => (
+                          <button key={opt.label} type="button"
+                            onClick={() => form.setValue("isCompound", opt.val)}
+                            className={`flex-1 text-sm px-3 py-2 rounded border transition-colors ${field.value === opt.val ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}
+                          >{opt.label}</button>
+                        ))}
                       </div>
                     </FormItem>
                   )} />
@@ -313,14 +600,10 @@ export function Exercises() {
                       <FormLabel>Movement Pattern</FormLabel>
                       <div className="flex gap-2">
                         {["bilateral", "unilateral"].map(mp => (
-                          <button
-                            key={mp}
-                            type="button"
+                          <button key={mp} type="button"
                             onClick={() => form.setValue("movementPattern", field.value === mp ? "" : mp)}
                             className={`flex-1 text-sm px-3 py-2 rounded border transition-colors ${field.value === mp ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}
-                          >
-                            {capitalize(mp)}
-                          </button>
+                          >{capitalize(mp)}</button>
                         ))}
                       </div>
                     </FormItem>
@@ -335,6 +618,7 @@ export function Exercises() {
           </Dialog>
         </div>
 
+        {/* Toolbar */}
         <div className="flex gap-3 flex-wrap">
           <div className="relative flex-1 min-w-[180px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -403,8 +687,9 @@ export function Exercises() {
                     <CardContent className="pt-4 pb-4 px-5">
                       <p className="font-semibold text-base">{e.name}</p>
                       {e.description && <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{e.description}</p>}
-                      <div className="mt-3">
+                      <div className="flex items-center justify-between mt-3">
                         <ExerciseBadges exercise={e} size="xs" />
+                        {e.videoUrl && <Video className="w-3.5 h-3.5 text-muted-foreground" />}
                       </div>
                     </CardContent>
                   </Card>
@@ -423,7 +708,10 @@ export function Exercises() {
                       <p className="font-medium truncate">{e.name}</p>
                       <p className="text-sm text-muted-foreground">{e.muscleGroup}</p>
                     </div>
-                    <ExerciseBadges exercise={e} size="xs" />
+                    <div className="flex items-center gap-2">
+                      <ExerciseBadges exercise={e} size="xs" />
+                      {e.videoUrl && <Video className="w-3.5 h-3.5 text-muted-foreground" />}
+                    </div>
                     <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                   </div>
                 ))}
@@ -445,6 +733,7 @@ export function Exercises() {
         <ExerciseDetailPanel
           exercise={selectedExercise}
           onClose={() => setSelectedExercise(null)}
+          onUpdate={(updated) => setSelectedExercise(updated)}
         />
       )}
     </>

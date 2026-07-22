@@ -6,16 +6,16 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface Exercise {
-  id: number;
-  name: string;
-  muscleGroup: string;
-  isCompound: boolean;
+export interface ExercisePatch {
+  /** @minLength 1 */
+  name?: string;
+  /** @minLength 1 */
+  muscleGroup?: string;
+  isCompound?: boolean;
   /** @nullable */
   movementPattern?: string | null;
   /** @nullable */
   description?: string | null;
   /** @nullable */
   videoUrl?: string | null;
-  createdAt?: Date;
 }

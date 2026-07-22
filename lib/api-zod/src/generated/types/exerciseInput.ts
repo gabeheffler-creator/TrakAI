@@ -14,4 +14,5 @@ export interface ExerciseInput {
   isCompound?: boolean;
   movementPattern?: string;
   description?: string;
+  videoUrl?: string;
 }

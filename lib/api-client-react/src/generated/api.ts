@@ -45,6 +45,7 @@ import type {
   CoachNoteInput,
   Exercise,
   ExerciseInput,
+  ExercisePatch,
   HealthStatus,
   InviteInfo,
   InviteLink,
@@ -1664,6 +1665,78 @@ export const useCreateExercise = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getCreateExerciseMutationOptions(options));
+    }
+
+export const getUpdateExerciseUrl = (exerciseId: number,) => {
+
+
+
+
+  return `/api/exercises/${exerciseId}`
+}
+
+/**
+ * @summary Update an exercise
+ */
+export const updateExercise = async (exerciseId: number,
+    exercisePatch: ExercisePatch, options?: RequestInit): Promise<Exercise> => {
+
+  return customFetch<Exercise>(getUpdateExerciseUrl(exerciseId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      exercisePatch,)
+  }
+);}
+
+
+
+
+export const getUpdateExerciseMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateExercise>>, TError,{exerciseId: number;data: BodyType<ExercisePatch>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateExercise>>, TError,{exerciseId: number;data: BodyType<ExercisePatch>}, TContext> => {
+
+const mutationKey = ['updateExercise'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateExercise>>, {exerciseId: number;data: BodyType<ExercisePatch>}> = (props) => {
+          const {exerciseId,data} = props ?? {};
+
+          return  updateExercise(exerciseId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateExerciseMutationResult = NonNullable<Awaited<ReturnType<typeof updateExercise>>>
+    export type UpdateExerciseMutationBody = BodyType<ExercisePatch>
+    export type UpdateExerciseMutationError = ErrorType<void>
+
+    /**
+ * @summary Update an exercise
+ */
+export const useUpdateExercise = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateExercise>>, TError,{exerciseId: number;data: BodyType<ExercisePatch>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateExercise>>,
+        TError,
+        {exerciseId: number;data: BodyType<ExercisePatch>},
+        TContext
+      > => {
+      return useMutation(getUpdateExerciseMutationOptions(options));
     }
 
 export const getListProgramsUrl = () => {

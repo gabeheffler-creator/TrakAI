@@ -9,6 +9,7 @@ export const exercisesTable = pgTable("exercises", {
   movementPattern: text("movement_pattern"),
   isCompound: boolean("is_compound").notNull().default(false),
   description: text("description"),
+  videoUrl: text("video_url"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

@@ -336,6 +336,8 @@ export interface Exercise {
   movementPattern?: string | null;
   /** @nullable */
   description?: string | null;
+  /** @nullable */
+  videoUrl?: string | null;
   createdAt?: string;
 }
 
@@ -347,6 +349,21 @@ export interface ExerciseInput {
   isCompound?: boolean;
   movementPattern?: string;
   description?: string;
+  videoUrl?: string;
+}
+
+export interface ExercisePatch {
+  /** @minLength 1 */
+  name?: string;
+  /** @minLength 1 */
+  muscleGroup?: string;
+  isCompound?: boolean;
+  /** @nullable */
+  movementPattern?: string | null;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  videoUrl?: string | null;
 }
 
 export interface Program {
