@@ -7,8 +7,9 @@ import {
   programAssignmentsTable,
   assignmentsTable,
   messagesTable,
+  clientTasksTable,
 } from "@workspace/db";
-import { eq, count, desc, and, gte, isNotNull, inArray } from "drizzle-orm";
+import { eq, count, desc, and, gte, isNotNull, inArray, lt } from "drizzle-orm";
 import { GetClientDashboardParams } from "@workspace/api-zod";
 import { requireCoachAuth, requireClientOwnership } from "../middlewares/auth";
 
@@ -113,9 +114,21 @@ router.get("/dashboard/coach", requireCoachAuth, async (req, res) => {
       };
     }));
 
+    const staleCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const staleRows = clientIds.length > 0
+      ? await db.selectDistinct({ clientId: clientTasksTable.clientId })
+          .from(clientTasksTable)
+          .where(and(
+            inArray(clientTasksTable.clientId, clientIds),
+            eq(clientTasksTable.status, "pending"),
+            lt(clientTasksTable.createdAt, staleCutoff),
+          ))
+      : [];
+
     res.json({
       totalClients: clients.length,
       activePrograms: Number(activePrograms),
+      staleTaskClientCount: staleRows.length,
       recentActivity: activity,
       clientSummaries,
       completedTasks,

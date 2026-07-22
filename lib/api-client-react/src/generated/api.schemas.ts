@@ -166,6 +166,7 @@ export interface ClientSummary {
 export interface CoachDashboard {
   totalClients: number;
   activePrograms: number;
+  staleTaskClientCount?: number;
   recentActivity: ActivityItem[];
   clientSummaries?: ClientSummary[];
 }

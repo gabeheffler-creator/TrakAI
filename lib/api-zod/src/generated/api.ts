@@ -297,6 +297,7 @@ export const GetMyClientResponse = zod.object({
 export const GetCoachDashboardResponse = zod.object({
   "totalClients": zod.number(),
   "activePrograms": zod.number(),
+  "staleTaskClientCount": zod.number().optional(),
   "recentActivity": zod.array(zod.object({
   "type": zod.string(),
   "clientId": zod.number(),

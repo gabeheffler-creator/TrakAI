@@ -2289,6 +2289,8 @@ components:
           type: integer
         activePrograms:
           type: integer
+        staleTaskClientCount:
+          type: integer
         recentActivity:
           type: array
           items:

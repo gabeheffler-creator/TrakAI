@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useGetCoachDashboard } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, Dumbbell, ActivitySquare, AlertCircle, MessageSquare, Sparkles, X, CheckCircle2, CalendarDays } from "lucide-react";
+import { Users, Dumbbell, ActivitySquare, AlertCircle, MessageSquare, Sparkles, X, CheckCircle2, CalendarDays, Clock } from "lucide-react";
 import { Link } from "wouter";
 import { formatDistanceToNow, parseISO } from "date-fns";
 import { Badge } from "@/components/ui/badge";
@@ -98,6 +98,25 @@ export function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {(dashboard.staleTaskClientCount ?? 0) > 0 && (
+        <Link
+          href="/clients"
+          className="flex items-center gap-3 p-4 rounded-xl border border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10 transition-colors"
+          data-testid="banner-stale-tasks"
+        >
+          <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+            <Clock className="w-4 h-4 text-amber-500" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-sm text-foreground">
+              {dashboard.staleTaskClientCount} {dashboard.staleTaskClientCount === 1 ? "client has" : "clients have"} a task pending for 24+ hours
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">Click to view your client list and follow up</p>
+          </div>
+          <span className="text-xs text-amber-600 dark:text-amber-400 font-medium shrink-0">View clients →</span>
+        </Link>
+      )}
 
       <div className="grid gap-8 md:grid-cols-2">
         <Card>
