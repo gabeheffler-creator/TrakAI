@@ -3,6 +3,7 @@ packages:
   - lib/*
   - lib/integrations/*
   - scripts
+  - e2e
 
 autoInstallPeers: false
 
@@ -29,6 +30,7 @@ catalog:
   vite: ^7.3.2
   wouter: ^3.3.5
   zod: ^3.25.76
+  '@playwright/test': ^1.61.1
 
 minimumReleaseAge: 1440
 
