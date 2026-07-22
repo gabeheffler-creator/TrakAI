@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useParams, useLocation } from "wouter";
 import {
   useListMessages,
@@ -30,6 +30,30 @@ interface Conversation {
   name: string;
   lastMessage: { content: string; sender: string; createdAt: string } | null;
   unreadCount: number;
+}
+
+const CLIENT_NAMES_KEY = "trak-coach-client-names";
+
+function readStoredClientName(clientId: number): string | undefined {
+  try {
+    const raw = localStorage.getItem(CLIENT_NAMES_KEY);
+    if (!raw) return undefined;
+    const map = JSON.parse(raw) as Record<string, string>;
+    return map[clientId] ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function writeStoredClientNames(conversations: Conversation[]): void {
+  try {
+    const raw = localStorage.getItem(CLIENT_NAMES_KEY);
+    const existing: Record<string, string> = raw ? JSON.parse(raw) : {};
+    conversations.forEach(c => { existing[c.clientId] = c.name; });
+    localStorage.setItem(CLIENT_NAMES_KEY, JSON.stringify(existing));
+  } catch {
+    // ignore — localStorage may be unavailable in some iframe contexts
+  }
 }
 
 function useConversations() {
@@ -284,13 +308,17 @@ function ConversationPanel({ clientId, clientName, onBack }: { clientId: number;
   const qc = useQueryClient();
   const [input, setInput] = useState("");
 
+  // Synchronous read from localStorage so the name is available on the very
+  // first render — even on a cold hard navigation before any async data lands.
+  const storedName = useMemo(() => readStoredClientName(clientId), [clientId]);
+
   const { data: clientData } = useGetClient(clientId, {
     query: {
       queryKey: getGetClientQueryKey(clientId),
-      enabled: clientName === undefined,
+      enabled: clientName === undefined && storedName === undefined,
     },
   });
-  const displayName = clientName ?? clientData?.name;
+  const displayName = clientName ?? storedName ?? clientData?.name;
   const [assignOpen, setAssignOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const { data: messages, isLoading, isError, refetch, isFetching } = useListMessages(clientId, {
@@ -457,8 +485,25 @@ export function Messages() {
   const params = useParams<{ clientId?: string }>();
   const [, navigate] = useLocation();
   const activeClientId = params.clientId ? Number(params.clientId) : null;
+  const qc = useQueryClient();
 
   const { data: conversations, isLoading, isError, refetch, isFetching } = useConversations();
+
+  // When the conversations list arrives, persist client names to localStorage
+  // and seed the React Query cache. This ensures ConversationPanel can resolve
+  // the client name instantly on any future hard navigation or cold load —
+  // localStorage reads are synchronous so the name is available on the very
+  // first render, eliminating the blank/skeleton header moment on mobile.
+  useEffect(() => {
+    if (!conversations) return;
+    writeStoredClientNames(conversations);
+    conversations.forEach(conv => {
+      qc.setQueryData(getGetClientQueryKey(conv.clientId), (old: unknown) => {
+        if (old) return old;
+        return { id: conv.clientId, name: conv.name };
+      });
+    });
+  }, [conversations, qc]);
 
   return (
     <div className="-m-4 md:-m-8 h-[calc(100vh-3.5rem)] sm:h-screen flex overflow-hidden border-t border-border relative">
