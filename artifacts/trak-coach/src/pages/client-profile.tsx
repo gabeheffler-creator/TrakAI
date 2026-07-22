@@ -40,6 +40,7 @@ import {
   useListClientGoalHistory,
   useListClientProgramAssignmentHistory,
   useGenerateAiProgram,
+  useListClientTasks,
   getGetWorkoutLogQueryKey,
   getGetClientQueryKey,
   getListAssignmentsQueryKey,
@@ -53,6 +54,7 @@ import {
   getListCallLogsQueryKey,
   getListClientGoalHistoryQueryKey,
   getListClientProgramAssignmentHistoryQueryKey,
+  getListClientTasksQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -768,6 +770,7 @@ export function ClientProfile() {
   const { data: nutritionLogs } = useListNutritionLogs(clientId, { query: { enabled: !!clientId, queryKey: ["nutrition", clientId] } });
   const { data: progressPhotos } = useListProgressPhotos(clientId, { query: { enabled: !!clientId, queryKey: ["photos", clientId] } });
   const { data: assignments } = useListAssignments(clientId, { query: { enabled: !!clientId, queryKey: getListAssignmentsQueryKey(clientId) } });
+  const { data: clientTasks, isLoading: clientTasksLoading } = useListClientTasks(clientId, { query: { enabled: !!clientId, queryKey: getListClientTasksQueryKey(clientId) } });
   const { data: messages } = useListMessages(clientId, { query: { enabled: !!clientId, queryKey: getListMessagesQueryKey(clientId) } });
   const { data: programAssignment } = useGetClientProgramAssignment(clientId, { query: { enabled: !!clientId, queryKey: getGetClientProgramAssignmentQueryKey(clientId) } });
   const { data: coachNotes, refetch: refetchNotes } = useListCoachNotes(clientId, { query: { enabled: !!clientId, queryKey: getListCoachNotesQueryKey(clientId) } });
@@ -1872,9 +1875,75 @@ export function ClientProfile() {
         </TabsContent>
 
         {/* Assignments */}
-        <TabsContent value="tasks" className="mt-4 space-y-4">
-          <div className="flex justify-end">
-            <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
+        <TabsContent value="tasks" className="mt-4 space-y-6">
+          {/* ── Chat-assigned Task History ─────────────────────────────── */}
+          <div className="space-y-3">
+            <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Task History</p>
+            {clientTasksLoading && (
+              <p className="text-sm text-muted-foreground">Loading task history…</p>
+            )}
+            {!clientTasksLoading && (clientTasks?.length ?? 0) === 0 && (
+              <Card>
+                <CardContent className="py-10 flex flex-col items-center gap-2 text-center">
+                  <Target className="w-8 h-8 text-muted-foreground opacity-40" />
+                  <p className="text-sm font-medium text-muted-foreground">No tasks assigned yet</p>
+                  <p className="text-xs text-muted-foreground">Assign a task via the Messages tab to get started.</p>
+                </CardContent>
+              </Card>
+            )}
+            {!clientTasksLoading && (clientTasks ?? []).map(task => {
+              const statusColors: Record<string, string> = {
+                pending: "bg-amber-100 text-amber-800 border-amber-200",
+                accepted: "bg-blue-100 text-blue-800 border-blue-200",
+                rejected: "bg-red-100 text-red-800 border-red-200",
+                completed: "bg-green-100 text-green-800 border-green-200",
+              };
+              const altStatusLabels: Record<string, string> = {
+                pending: "Alternative pending",
+                accepted: "Alternative accepted",
+                rejected: "Alternative rejected",
+                left_alone: "Left alone",
+              };
+              return (
+                <Card key={task.id} data-testid={`card-task-${task.id}`}>
+                  <CardContent className="pt-4 pb-4 space-y-2">
+                    <div className="flex items-start gap-3 justify-between">
+                      <p className="text-sm font-medium flex-1">{task.text}</p>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border flex-shrink-0 ${statusColors[task.status] ?? "bg-muted text-muted-foreground"}`}>
+                        {task.status.charAt(0).toUpperCase() + task.status.slice(1)}
+                      </span>
+                    </div>
+                    {task.rejectionReason && (
+                      <div className="rounded-md bg-red-50 border border-red-100 px-3 py-2">
+                        <p className="text-xs font-medium text-red-700 mb-0.5">Rejection reason</p>
+                        <p className="text-xs text-red-900">{task.rejectionReason}</p>
+                      </div>
+                    )}
+                    {task.alternativeText && (
+                      <div className="rounded-md bg-muted/50 border border-border px-3 py-2">
+                        <div className="flex items-center justify-between gap-2 mb-0.5">
+                          <p className="text-xs font-medium text-muted-foreground">Alternative</p>
+                          {task.altStatus && (
+                            <span className="text-xs text-muted-foreground">{altStatusLabels[task.altStatus] ?? task.altStatus}</span>
+                          )}
+                        </div>
+                        <p className="text-xs">{task.alternativeText}</p>
+                      </div>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Assigned {format(parseISO(task.createdAt), "MMM d, yyyy")}
+                    </p>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+
+          {/* ── Legacy Assignments ─────────────────────────────────────── */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Assignments</p>
+              <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
               <DialogTrigger asChild>
                 <Button size="sm" data-testid="button-create-assignment"><Plus className="w-4 h-4 mr-1" /> New Task</Button>
               </DialogTrigger>
@@ -1915,57 +1984,58 @@ export function ClientProfile() {
                 </Form>
               </DialogContent>
             </Dialog>
-          </div>
+            </div>
 
-          {pending.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Pending ({pending.length})</p>
-              {pending.map(a => (
-                <Card key={a.id} data-testid={`card-assignment-${a.id}`}>
-                  <CardContent className="pt-4 pb-4 flex items-start gap-3">
-                    <button onClick={() => handleToggleAssignment(a.id, a.status)} className="mt-0.5 text-muted-foreground hover:text-primary transition-colors">
-                      <Circle className="w-5 h-5" />
-                    </button>
-                    <div className="flex-1">
-                      <p className="font-medium">{a.title}</p>
-                      {a.body && <p className="text-sm text-muted-foreground">{a.body}</p>}
-                      <div className="flex gap-2 mt-1">
-                        <Badge variant="outline" className="text-xs">{a.type}</Badge>
-                        {a.dueDate && <span className="text-xs text-muted-foreground">Due {a.dueDate}</span>}
+            {pending.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Pending ({pending.length})</p>
+                {pending.map(a => (
+                  <Card key={a.id} data-testid={`card-assignment-${a.id}`}>
+                    <CardContent className="pt-4 pb-4 flex items-start gap-3">
+                      <button onClick={() => handleToggleAssignment(a.id, a.status)} className="mt-0.5 text-muted-foreground hover:text-primary transition-colors">
+                        <Circle className="w-5 h-5" />
+                      </button>
+                      <div className="flex-1">
+                        <p className="font-medium">{a.title}</p>
+                        {a.body && <p className="text-sm text-muted-foreground">{a.body}</p>}
+                        <div className="flex gap-2 mt-1">
+                          <Badge variant="outline" className="text-xs">{a.type}</Badge>
+                          {a.dueDate && <span className="text-xs text-muted-foreground">Due {a.dueDate}</span>}
+                        </div>
                       </div>
-                    </div>
-                    <button onClick={() => handleDeleteAssignment(a.id)} className="text-muted-foreground hover:text-destructive transition-colors">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
+                      <button onClick={() => handleDeleteAssignment(a.id)} className="text-muted-foreground hover:text-destructive transition-colors">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
 
-          {completed.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Completed ({completed.length})</p>
-              {completed.map(a => (
-                <Card key={a.id} className="opacity-60" data-testid={`card-assignment-done-${a.id}`}>
-                  <CardContent className="pt-4 pb-4 flex items-start gap-3">
-                    <button onClick={() => handleToggleAssignment(a.id, a.status)} className="mt-0.5 text-primary">
-                      <CheckCircle className="w-5 h-5" />
-                    </button>
-                    <div className="flex-1">
-                      <p className="font-medium line-through">{a.title}</p>
-                      <Badge variant="outline" className="text-xs">{a.type}</Badge>
-                    </div>
-                    <button onClick={() => handleDeleteAssignment(a.id)} className="text-muted-foreground hover:text-destructive transition-colors">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
+            {completed.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Completed ({completed.length})</p>
+                {completed.map(a => (
+                  <Card key={a.id} className="opacity-60" data-testid={`card-assignment-done-${a.id}`}>
+                    <CardContent className="pt-4 pb-4 flex items-start gap-3">
+                      <button onClick={() => handleToggleAssignment(a.id, a.status)} className="mt-0.5 text-primary">
+                        <CheckCircle className="w-5 h-5" />
+                      </button>
+                      <div className="flex-1">
+                        <p className="font-medium line-through">{a.title}</p>
+                        <Badge variant="outline" className="text-xs">{a.type}</Badge>
+                      </div>
+                      <button onClick={() => handleDeleteAssignment(a.id)} className="text-muted-foreground hover:text-destructive transition-colors">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
 
-          {assignments?.length === 0 && <p className="text-muted-foreground text-sm">No tasks yet.</p>}
+            {assignments?.length === 0 && <p className="text-muted-foreground text-sm">No assignments yet.</p>}
+          </div>
         </TabsContent>
 
         {/* Messages */}

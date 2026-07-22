@@ -1516,6 +1516,27 @@ export const SavePushSubscriptionBody = zod.object({
 
 
 /**
+ * @summary List all tasks for a client (coach only), newest first
+ */
+export const ListClientTasksParams = zod.object({
+  "clientId": zod.coerce.number()
+})
+
+export const ListClientTasksResponseItem = zod.object({
+  "id": zod.number(),
+  "clientId": zod.number(),
+  "text": zod.string(),
+  "status": zod.enum(['pending', 'accepted', 'rejected', 'completed']),
+  "rejectionReason": zod.string().nullish(),
+  "alternativeText": zod.string().nullish(),
+  "altStatus": zod.union([zod.literal('pending'),zod.literal('accepted'),zod.literal('rejected'),zod.literal('left_alone'),zod.literal(null)]).nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+export const ListClientTasksResponse = zod.array(ListClientTasksResponseItem)
+
+
+/**
  * @summary Coach assigns a task to a client
  */
 export const AssignTaskParams = zod.object({

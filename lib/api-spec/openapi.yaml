@@ -1667,6 +1667,29 @@ paths:
 
   # ── Client Tasks ──────────────────────────────────────────────────────────
   /clients/{clientId}/tasks:
+    get:
+      operationId: listClientTasks
+      tags: [tasks]
+      summary: List all tasks for a client (coach only), newest first
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Task list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ClientTask"
+        "403":
+          description: Not authorised
+        "404":
+          description: Client not found
     post:
       operationId: assignTask
       tags: [tasks]

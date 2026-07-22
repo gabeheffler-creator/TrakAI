@@ -39,6 +39,25 @@ async function verifyClientOwnsTask(clientId: number, taskId: number) {
   return task ?? null;
 }
 
+// GET /api/clients/:clientId/tasks — list all tasks for a client (coach only, newest first)
+router.get("/clients/:clientId/tasks", requireCoachAuth, async (req, res) => {
+  try {
+    const clientId = Number(req.params.clientId);
+    const coachId = coachIdOf(req);
+    if (!(await verifyCoachOwnsClient(coachId, clientId))) {
+      res.status(404).json({ error: "Client not found" });
+      return;
+    }
+    const tasks = await db.select().from(clientTasksTable)
+      .where(eq(clientTasksTable.clientId, clientId))
+      .orderBy(desc(clientTasksTable.createdAt));
+    res.json(tasks.map(serializeTask));
+  } catch (err) {
+    req.log.error(err);
+    res.status(500).json({ error: "Failed to list tasks" });
+  }
+});
+
 // POST /api/clients/:clientId/tasks — coach assigns a task
 router.post("/clients/:clientId/tasks", requireCoachAuth, async (req, res) => {
   try {
