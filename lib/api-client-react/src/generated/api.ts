@@ -5875,6 +5875,83 @@ export function useGetActiveTask<TData = Awaited<ReturnType<typeof getActiveTask
 
 
 
+export const getListActiveTasksUrl = (clientId: number,) => {
+
+
+
+
+  return `/api/clients/${clientId}/tasks/active-list`
+}
+
+/**
+ * @summary Get up to 5 active (accepted) tasks for the client home screen
+ */
+export const listActiveTasks = async (clientId: number, options?: RequestInit): Promise<ClientTask[]> => {
+
+  return customFetch<ClientTask[]>(getListActiveTasksUrl(clientId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListActiveTasksQueryKey = (clientId: number,) => {
+    return [
+    `/api/clients/${clientId}/tasks/active-list`
+    ] as const;
+    }
+
+
+export const getListActiveTasksQueryOptions = <TData = Awaited<ReturnType<typeof listActiveTasks>>, TError = ErrorType<unknown>>(clientId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listActiveTasks>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListActiveTasksQueryKey(clientId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listActiveTasks>>> = ({ signal }) => listActiveTasks(clientId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(clientId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listActiveTasks>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListActiveTasksQueryResult = NonNullable<Awaited<ReturnType<typeof listActiveTasks>>>
+export type ListActiveTasksQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get up to 5 active (accepted) tasks for the client home screen
+ */
+
+export function useListActiveTasks<TData = Awaited<ReturnType<typeof listActiveTasks>>, TError = ErrorType<unknown>>(
+ clientId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listActiveTasks>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListActiveTasksQueryOptions(clientId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
 export const getAcceptTaskUrl = (clientId: number,
     taskId: number,) => {
 

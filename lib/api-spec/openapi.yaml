@@ -1762,6 +1762,27 @@ paths:
                   - $ref: "#/components/schemas/ClientTask"
                   - type: "null"
 
+  /clients/{clientId}/tasks/active-list:
+    get:
+      operationId: listActiveTasks
+      tags: [tasks]
+      summary: Get up to 5 active (accepted) tasks for the client home screen
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of active tasks (newest first, max 5)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ClientTask"
+
   /clients/{clientId}/tasks/{taskId}/accept:
     patch:
       operationId: acceptTask

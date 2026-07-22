@@ -6,8 +6,8 @@ import { VideoCall } from "@/components/video-call";
 import {
   useGetClientDashboard,
   getGetClientDashboardQueryKey,
-  useGetActiveTask,
-  getGetActiveTaskQueryKey,
+  useListActiveTasks,
+  getListActiveTasksQueryKey,
   useCompleteTask,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -28,8 +28,8 @@ export function Dashboard() {
   const { data: dashboard, isLoading, isError, refetch, isFetching } = useGetClientDashboard(clientId!, {
     query: { enabled: !!clientId, queryKey: getGetClientDashboardQueryKey(clientId!) }
   });
-  const { data: activeTask } = useGetActiveTask(clientId!, {
-    query: { enabled: !!clientId, queryKey: getGetActiveTaskQueryKey(clientId!), refetchInterval: 10000 }
+  const { data: activeTasks } = useListActiveTasks(clientId!, {
+    query: { enabled: !!clientId, queryKey: getListActiveTasksQueryKey(clientId!), refetchInterval: 10000 }
   });
   const completeTask = useCompleteTask();
 
@@ -131,38 +131,51 @@ export function Dashboard() {
         </Card>
       </div>
 
-      {activeTask && (
-        <Card className="border-violet-200 bg-violet-50 dark:bg-violet-950/30 dark:border-violet-800" data-testid="card-active-task">
-          <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle className="text-sm font-bold text-violet-700 dark:text-violet-300 flex items-center gap-2">
+      {activeTasks && activeTasks.length > 0 && (
+        <div data-testid="section-active-tasks">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-bold text-violet-700 dark:text-violet-300 flex items-center gap-2">
               <ClipboardList className="w-4 h-4" />
-              Your Task
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4 space-y-3">
-            <p className="text-sm leading-relaxed text-foreground">
-              {(activeTask.altStatus === "accepted" && activeTask.alternativeText) ? activeTask.alternativeText : activeTask.text}
-            </p>
-            <Button
-              className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700"
-              disabled={completeTask.isPending}
-              data-testid="button-mark-complete"
-              onClick={() => {
-                completeTask.mutate(
-                  { clientId: clientId!, taskId: activeTask.id },
-                  {
-                    onSuccess: () => {
-                      qc.invalidateQueries({ queryKey: getGetActiveTaskQueryKey(clientId!) });
-                    },
-                  }
-                );
-              }}
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              Mark Complete
-            </Button>
-          </CardContent>
-        </Card>
+              Your Tasks
+            </h2>
+            <Link href="/assignments" className="text-xs text-primary hover:underline shrink-0">
+              View all
+            </Link>
+          </div>
+          <div className="space-y-3">
+            {activeTasks.map((task, index) => (
+              <Card
+                key={task.id}
+                className="border-violet-200 bg-violet-50 dark:bg-violet-950/30 dark:border-violet-800"
+                data-testid={index === 0 ? "card-active-task" : `card-active-task-${index}`}
+              >
+                <CardContent className="px-4 py-3 space-y-3">
+                  <p className="text-sm leading-relaxed text-foreground">
+                    {(task.altStatus === "accepted" && task.alternativeText) ? task.alternativeText : task.text}
+                  </p>
+                  <Button
+                    className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700"
+                    disabled={completeTask.isPending}
+                    data-testid={index === 0 ? "button-mark-complete" : `button-mark-complete-${index}`}
+                    onClick={() => {
+                      completeTask.mutate(
+                        { clientId: clientId!, taskId: task.id },
+                        {
+                          onSuccess: () => {
+                            qc.invalidateQueries({ queryKey: getListActiveTasksQueryKey(clientId!) });
+                          },
+                        }
+                      );
+                    }}
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    Mark Complete
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
       )}
 
       <Link

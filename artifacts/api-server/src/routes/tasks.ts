@@ -129,6 +129,21 @@ router.get("/clients/:clientId/tasks/active", requireClientOwnership(), async (r
   }
 });
 
+// GET /api/clients/:clientId/tasks/active-list — up to 5 accepted tasks for client home screen
+router.get("/clients/:clientId/tasks/active-list", requireClientOwnership(), async (req, res) => {
+  try {
+    const clientId = Number(req.params.clientId);
+    const tasks = await db.select().from(clientTasksTable)
+      .where(and(eq(clientTasksTable.clientId, clientId), eq(clientTasksTable.status, "accepted")))
+      .orderBy(desc(clientTasksTable.createdAt))
+      .limit(5);
+    res.json(tasks.map(serializeTask));
+  } catch (err) {
+    req.log.error(err);
+    res.status(500).json({ error: "Failed to get active tasks" });
+  }
+});
+
 // PATCH /api/clients/:clientId/tasks/:taskId/accept — client accepts
 router.patch("/clients/:clientId/tasks/:taskId/accept", requireClientOwnership(), async (req, res) => {
   try {

@@ -1619,6 +1619,27 @@ export const GetActiveTaskResponse = zod.union([zod.object({
 
 
 /**
+ * @summary Get up to 5 active (accepted) tasks for the client home screen
+ */
+export const ListActiveTasksParams = zod.object({
+  "clientId": zod.coerce.number()
+})
+
+export const ListActiveTasksResponseItem = zod.object({
+  "id": zod.number(),
+  "clientId": zod.number(),
+  "text": zod.string(),
+  "status": zod.enum(['pending', 'accepted', 'rejected', 'completed']),
+  "rejectionReason": zod.string().nullish(),
+  "alternativeText": zod.string().nullish(),
+  "altStatus": zod.union([zod.literal('pending'),zod.literal('accepted'),zod.literal('rejected'),zod.literal('left_alone'),zod.literal(null)]).nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+export const ListActiveTasksResponse = zod.array(ListActiveTasksResponseItem)
+
+
+/**
  * @summary Client accepts a task
  */
 export const AcceptTaskParams = zod.object({
