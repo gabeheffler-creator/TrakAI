@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { coachSettingsTable } from "@workspace/db";
+import { coachSettingsTable, clientsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { requireCoachAuth } from "../middlewares/auth";
+import { requireCoachAuth, requireClientAuth } from "../middlewares/auth";
 
 const router = Router();
 
@@ -41,6 +41,25 @@ router.patch("/coach/app-settings", requireCoachAuth, async (req, res) => {
   } catch (err) {
     req.log.error(err);
     res.status(400).json({ error: "Failed to update settings" });
+  }
+});
+
+router.get("/client/coach-brand", requireClientAuth, async (req, res) => {
+  try {
+    const actor = req.actor;
+    const clientId = actor?.type === "client" ? actor.client.id : -1;
+    const [client] = await db.select().from(clientsTable).where(eq(clientsTable.id, clientId)).limit(1);
+    if (!client) { res.json({}); return; }
+    const [row] = await db.select().from(coachSettingsTable).where(eq(coachSettingsTable.coachId, client.coachId)).limit(1);
+    const settings = row ? JSON.parse(row.settingsJson) : {};
+    res.json({
+      name: settings.brandName ?? null,
+      tagline: settings.brandTagline ?? null,
+      logoPath: settings.logoPath ?? null,
+    });
+  } catch (err) {
+    req.log.error(err);
+    res.status(500).json({ error: "Failed to fetch coach brand" });
   }
 });
 

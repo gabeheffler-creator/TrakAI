@@ -1,47 +1,36 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useDarkMode } from "@/hooks/use-dark-mode";
+import { useUnitSystem } from "@/hooks/use-unit-system";
+import { useCallPrefs } from "@/hooks/use-call-prefs";
 import { useToast } from "@/hooks/use-toast";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Moon, Sun, Bug, MessageSquare, ChevronRight, CheckCircle, Palette, Save, Smartphone, AlertTriangle } from "lucide-react";
+import {
+  Moon, Sun, Bug, MessageSquare, ChevronRight, CheckCircle,
+  Save, Ruler, ClipboardList, FileText, Upload, Loader2, ImageIcon,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const BRAND_KEY = "trak_coach_brand";
-interface BrandSettings { name: string; tagline: string; primaryColor: string; }
+interface BrandSettings { name: string; tagline: string; primaryColor: string; logoPath?: string; }
+
 function readBrand(): BrandSettings {
-  try { return JSON.parse(localStorage.getItem(BRAND_KEY) ?? "{}"); } catch { return { name: "", tagline: "", primaryColor: "" }; }
+  try {
+    const parsed = JSON.parse(localStorage.getItem(BRAND_KEY) ?? "{}");
+    return {
+      name: parsed.name ?? "",
+      tagline: parsed.tagline ?? "",
+      primaryColor: parsed.primaryColor ?? "",
+      logoPath: parsed.logoPath,
+    };
+  } catch { return { name: "", tagline: "", primaryColor: "" }; }
 }
 function saveBrand(b: BrandSettings) { localStorage.setItem(BRAND_KEY, JSON.stringify(b)); }
-
-const CLIENT_SECTIONS = [
-  { key: "workout", label: "Workout" },
-  { key: "exercises", label: "Exercise Library" },
-  { key: "progress", label: "Progress" },
-  { key: "nutrition", label: "Nutrition" },
-  { key: "stats", label: "Stats & Measurements" },
-  { key: "sleep", label: "Sleep" },
-  { key: "photos", label: "Progress Photos" },
-  { key: "assignments", label: "Tasks & Assignments" },
-  { key: "messages", label: "Messages" },
-];
-
-const DISALLOWED_PATTERNS = [
-  /https?:\/\//i,
-  /www\./i,
-  /\.(com|net|org|io|co)\b/i,
-  /\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b/,
-  /\bsteroid/i,
-  /\billegal/i,
-  /\bdrug\b/i,
-];
-
-function containsDisallowedContent(text: string): boolean {
-  return DISALLOWED_PATTERNS.some(p => p.test(text));
-}
 
 async function fetchAppSettings() {
   const res = await fetch("/api/coach/app-settings");
@@ -59,6 +48,15 @@ async function patchAppSettings(patch: Record<string, unknown>) {
   return res.json();
 }
 
+async function submitFeedback(type: "bug" | "feedback", content: string, from: "coach" | "client") {
+  const res = await fetch("/api/feedback", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ type, content, from }),
+  });
+  if (!res.ok) throw new Error("Failed to send");
+}
+
 function SettingRow({
   icon, label, description, children, onClick,
 }: {
@@ -72,7 +70,7 @@ function SettingRow({
         </div>
         <div className="min-w-0">
           <p className="text-sm font-medium">{label}</p>
-          {description && <p className="text-xs text-muted-foreground mt-0.5">{description}</p>}
+          {description && <p className="text-xs text-muted-foreground dark:text-gray-200 mt-0.5">{description}</p>}
         </div>
       </div>
       <div className="flex-shrink-0 flex items-center gap-1">
@@ -93,80 +91,78 @@ function SettingRow({
 
 function SectionHeader({ title }: { title: string }) {
   return (
-    <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground pt-6 pb-1 first:pt-0">
+    <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground dark:text-white pt-6 pb-1 first:pt-0">
       {title}
     </p>
   );
 }
 
-async function submitFeedback(type: "bug" | "feedback", content: string, from: "coach" | "client") {
-  const res = await fetch("/api/feedback", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ type, content, from }),
-  });
-  if (!res.ok) throw new Error("Failed to send");
-}
-
 export function SettingsPage() {
   const { dark, toggle } = useDarkMode();
+  const { units, setUnits } = useUnitSystem();
+  const { autoCallLog, autoCallNotes, setAutoCallLog, setAutoCallNotes } = useCallPrefs();
   const { toast } = useToast();
 
-  const [brand, setBrand] = useState<BrandSettings>(() => {
-    const saved = readBrand();
-    return { name: saved.name ?? "", tagline: saved.tagline ?? "", primaryColor: saved.primaryColor ?? "" };
-  });
+  const [brand, setBrand] = useState<BrandSettings>(() => readBrand());
   const [brandSaved, setBrandSaved] = useState(false);
 
-  const handleSaveBrand = () => {
+  const handleSaveBrand = async () => {
     saveBrand(brand);
+    try {
+      await patchAppSettings({ brandName: brand.name, brandTagline: brand.tagline });
+    } catch { /* non-fatal — localStorage already saved */ }
     setBrandSaved(true);
     setTimeout(() => setBrandSaved(false), 2000);
   };
 
-  const [hiddenSections, setHiddenSections] = useState<Set<string>>(new Set());
-  const [customContent, setCustomContent] = useState("");
-  const [settingsSaved, setSettingsSaved] = useState(false);
-  const [settingsLoaded, setSettingsLoaded] = useState(false);
-  const [disallowedOpen, setDisallowedOpen] = useState(false);
-  const [pendingCustomContent, setPendingCustomContent] = useState("");
+  const [logoDialogOpen, setLogoDialogOpen] = useState(false);
+  const [logoSelectedFile, setLogoSelectedFile] = useState<File | null>(null);
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(null);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const logoFileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    fetchAppSettings().then(s => {
-      if (s.hiddenSections) setHiddenSections(new Set(s.hiddenSections as string[]));
-      if (s.customContent) setCustomContent(s.customContent as string);
-      setSettingsLoaded(true);
-    });
-  }, []);
-
-  const toggleSection = async (key: string) => {
-    const next = new Set(hiddenSections);
-    if (next.has(key)) next.delete(key); else next.add(key);
-    setHiddenSections(next);
-    try {
-      await patchAppSettings({ hiddenSections: Array.from(next) });
-    } catch {
-      toast({ title: "Failed to save section settings", variant: "destructive" });
-    }
+  const handleLogoFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLogoSelectedFile(file);
+    if (logoPreviewUrl) URL.revokeObjectURL(logoPreviewUrl);
+    setLogoPreviewUrl(URL.createObjectURL(file));
+    e.target.value = "";
   };
 
-  const handleSaveCustomContent = () => {
-    if (containsDisallowedContent(customContent)) {
-      setPendingCustomContent(customContent);
-      setDisallowedOpen(true);
-      return;
-    }
-    saveCustomContent(customContent);
-  };
-
-  const saveCustomContent = async (content: string) => {
+  const handleLogoUpload = async () => {
+    if (!logoSelectedFile) return;
+    setLogoUploading(true);
     try {
-      await patchAppSettings({ customContent: content });
-      setSettingsSaved(true);
-      setTimeout(() => setSettingsSaved(false), 2000);
-      toast({ title: "Custom content saved" });
-    } catch {
-      toast({ title: "Failed to save", variant: "destructive" });
+      const urlRes = await fetch("/api/upload-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: logoSelectedFile.name, contentType: logoSelectedFile.type }),
+      });
+      if (!urlRes.ok) throw new Error("Failed to get upload URL");
+      const { uploadUrl, objectPath } = await urlRes.json() as { uploadUrl: string; objectPath: string };
+
+      await fetch(uploadUrl, {
+        method: "PUT",
+        headers: { "Content-Type": logoSelectedFile.type },
+        body: logoSelectedFile,
+      });
+
+      await patchAppSettings({ logoPath: objectPath });
+
+      const newBrand = { ...brand, logoPath: objectPath };
+      saveBrand(newBrand);
+      setBrand(newBrand);
+      window.dispatchEvent(new Event("trak-logo-updated"));
+
+      setLogoDialogOpen(false);
+      setLogoPreviewUrl(null);
+      setLogoSelectedFile(null);
+      toast({ title: "Logo uploaded" });
+    } catch (err) {
+      toast({ title: "Upload failed", description: String(err), variant: "destructive" });
+    } finally {
+      setLogoUploading(false);
     }
   };
 
@@ -217,9 +213,10 @@ export function SettingsPage() {
     <div className="max-w-lg mx-auto space-y-1">
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Settings</h1>
-        <p className="text-sm text-muted-foreground mt-1">Customize your experience</p>
+        <p className="text-sm text-muted-foreground dark:text-gray-200 mt-1">Customize your experience</p>
       </div>
 
+      {/* ── Appearance ─────────────────────────────────────────────── */}
       <SectionHeader title="Appearance" />
       <div className="rounded-2xl border border-border bg-card divide-y divide-border">
         <div className="px-4">
@@ -233,12 +230,35 @@ export function SettingsPage() {
         </div>
       </div>
 
+      {/* ── Measurements ───────────────────────────────────────────── */}
+      <SectionHeader title="Measurements" />
+      <div className="rounded-2xl border border-border bg-card divide-y divide-border">
+        <div className="px-4">
+          <SettingRow
+            icon={<Ruler className="w-4 h-4" />}
+            label="Unit system"
+            description="Affects how weights and measurements are displayed"
+          >
+            <Select value={units} onValueChange={v => setUnits(v as "imperial" | "metric")}>
+              <SelectTrigger className="w-[120px] text-xs h-8">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="imperial">Imperial</SelectItem>
+                <SelectItem value="metric">Metric</SelectItem>
+              </SelectContent>
+            </Select>
+          </SettingRow>
+        </div>
+      </div>
+
+      {/* ── White Labeling ─────────────────────────────────────────── */}
       <SectionHeader title="White Labeling" />
       <div className="rounded-2xl border border-border bg-card p-4 space-y-4">
-        <p className="text-xs text-muted-foreground">Customize how your brand appears to clients.</p>
+        <p className="text-xs text-muted-foreground dark:text-gray-200">Customize how your brand appears to clients.</p>
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">Brand Name</label>
+            <label className="text-xs font-medium text-muted-foreground dark:text-gray-200 uppercase tracking-wide mb-1.5 block">Brand Name</label>
             <Input
               placeholder="e.g. Alex's Coaching"
               value={brand.name}
@@ -246,7 +266,7 @@ export function SettingsPage() {
             />
           </div>
           <div>
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">Tagline</label>
+            <label className="text-xs font-medium text-muted-foreground dark:text-gray-200 uppercase tracking-wide mb-1.5 block">Tagline</label>
             <Input
               placeholder="e.g. Train harder. Live better."
               value={brand.tagline}
@@ -254,6 +274,34 @@ export function SettingsPage() {
             />
           </div>
         </div>
+
+        {/* Logo */}
+        <div className="space-y-2">
+          <label className="text-xs font-medium text-muted-foreground dark:text-gray-200 uppercase tracking-wide block">Coach Logo</label>
+          {brand.logoPath && (
+            <div className="flex justify-center p-3 bg-muted/40 rounded-xl border border-border">
+              <img
+                src={`/api/storage${brand.logoPath}`}
+                alt="Coach logo"
+                className="h-14 object-contain"
+                onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+              />
+            </div>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full"
+            onClick={() => setLogoDialogOpen(true)}
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            {brand.logoPath ? "Replace logo" : "Upload logo"}
+          </Button>
+          <p className="text-xs text-muted-foreground dark:text-gray-200">
+            Your logo will appear under the Trak logo in both the coach and client apps.
+          </p>
+        </div>
+
         <Button
           size="sm"
           className="w-full"
@@ -268,40 +316,30 @@ export function SettingsPage() {
         </Button>
       </div>
 
-      <SectionHeader title="Client App Sections" />
-      <div className="rounded-2xl border border-border bg-card p-4 space-y-1">
-        <p className="text-xs text-muted-foreground mb-3">Toggle which sections your clients can see. Changes save instantly.</p>
-        {!settingsLoaded ? (
-          <p className="text-xs text-muted-foreground py-2">Loading…</p>
-        ) : (
-          <div className="space-y-1 divide-y divide-border">
-            {CLIENT_SECTIONS.map(s => (
-              <div key={s.key} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
-                <span className="text-sm font-medium">{s.label}</span>
-                <Switch
-                  checked={!hiddenSections.has(s.key)}
-                  onCheckedChange={() => toggleSection(s.key)}
-                />
-              </div>
-            ))}
-          </div>
-        )}
+      {/* ── Calls ──────────────────────────────────────────────────── */}
+      <SectionHeader title="Calls" />
+      <div className="rounded-2xl border border-border bg-card divide-y divide-border">
+        <div className="px-4">
+          <SettingRow
+            icon={<ClipboardList className="w-4 h-4" />}
+            label="Auto call log"
+            description="Automatically log a record for each video call"
+          >
+            <Switch checked={autoCallLog} onCheckedChange={setAutoCallLog} />
+          </SettingRow>
+        </div>
+        <div className="px-4">
+          <SettingRow
+            icon={<FileText className="w-4 h-4" />}
+            label="Auto call notes"
+            description="Automatically generate notes from each call"
+          >
+            <Switch checked={autoCallNotes} onCheckedChange={setAutoCallNotes} />
+          </SettingRow>
+        </div>
       </div>
 
-      <SectionHeader title="Custom Content" />
-      <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
-        <p className="text-xs text-muted-foreground">Add custom instructions, guidelines, or notes visible in the client app.</p>
-        <Textarea
-          placeholder="e.g. Weekly check-in instructions, nutrition philosophy, house rules for the program…"
-          value={customContent}
-          onChange={e => setCustomContent(e.target.value)}
-          className="min-h-[100px] resize-none text-sm"
-        />
-        <Button size="sm" className="w-full" onClick={handleSaveCustomContent} variant={settingsSaved ? "outline" : "default"}>
-          {settingsSaved ? <><CheckCircle className="w-4 h-4 mr-2 text-green-500" /> Saved!</> : <><Save className="w-4 h-4 mr-2" /> Save Custom Content</>}
-        </Button>
-      </div>
-
+      {/* ── Support ────────────────────────────────────────────────── */}
       <SectionHeader title="Support" />
       <div className="rounded-2xl border border-border bg-card divide-y divide-border">
         <div className="px-4">
@@ -322,32 +360,67 @@ export function SettingsPage() {
         </div>
       </div>
 
-      {/* Disallowed content warning */}
-      <Dialog open={disallowedOpen} onOpenChange={setDisallowedOpen}>
+      {/* ── Logo upload dialog ──────────────────────────────────────── */}
+      <input
+        ref={logoFileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleLogoFileSelect}
+      />
+      <Dialog open={logoDialogOpen} onOpenChange={open => {
+        if (!open) { setLogoPreviewUrl(null); setLogoSelectedFile(null); }
+        setLogoDialogOpen(open);
+      }}>
         <DialogContent className="max-w-sm">
-          <div className={cn("flex flex-col items-center gap-4 py-4 text-center", disallowedOpen && "animate-bounce-once")}>
-            <div className="w-14 h-14 rounded-full bg-amber-500/10 flex items-center justify-center">
-              <AlertTriangle className="w-7 h-7 text-amber-500" />
-            </div>
-            <DialogHeader>
-              <DialogTitle>Content Warning</DialogTitle>
-            </DialogHeader>
-            <p className="text-sm text-muted-foreground">
-              Your custom content may include links, phone numbers, or restricted terms that violate our platform guidelines. Please review and remove them before saving.
+          <DialogHeader>
+            <DialogTitle>Upload logo</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {logoPreviewUrl ? (
+              <div className="flex justify-center p-4 bg-muted/40 rounded-xl border border-border">
+                <img src={logoPreviewUrl} alt="Preview" className="h-20 object-contain" />
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-2 p-8 bg-muted/30 rounded-xl border border-dashed border-border text-muted-foreground">
+                <ImageIcon className="w-8 h-8" />
+                <p className="text-xs">No image selected</p>
+              </div>
+            )}
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => logoFileInputRef.current?.click()}
+            >
+              <ImageIcon className="w-4 h-4 mr-2" />
+              {logoPreviewUrl ? "Choose different image" : "Choose image"}
+            </Button>
+            <p className="text-xs text-muted-foreground text-center">
+              PNG, JPG, or SVG. Will appear under the Trak logo in both apps.
             </p>
-            <div className="flex gap-3 w-full">
-              <Button variant="outline" className="flex-1" onClick={() => setDisallowedOpen(false)}>
-                Got it — I'll edit it
-              </Button>
-              <Button className="flex-1" onClick={() => { setDisallowedOpen(false); saveCustomContent(pendingCustomContent); }}>
-                Save anyway
-              </Button>
-            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="ghost"
+              className="flex-1"
+              onClick={() => { setLogoDialogOpen(false); setLogoPreviewUrl(null); setLogoSelectedFile(null); }}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="flex-1"
+              disabled={!logoSelectedFile || logoUploading}
+              onClick={handleLogoUpload}
+            >
+              {logoUploading
+                ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Uploading…</>
+                : "Upload"}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Feedback sheet */}
+      {/* ── Feedback sheet ─────────────────────────────────────────── */}
       <Sheet open={feedbackSheetOpen} onOpenChange={open => { if (!open) setFeedbackSheetOpen(false); }}>
         <SheetContent side="bottom" className="rounded-t-2xl pb-8">
           <SheetHeader className="mb-4">
@@ -380,7 +453,7 @@ export function SettingsPage() {
         </SheetContent>
       </Sheet>
 
-      {/* Bug report sheet */}
+      {/* ── Bug report sheet ───────────────────────────────────────── */}
       <Sheet open={bugSheetOpen} onOpenChange={open => { if (!open) setBugSheetOpen(false); }}>
         <SheetContent side="bottom" className="rounded-t-2xl pb-8">
           <SheetHeader className="mb-4">

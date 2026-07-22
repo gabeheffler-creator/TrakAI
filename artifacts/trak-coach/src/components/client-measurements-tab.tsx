@@ -8,6 +8,7 @@ import {
   LineChart, Line, BarChart, Bar, Cell,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine,
 } from "recharts";
+import { useUnitSystem } from "@/hooks/use-unit-system";
 
 type TimeframeKey = "1m" | "6m" | "1y" | "all";
 
@@ -47,8 +48,20 @@ function filterByTimeframe(measurements: Measurement[], tf: TimeframeKey): Measu
   return measurements.filter(m => new Date(m.date) >= cutoff);
 }
 
-// Full ISO date in `date` for math; MM-DD in `label` for XAxis display
 type ChartPoint = { date: string; label: string; value: number };
+
+function convertMeasurement(key: CoachMetricKey, value: number, fromUnit: string, toUnit: string): number {
+  if (fromUnit === toUnit) return value;
+  if (key === "bodyFat") return value;
+  if (key === "weight") {
+    return fromUnit === "imperial"
+      ? +(value * 0.453592).toFixed(1)
+      : +(value * 2.20462).toFixed(1);
+  }
+  return fromUnit === "imperial"
+    ? +(value * 2.54).toFixed(1)
+    : +(value * 0.393701).toFixed(1);
+}
 
 function calcLastChange(data: ChartPoint[]): number | null {
   if (data.length < 2) return null;
@@ -64,7 +77,6 @@ function calcAvgRatePerWeek(data: ChartPoint[]): number | null {
   return (last.value - first.value) / weeks;
 }
 
-// Most recent entry within the 7-day window before the last entry
 function calcLast7DaysChange(data: ChartPoint[]): number | null {
   if (data.length < 2) return null;
   const last   = data[data.length - 1];
@@ -74,7 +86,6 @@ function calcLast7DaysChange(data: ChartPoint[]): number | null {
   return last.value - prev.value;
 }
 
-// Slope between the last two visible points, expressed as per-week change
 function calcSlopeLastTwo(data: ChartPoint[]): number | null {
   if (data.length < 2) return null;
   const last = data[data.length - 1];
@@ -112,28 +123,27 @@ export function ClientMeasurementsTab({ measurements }: ClientMeasurementsTabPro
   const [timeframe, setTimeframe] = useState<TimeframeKey>("6m");
   const [historyOpen, setHistoryOpen] = useState(false);
   const metricRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const { units: coachUnits } = useUnitSystem();
 
   const sortedAll = [...measurements].sort((a, b) => a.date.localeCompare(b.date));
   const filtered  = filterByTimeframe(sortedAll, timeframe);
 
-  // Pills show metrics that have ANY data across full history
   const activeMetrics = METRICS.filter(m =>
     sortedAll.some(entry => entry[m.key] != null)
   );
 
-  // History table columns: only metrics present in the filtered window
   const filteredActiveMetrics = METRICS.filter(m =>
     filtered.some(entry => entry[m.key] != null)
   );
 
-  const unitLabel = sortedAll[0]?.unit === "metric"
-    ? { weight: "kg", length: "cm" }
-    : { weight: "lbs", length: "in" };
-
   function getUnit(key: CoachMetricKey): string {
-    if (key === "weight")  return unitLabel.weight;
+    if (key === "weight")  return coachUnits === "metric" ? "kg" : "lbs";
     if (key === "bodyFat") return "%";
-    return unitLabel.length;
+    return coachUnits === "metric" ? "cm" : "in";
+  }
+
+  function toDisplayValue(key: CoachMetricKey, raw: number, storedUnit: string): number {
+    return convertMeasurement(key, raw, storedUnit, coachUnits);
   }
 
   if (measurements.length === 0) {
@@ -184,9 +194,9 @@ export function ClientMeasurementsTab({ measurements }: ClientMeasurementsTabPro
         const chartData: ChartPoint[] = filtered
           .filter(m => m[metric.key] != null)
           .map(m => ({
-            date:  m.date,          // full ISO for math
-            label: m.date.slice(5), // MM-DD for display
-            value: m[metric.key] as number,
+            date:  m.date,
+            label: m.date.slice(5),
+            value: toDisplayValue(metric.key, m[metric.key] as number, (m as any).unit ?? "imperial"),
           }));
 
         if (chartData.length === 0) return null;
@@ -230,7 +240,6 @@ export function ClientMeasurementsTab({ measurements }: ClientMeasurementsTabPro
 
                 {chartData.length >= 2 ? (
                   <>
-                    {/* Line chart with slope annotation near right edge */}
                     <div className="relative">
                       <ResponsiveContainer width="100%" height={180}>
                         <LineChart data={chartData} margin={{ top: 4, right: 8, left: -24, bottom: 0 }}>
@@ -269,7 +278,6 @@ export function ClientMeasurementsTab({ measurements }: ClientMeasurementsTabPro
                       </ResponsiveContainer>
                     </div>
 
-                    {/* Bar chart */}
                     <ResponsiveContainer width="100%" height={120}>
                       <BarChart data={chartData} margin={{ top: 0, right: 8, left: -24, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
@@ -305,7 +313,7 @@ export function ClientMeasurementsTab({ measurements }: ClientMeasurementsTabPro
         );
       })}
 
-      {/* Collapsible history table — columns limited to metrics present in filtered window */}
+      {/* Collapsible history table */}
       {filtered.length > 0 && (
         <div>
           <button
@@ -339,11 +347,14 @@ export function ClientMeasurementsTab({ measurements }: ClientMeasurementsTabPro
                     <tr key={m.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
                       <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{m.date}</td>
                       {filteredActiveMetrics.map(metric => {
-                        const val = m[metric.key];
+                        const raw = m[metric.key];
+                        const converted = raw != null
+                          ? toDisplayValue(metric.key, raw, (m as any).unit ?? "imperial")
+                          : null;
                         return (
                           <td key={metric.key} className="px-3 py-2 text-right tabular-nums">
-                            {val != null
-                              ? `${val} ${getUnit(metric.key)}`
+                            {converted != null
+                              ? `${converted.toFixed(1)} ${getUnit(metric.key)}`
                               : <span className="text-muted-foreground">—</span>}
                           </td>
                         );
