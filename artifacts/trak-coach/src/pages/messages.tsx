@@ -105,6 +105,7 @@ function RejectionCard({
               variant="outline"
               className="h-11 text-sm border-violet-300 text-violet-700 hover:bg-violet-50 px-3 gap-1.5"
               onClick={() => setSuggestOpen(true)}
+              data-testid="button-suggest-alternative"
             >
               <Lightbulb className="w-4 h-4" />
               Suggest an Alternative
@@ -116,6 +117,7 @@ function RejectionCard({
               onClick={() => {
                 leave.mutate({ clientId, taskId: task.id }, { onSuccess: onActionDone });
               }}
+              data-testid="button-leave-alone"
             >
               Leave It Alone
             </Button>
@@ -212,11 +214,12 @@ function SuggestAlternativeDialog({
             onChange={e => setAltText(e.target.value)}
             rows={3}
             className="resize-none"
+            data-testid="dialog-suggest-textarea"
           />
         </div>
         <DialogFooter className="gap-2">
           <Button variant="ghost" onClick={onClose}>Nevermind</Button>
-          <Button onClick={handleSuggest} disabled={!altText.trim() || suggest.isPending}>
+          <Button onClick={handleSuggest} disabled={!altText.trim() || suggest.isPending} data-testid="button-dialog-suggest">
             Suggest
           </Button>
         </DialogFooter>
@@ -262,10 +265,11 @@ function AssignTaskDialog({
           rows={4}
           className="resize-none"
           autoFocus
+          data-testid="dialog-assign-task-textarea"
         />
         <DialogFooter className="gap-2">
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleAssign} disabled={!text.trim() || assignTask.isPending}>
+          <Button onClick={handleAssign} disabled={!text.trim() || assignTask.isPending} data-testid="button-dialog-assign">
             Assign
           </Button>
         </DialogFooter>
@@ -320,6 +324,7 @@ function ConversationPanel({ clientId }: { clientId: number }) {
           variant="outline"
           className="h-11 text-sm gap-1.5 border-violet-300 text-violet-700 hover:bg-violet-50 px-3"
           onClick={() => setAssignOpen(true)}
+          data-testid="button-assign-task"
         >
           <ClipboardList className="w-4 h-4" />
           Assign Task

@@ -132,7 +132,7 @@ export function Dashboard() {
       </div>
 
       {activeTask && (
-        <Card className="border-violet-200 bg-violet-50 dark:bg-violet-950/30 dark:border-violet-800">
+        <Card className="border-violet-200 bg-violet-50 dark:bg-violet-950/30 dark:border-violet-800" data-testid="card-active-task">
           <CardHeader className="pb-2 pt-4 px-4">
             <CardTitle className="text-sm font-bold text-violet-700 dark:text-violet-300 flex items-center gap-2">
               <ClipboardList className="w-4 h-4" />
@@ -140,10 +140,13 @@ export function Dashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4 space-y-3">
-            <p className="text-sm leading-relaxed text-foreground">{activeTask.text}</p>
+            <p className="text-sm leading-relaxed text-foreground">
+              {(activeTask.altStatus === "accepted" && activeTask.alternativeText) ? activeTask.alternativeText : activeTask.text}
+            </p>
             <Button
               className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700"
               disabled={completeTask.isPending}
+              data-testid="button-mark-complete"
               onClick={() => {
                 completeTask.mutate(
                   { clientId: clientId!, taskId: activeTask.id },

@@ -101,6 +101,7 @@ function ClientTaskCard({
               className="h-11 text-sm flex-1"
               disabled={acceptTask.isPending}
               onClick={handleAccept}
+              data-testid="button-accept-task"
             >
               Accept
             </Button>
@@ -108,6 +109,7 @@ function ClientTaskCard({
               variant="outline"
               className="h-11 text-sm flex-1"
               onClick={() => setRejectOpen(true)}
+              data-testid="button-reject-task"
             >
               Reject
             </Button>
@@ -133,12 +135,14 @@ function ClientTaskCard({
             rows={4}
             className="resize-none"
             autoFocus
+            data-testid="dialog-reject-reason"
           />
           <DialogFooter className="gap-2">
             <Button variant="ghost" onClick={() => { setRejectOpen(false); setRejectReason(""); }}>Cancel</Button>
             <Button
               onClick={handleReject}
               disabled={!rejectReason.trim() || rejectTask.isPending}
+              data-testid="button-dialog-send-rejection"
             >
               Send
             </Button>
