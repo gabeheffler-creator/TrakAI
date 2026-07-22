@@ -34,6 +34,68 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { startOfWeek, format, parseISO } from "date-fns";
 import { QueryErrorState } from "@/components/query-error-state";
 
+// ─── Example / demo data (shown when the client has no real data yet) ────────
+
+const EXAMPLE_VOLUME_DATA = [
+  { week: "May 5",  reps: 148 },
+  { week: "May 12", reps: 172 },
+  { week: "May 19", reps: 165 },
+  { week: "May 26", reps: 210 },
+  { week: "Jun 2",  reps: 195 },
+  { week: "Jun 9",  reps: 238 },
+  { week: "Jun 16", reps: 254 },
+  { week: "Jun 23", reps: 270 },
+];
+
+const EXAMPLE_SETS_DATA = [
+  { week: "May 5",  sets: 18 },
+  { week: "May 12", sets: 21 },
+  { week: "May 19", sets: 20 },
+  { week: "May 26", sets: 25 },
+  { week: "Jun 2",  sets: 24 },
+  { week: "Jun 9",  sets: 28 },
+  { week: "Jun 16", sets: 30 },
+  { week: "Jun 23", sets: 32 },
+];
+
+const EXAMPLE_PRS = [
+  { name: "Barbell Squat",       weight: 225, unit: "lbs", reps: 5, date: "Jun 23" },
+  { name: "Conventional Deadlift", weight: 315, unit: "lbs", reps: 3, date: "Jun 16" },
+  { name: "Bench Press",         weight: 185, unit: "lbs", reps: 5, date: "Jun 23" },
+  { name: "Overhead Press",      weight: 115, unit: "lbs", reps: 5, date: "Jun 9"  },
+  { name: "Barbell Row",         weight: 155, unit: "lbs", reps: 8, date: "Jun 2"  },
+];
+
+const EXAMPLE_BODY_DATA: ChartData[] = [
+  { date: "2026-04-07", weight: 185.2, body_fat: 22.1, waist: 36.0 },
+  { date: "2026-04-21", weight: 183.8, body_fat: 21.6, waist: 35.5 },
+  { date: "2026-05-05", weight: 182.4, body_fat: 21.0, waist: 35.0 },
+  { date: "2026-05-19", weight: 181.1, body_fat: 20.5, waist: 34.6 },
+  { date: "2026-06-02", weight: 180.0, body_fat: 20.1, waist: 34.2 },
+  { date: "2026-06-16", weight: 179.0, body_fat: 19.6, waist: 33.8 },
+  { date: "2026-06-30", weight: 178.2, body_fat: 19.1, waist: 33.4 },
+];
+
+const EXAMPLE_SLEEP_DATA: ChartData[] = [
+  { date: "2026-04-07", hours: 6.5 },
+  { date: "2026-04-14", hours: 7.0 },
+  { date: "2026-04-21", hours: 6.8 },
+  { date: "2026-05-05", hours: 7.2 },
+  { date: "2026-05-19", hours: 7.0 },
+  { date: "2026-06-02", hours: 7.5 },
+  { date: "2026-06-16", hours: 7.3 },
+  { date: "2026-06-30", hours: 7.6 },
+];
+
+function ExampleBanner() {
+  return (
+    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 text-xs">
+      <span className="font-semibold shrink-0">Example data</span>
+      <span className="text-amber-700 dark:text-amber-400">— start logging to see your own stats here.</span>
+    </div>
+  );
+}
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type ChartData = { date: string; [key: string]: number | string | null };
@@ -533,44 +595,51 @@ export function StatsPage() {
       </div>
 
       {/* ═══ TRAINING TAB ═══════════════════════════════════════════════════ */}
-      {tab === "training" && (
-        <>
-          {logsError && (
-            <QueryErrorState message="Couldn't load your stats." onRetry={() => refetchLogs()} isRetrying={logsFetching} testId="button-retry-stats" />
-          )}
+      {tab === "training" && (() => {
+        const isExample = totalWorkouts === 0 && !logsError;
+        const displayVolume = isExample ? EXAMPLE_VOLUME_DATA : volumeData;
+        const displaySets  = isExample ? EXAMPLE_SETS_DATA  : setsData;
+        const displayPrCount = isExample ? EXAMPLE_PRS.length : prs.length;
+        const displayWorkouts = isExample ? 32 : totalWorkouts;
+        const displayTotalSets = isExample ? 480 : totalSets;
+        return (
+          <>
+            {logsError && (
+              <QueryErrorState message="Couldn't load your stats." onRetry={() => refetchLogs()} isRetrying={logsFetching} testId="button-retry-stats" />
+            )}
+            {isExample && <ExampleBanner />}
 
-          <div className="grid grid-cols-3 gap-3">
-            <Card>
-              <CardContent className="pt-4 pb-4 text-center">
-                <Dumbbell className="w-5 h-5 mx-auto mb-1.5 text-primary" />
-                <p className="text-2xl font-bold">{totalWorkouts}</p>
-                <p className="text-xs text-muted-foreground">Workouts</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-4 pb-4 text-center">
-                <TrendingUp className="w-5 h-5 mx-auto mb-1.5 text-primary" />
-                <p className="text-2xl font-bold">{totalSets}</p>
-                <p className="text-xs text-muted-foreground">Total sets</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-4 pb-4 text-center">
-                <Trophy className="w-5 h-5 mx-auto mb-1.5 text-primary" />
-                <p className="text-2xl font-bold">{prs.length}</p>
-                <p className="text-xs text-muted-foreground">PRs tracked</p>
-              </CardContent>
-            </Card>
-          </div>
+            <div className="grid grid-cols-3 gap-3">
+              <Card>
+                <CardContent className="pt-4 pb-4 text-center">
+                  <Dumbbell className="w-5 h-5 mx-auto mb-1.5 text-primary" />
+                  <p className="text-2xl font-bold">{displayWorkouts}</p>
+                  <p className="text-xs text-muted-foreground">Workouts</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4 pb-4 text-center">
+                  <TrendingUp className="w-5 h-5 mx-auto mb-1.5 text-primary" />
+                  <p className="text-2xl font-bold">{displayTotalSets}</p>
+                  <p className="text-xs text-muted-foreground">Total sets</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4 pb-4 text-center">
+                  <Trophy className="w-5 h-5 mx-auto mb-1.5 text-primary" />
+                  <p className="text-2xl font-bold">{displayPrCount}</p>
+                  <p className="text-xs text-muted-foreground">PRs tracked</p>
+                </CardContent>
+              </Card>
+            </div>
 
-          {volumeData.length > 1 && (
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base flex items-center gap-2"><TrendingUp className="w-4 h-4 text-primary" />Rep Volume by Week</CardTitle>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={180}>
-                  <BarChart data={volumeData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                  <BarChart data={displayVolume} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                     <XAxis dataKey="week" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
                     <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
@@ -580,16 +649,14 @@ export function StatsPage() {
                 </ResponsiveContainer>
               </CardContent>
             </Card>
-          )}
 
-          {setsData.length > 1 && (
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base flex items-center gap-2"><Dumbbell className="w-4 h-4 text-primary" />Sets per Week</CardTitle>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={180}>
-                  <BarChart data={setsData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                  <BarChart data={displaySets} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                     <XAxis dataKey="week" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
                     <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
@@ -599,40 +666,47 @@ export function StatsPage() {
                 </ResponsiveContainer>
               </CardContent>
             </Card>
-          )}
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2"><Trophy className="w-4 h-4 text-primary" />Personal Records</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-0">
-              {prs.length === 0 && <p className="text-sm text-muted-foreground py-2">No weighted sets logged yet.</p>}
-              {prs.map(([name, pr], i) => (
-                <div key={name} className="flex items-center gap-3 py-2.5 border-b border-border/50 last:border-0">
-                  <span className="text-xs text-muted-foreground w-5 text-right flex-shrink-0">{i + 1}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{name}</p>
-                    <p className="text-xs text-muted-foreground">{pr.date}</p>
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    <p className="text-sm font-bold">{pr.weight} {pr.unit}</p>
-                    <p className="text-xs text-muted-foreground">{pr.reps} reps</p>
-                  </div>
-                  {i === 0 && <Badge className="flex-shrink-0 text-xs">Top</Badge>}
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          {totalWorkouts === 0 && !logsError && (
-            <div className="text-center py-12 text-muted-foreground">
-              <Dumbbell className="w-10 h-10 mx-auto mb-3 opacity-20" />
-              <p className="font-medium">No workouts yet</p>
-              <p className="text-sm mt-1">Log a workout to see your stats here.</p>
-            </div>
-          )}
-        </>
-      )}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2"><Trophy className="w-4 h-4 text-primary" />Personal Records</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-0">
+                {isExample
+                  ? EXAMPLE_PRS.map((pr, i) => (
+                      <div key={pr.name} className="flex items-center gap-3 py-2.5 border-b border-border/50 last:border-0">
+                        <span className="text-xs text-muted-foreground w-5 text-right flex-shrink-0">{i + 1}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{pr.name}</p>
+                          <p className="text-xs text-muted-foreground">{pr.date}</p>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-sm font-bold">{pr.weight} {pr.unit}</p>
+                          <p className="text-xs text-muted-foreground">{pr.reps} reps</p>
+                        </div>
+                        {i === 0 && <Badge className="flex-shrink-0 text-xs">Top</Badge>}
+                      </div>
+                    ))
+                  : prs.map(([name, pr], i) => (
+                      <div key={name} className="flex items-center gap-3 py-2.5 border-b border-border/50 last:border-0">
+                        <span className="text-xs text-muted-foreground w-5 text-right flex-shrink-0">{i + 1}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{name}</p>
+                          <p className="text-xs text-muted-foreground">{pr.date}</p>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-sm font-bold">{pr.weight} {pr.unit}</p>
+                          <p className="text-xs text-muted-foreground">{pr.reps} reps</p>
+                        </div>
+                        {i === 0 && <Badge className="flex-shrink-0 text-xs">Top</Badge>}
+                      </div>
+                    ))
+                }
+              </CardContent>
+            </Card>
+          </>
+        );
+      })()}
 
       {/* ═══ BODY TAB ═══════════════════════════════════════════════════════ */}
       {tab === "body" && (
@@ -661,122 +735,143 @@ export function StatsPage() {
             )}
           </div>
 
-          {!hasMeasurements && !hasSleep && !hasWorkouts && !measurementsError && !sleepError && (
-            <div className="text-center py-16 text-muted-foreground">
-              <TrendingUp className="w-12 h-12 mx-auto mb-4 opacity-20" />
-              <p>No data yet. Start logging workouts and measurements!</p>
-            </div>
-          )}
+          {(() => {
+            const isBodyExample = !hasMeasurements && !hasSleep && !hasWorkouts && !measurementsError && !sleepError;
+            const bodyData = isBodyExample ? EXAMPLE_BODY_DATA : measurementData;
+            const exSleepData = isBodyExample ? EXAMPLE_SLEEP_DATA : sleepData;
+            const exSleepPoints = isBodyExample
+              ? EXAMPLE_SLEEP_DATA.map(d => ({ date: d.date as string, value: d.hours as number }))
+              : sleepPoints;
+            const showMeasurements = isBodyExample || hasMeasurements;
+            const showSleep = isBodyExample || (hasSleep && exSleepData.length >= 2);
+            const showWorkouts = !isBodyExample && hasWorkouts;
 
-          {hasMeasurements && (
-            <div className="grid grid-cols-3 gap-3">
-              <StatCard title="Starting Weight" value={firstWeightDisplay != null ? `${firstWeightDisplay} ${weightLabel}` : "—"} sub={first?.date} />
-              <StatCard title="Current Weight" value={lastWeightDisplay != null ? `${lastWeightDisplay} ${weightLabel}` : "—"} sub={last?.date} />
-              <StatCard title="Total Change" value={weightDelta != null ? `${Math.abs(weightDelta)} ${weightLabel}` : "—"} sub={weightDelta != null ? (weightDelta < 0 ? "lost" : "gained") : undefined} delta={weightDelta} deltaUnit={weightLabel} />
-            </div>
-          )}
+            const exFirst = bodyData[0];
+            const exLast  = bodyData[bodyData.length - 1];
+            const exFirstWeight = exFirst?.weight != null ? Number(exFirst.weight) : null;
+            const exLastWeight  = exLast?.weight  != null ? Number(exLast.weight)  : null;
+            const exDelta = exFirstWeight != null && exLastWeight != null
+              ? Number((exLastWeight - exFirstWeight).toFixed(1)) : null;
 
-          {bodyView === "history" && hasMeasurements && (
-            <div className="space-y-4">
-              {rateRows.length > 0 && (
-                <Card>
-                  <CardHeader className="pb-1 pt-3 px-4"><CardTitle className="text-sm font-semibold">Avg rate of change</CardTitle></CardHeader>
-                  <CardContent className="px-4 pb-3">
-                    {rateRows.map(r => <RateRow key={r.label} label={r.label} rate={r.rate} unit={r.unit} lowerIsBetter={r.lowerIsBetter} />)}
-                  </CardContent>
-                </Card>
-              )}
-              <h2 className="text-base font-semibold">Measurement entries</h2>
-              <HistoryList entries={measurementData as MeasurementEntry[]} charts={MEASUREMENT_CHARTS} photosByDate={photosByDate} />
-            </div>
-          )}
+            return (
+              <>
+                {isBodyExample && <ExampleBanner />}
 
-          {bodyView === "charts" && (
-            <>
-              {hasMeasurements && measurementData.length >= 2 && (
-                <div>
-                  <h2 className="text-base font-semibold mb-4">Body Measurements</h2>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {MEASUREMENT_CHARTS.map(({ key, label, color, unit, lowerIsBetter }) => {
-                      const points = measurementData.filter(d => d[key] != null).map(d => ({ date: d.date as string, value: d[key] as number }));
-                      if (points.length === 0) return null;
-                      const firstVal = points[0].value;
-                      const lastVal = points[points.length - 1].value;
-                      const diff = lastVal - firstVal;
-                      const rate = weeklyRate(points);
-                      const lwDelta = lastWeekDelta(points);
-                      const deltas = rolling7dDeltas(points);
-                      return (
-                        <Card key={key}>
+                {showMeasurements && (
+                  <div className="grid grid-cols-3 gap-3">
+                    <StatCard title="Starting Weight"
+                      value={exFirstWeight != null ? `${isBodyExample ? exFirstWeight : firstWeightDisplay} ${weightLabel}` : "—"}
+                      sub={exFirst?.date as string | undefined}
+                    />
+                    <StatCard title="Current Weight"
+                      value={exLastWeight != null ? `${isBodyExample ? exLastWeight : lastWeightDisplay} ${weightLabel}` : "—"}
+                      sub={exLast?.date as string | undefined}
+                    />
+                    <StatCard title="Total Change"
+                      value={exDelta != null ? `${Math.abs(isBodyExample ? exDelta : (weightDelta ?? exDelta))} ${weightLabel}` : "—"}
+                      sub={exDelta != null ? ((isBodyExample ? exDelta : weightDelta ?? exDelta) < 0 ? "lost" : "gained") : undefined}
+                      delta={isBodyExample ? exDelta : weightDelta}
+                      deltaUnit={weightLabel}
+                    />
+                  </div>
+                )}
+
+                {bodyView === "history" && showMeasurements && (
+                  <div className="space-y-4">
+                    <h2 className="text-base font-semibold">Measurement entries</h2>
+                    <HistoryList entries={bodyData as MeasurementEntry[]} charts={MEASUREMENT_CHARTS} photosByDate={isBodyExample ? {} : photosByDate} />
+                  </div>
+                )}
+
+                {bodyView === "charts" && (
+                  <>
+                    {showMeasurements && bodyData.length >= 2 && (
+                      <div>
+                        <h2 className="text-base font-semibold mb-4">Body Measurements</h2>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          {MEASUREMENT_CHARTS.map(({ key, label, color, unit, lowerIsBetter }) => {
+                            const points = bodyData.filter(d => d[key] != null).map(d => ({ date: d.date as string, value: d[key] as number }));
+                            if (points.length === 0) return null;
+                            const firstVal = points[0].value;
+                            const lastVal = points[points.length - 1].value;
+                            const diff = lastVal - firstVal;
+                            const rate = weeklyRate(points);
+                            const lwDelta = lastWeekDelta(points);
+                            const deltas = rolling7dDeltas(points);
+                            return (
+                              <Card key={key}>
+                                <CardHeader className="pb-0 pt-3 px-4">
+                                  <div className="flex items-center justify-between">
+                                    <CardTitle className="text-sm font-semibold">{label}</CardTitle>
+                                    <div className="flex items-baseline gap-1.5">
+                                      <span className="text-sm font-bold">{lastVal} {unit}</span>
+                                      {Math.abs(diff) > 0.05 && (
+                                        <span className={`text-xs font-medium ${lowerIsBetter ? diff < 0 ? "text-emerald-500" : "text-red-400" : diff > 0 ? "text-emerald-500" : "text-red-400"}`}>
+                                          {diff > 0 ? "+" : ""}{diff.toFixed(1)}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-3 mt-1 flex-wrap">
+                                    <RateChip rate={rate} unit={unit} lowerIsBetter={lowerIsBetter} />
+                                    <span className="text-muted-foreground text-xs">·</span>
+                                    <LastWeekChip delta={lwDelta} unit={unit} lowerIsBetter={lowerIsBetter} />
+                                  </div>
+                                </CardHeader>
+                                <CardContent className="pt-2 pb-3 px-2">
+                                  <MiniLineChart data={bodyData} dataKey={key} color={color} unit={unit} />
+                                  <DeltaHistoryChart deltas={deltas} unit={unit} lowerIsBetter={lowerIsBetter} />
+                                </CardContent>
+                              </Card>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {showSleep && (
+                      <div>
+                        <h2 className="text-base font-semibold mb-3">Sleep</h2>
+                        <Card>
                           <CardHeader className="pb-0 pt-3 px-4">
                             <div className="flex items-center justify-between">
-                              <CardTitle className="text-sm font-semibold">{label}</CardTitle>
-                              <div className="flex items-baseline gap-1.5">
-                                <span className="text-sm font-bold">{lastVal} {unit}</span>
-                                {Math.abs(diff) > 0.05 && (
-                                  <span className={`text-xs font-medium ${lowerIsBetter ? diff < 0 ? "text-emerald-500" : "text-red-400" : diff > 0 ? "text-emerald-500" : "text-red-400"}`}>
-                                    {diff > 0 ? "+" : ""}{diff.toFixed(1)}
-                                  </span>
-                                )}
-                              </div>
+                              <CardTitle className="text-sm font-semibold">Hours slept</CardTitle>
+                              <span className="text-sm font-bold">{Number(exSleepData[exSleepData.length - 1]?.hours).toFixed(1)} hrs</span>
                             </div>
                             <div className="flex items-center gap-3 mt-1 flex-wrap">
-                              <RateChip rate={rate} unit={unit} lowerIsBetter={lowerIsBetter} />
+                              <RateChip rate={weeklyRate(exSleepPoints)} unit="hrs" lowerIsBetter={false} />
                               <span className="text-muted-foreground text-xs">·</span>
-                              <LastWeekChip delta={lwDelta} unit={unit} lowerIsBetter={lowerIsBetter} />
+                              <LastWeekChip delta={lastWeekDelta(exSleepPoints)} unit="hrs" lowerIsBetter={false} />
                             </div>
                           </CardHeader>
                           <CardContent className="pt-2 pb-3 px-2">
-                            <MiniLineChart data={measurementData} dataKey={key} color={color} unit={unit} />
-                            <DeltaHistoryChart deltas={deltas} unit={unit} lowerIsBetter={lowerIsBetter} />
+                            <MiniLineChart data={exSleepData} dataKey="hours" color="hsl(200,70%,50%)" unit="hrs" />
+                            <DeltaHistoryChart deltas={rolling7dDeltas(exSleepPoints)} unit="hrs" lowerIsBetter={false} />
                           </CardContent>
                         </Card>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {hasSleep && sleepData.length >= 2 && (
-                <div>
-                  <h2 className="text-base font-semibold mb-3">Sleep</h2>
-                  <Card>
-                    <CardHeader className="pb-0 pt-3 px-4">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-sm font-semibold">Hours slept</CardTitle>
-                        <span className="text-sm font-bold">{Number(sleepData[sleepData.length - 1]?.hours).toFixed(1)} hrs</span>
                       </div>
-                      <div className="flex items-center gap-3 mt-1 flex-wrap">
-                        <RateChip rate={weeklyRate(sleepPoints)} unit="hrs" lowerIsBetter={false} />
-                        <span className="text-muted-foreground text-xs">·</span>
-                        <LastWeekChip delta={lastWeekDelta(sleepPoints)} unit="hrs" lowerIsBetter={false} />
-                      </div>
-                    </CardHeader>
-                    <CardContent className="pt-2 pb-3 px-2">
-                      <MiniLineChart data={sleepData} dataKey="hours" color="hsl(200,70%,50%)" unit="hrs" />
-                      <DeltaHistoryChart deltas={rolling7dDeltas(sleepPoints)} unit="hrs" lowerIsBetter={false} />
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
+                    )}
 
-              {hasWorkouts && (
-                <div>
-                  <h2 className="text-base font-semibold mb-3">Workouts</h2>
-                  <div className="grid grid-cols-2 gap-3">
-                    <StatCard title="Total Sessions" value={sortedWorkouts.length} sub="in timeframe" />
-                    <Card>
-                      <CardContent className="pt-4 pb-4 text-center">
-                        <p className="text-xs text-muted-foreground mb-1">Avg Frequency</p>
-                        <p className="text-2xl font-bold">{workoutRate != null ? workoutRate.toFixed(1) : "—"}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">sessions/week</p>
-                      </CardContent>
-                    </Card>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
+                    {showWorkouts && (
+                      <div>
+                        <h2 className="text-base font-semibold mb-3">Workouts</h2>
+                        <div className="grid grid-cols-2 gap-3">
+                          <StatCard title="Total Sessions" value={sortedWorkouts.length} sub="in timeframe" />
+                          <Card>
+                            <CardContent className="pt-4 pb-4 text-center">
+                              <p className="text-xs text-muted-foreground mb-1">Avg Frequency</p>
+                              <p className="text-2xl font-bold">{workoutRate != null ? workoutRate.toFixed(1) : "—"}</p>
+                              <p className="text-xs text-muted-foreground mt-0.5">sessions/week</p>
+                            </CardContent>
+                          </Card>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </>
+            );
+          })()}
         </>
       )}
 
