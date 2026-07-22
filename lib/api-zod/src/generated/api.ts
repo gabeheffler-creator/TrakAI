@@ -1118,6 +1118,22 @@ export const CreateWorkoutLogBody = zod.object({
 
 
 /**
+ * @summary Get the last logged set per exercise for the most recent completed workout on a program day
+ */
+export const GetLastWorkoutPerformanceParams = zod.object({
+  "clientId": zod.coerce.number(),
+  "programDayId": zod.coerce.number()
+})
+
+export const GetLastWorkoutPerformanceResponseItem = zod.object({
+  "exerciseId": zod.number(),
+  "reps": zod.number(),
+  "weight": zod.number().optional()
+})
+export const GetLastWorkoutPerformanceResponse = zod.array(GetLastWorkoutPerformanceResponseItem)
+
+
+/**
  * @summary Get a workout log with set details
  */
 export const GetWorkoutLogParams = zod.object({

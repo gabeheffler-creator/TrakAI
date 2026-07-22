@@ -677,6 +677,12 @@ export interface SetLogInput {
   notes?: string;
 }
 
+export interface LastWorkoutPerformance {
+  exerciseId: number;
+  reps: number;
+  weight?: number;
+}
+
 export interface CoachNote {
   id: number;
   clientId: number;

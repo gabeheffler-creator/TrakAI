@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { workoutLogsTable, setLogsTable, exercisesTable } from "@workspace/db";
-import { eq, asc, inArray, and } from "drizzle-orm";
+import { eq, asc, inArray, and, desc } from "drizzle-orm";
 import {
   ListWorkoutLogsParams,
   CreateWorkoutLogParams,
@@ -65,6 +65,47 @@ router.post("/clients/:clientId/workout-logs", requireClientOwnership(), async (
   } catch (err) {
     req.log.error(err);
     res.status(400).json({ error: "Failed to create workout log" });
+  }
+});
+
+router.get("/clients/:clientId/workout-logs/last-performance/:programDayId", requireClientOwnership(), async (req, res) => {
+  try {
+    const clientId = Number(req.params.clientId);
+    const programDayId = Number(req.params.programDayId);
+    if (!programDayId) { res.status(400).json({ error: "programDayId is required" }); return; }
+
+    const [log] = await db
+      .select({ id: workoutLogsTable.id })
+      .from(workoutLogsTable)
+      .where(and(
+        eq(workoutLogsTable.clientId, clientId),
+        eq(workoutLogsTable.programDayId, programDayId),
+        eq(workoutLogsTable.status, "completed"),
+      ))
+      .orderBy(desc(workoutLogsTable.date), desc(workoutLogsTable.id))
+      .limit(1);
+
+    if (!log) { res.json([]); return; }
+
+    const sets = await db
+      .select()
+      .from(setLogsTable)
+      .where(eq(setLogsTable.workoutLogId, log.id))
+      .orderBy(asc(setLogsTable.setNumber));
+
+    const byExercise: Record<number, typeof sets[0]> = {};
+    for (const s of sets) {
+      byExercise[s.exerciseId] = s;
+    }
+
+    res.json(Object.values(byExercise).map(s => ({
+      exerciseId: s.exerciseId,
+      reps: s.reps,
+      weight: s.weight ? Number(s.weight) : null,
+    })));
+  } catch (err) {
+    req.log.error(err);
+    res.status(500).json({ error: "Failed to get last workout performance" });
   }
 });
 

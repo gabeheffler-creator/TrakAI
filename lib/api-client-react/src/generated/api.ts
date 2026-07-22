@@ -49,6 +49,7 @@ import type {
   HealthStatus,
   InviteInfo,
   InviteLink,
+  LastWorkoutPerformance,
   LoginInput,
   LoginResult,
   MarkReadInput,
@@ -3799,6 +3800,88 @@ export const useCreateWorkoutLog = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getCreateWorkoutLogMutationOptions(options));
     }
+
+export const getGetLastWorkoutPerformanceUrl = (clientId: number,
+    programDayId: number,) => {
+
+
+
+
+  return `/api/clients/${clientId}/workout-logs/last-performance/${programDayId}`
+}
+
+/**
+ * @summary Get the last logged set per exercise for the most recent completed workout on a program day
+ */
+export const getLastWorkoutPerformance = async (clientId: number,
+    programDayId: number, options?: RequestInit): Promise<LastWorkoutPerformance[]> => {
+
+  return customFetch<LastWorkoutPerformance[]>(getGetLastWorkoutPerformanceUrl(clientId,programDayId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetLastWorkoutPerformanceQueryKey = (clientId: number,
+    programDayId: number,) => {
+    return [
+    `/api/clients/${clientId}/workout-logs/last-performance/${programDayId}`
+    ] as const;
+    }
+
+
+export const getGetLastWorkoutPerformanceQueryOptions = <TData = Awaited<ReturnType<typeof getLastWorkoutPerformance>>, TError = ErrorType<unknown>>(clientId: number,
+    programDayId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLastWorkoutPerformance>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetLastWorkoutPerformanceQueryKey(clientId,programDayId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getLastWorkoutPerformance>>> = ({ signal }) => getLastWorkoutPerformance(clientId,programDayId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(clientId && programDayId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getLastWorkoutPerformance>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetLastWorkoutPerformanceQueryResult = NonNullable<Awaited<ReturnType<typeof getLastWorkoutPerformance>>>
+export type GetLastWorkoutPerformanceQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get the last logged set per exercise for the most recent completed workout on a program day
+ */
+
+export function useGetLastWorkoutPerformance<TData = Awaited<ReturnType<typeof getLastWorkoutPerformance>>, TError = ErrorType<unknown>>(
+ clientId: number,
+    programDayId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLastWorkoutPerformance>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetLastWorkoutPerformanceQueryOptions(clientId,programDayId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getGetWorkoutLogUrl = (clientId: number,
     logId: number,) => {

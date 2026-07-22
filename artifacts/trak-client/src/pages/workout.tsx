@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useWorkoutPrefs } from "@/hooks/use-workout-prefs";
 import { useClientId } from "@/hooks/use-client-id";
@@ -10,7 +10,9 @@ import {
   useLogSet,
   useListExercises,
   useGetLatestSleepLog,
+  useGetLastWorkoutPerformance,
   getGetLatestSleepLogQueryKey,
+  getGetLastWorkoutPerformanceQueryKey,
   getListExercisesQueryKey,
   getGetClientProgramAssignmentQueryKey,
   getGetProgramQueryKey,
@@ -39,6 +41,7 @@ interface SetState {
   isUnilateral: boolean;
   logged: boolean;
   rpe: number | null;
+  isPrevious: boolean;
 }
 
 function decodeExMeta(raw: string | null | undefined): { laterality: string; equipment: string; grip: string } {
@@ -513,6 +516,20 @@ export function WorkoutPage() {
   const currentEx = exercises[currentExIdx];
   const currentSets = sets[currentExIdx] ?? [];
 
+  const { data: lastPerformanceData } = useGetLastWorkoutPerformance(clientId!, selectedDay?.id ?? 0, {
+    query: { enabled: !!clientId && !!selectedDay?.id, queryKey: getGetLastWorkoutPerformanceQueryKey(clientId!, selectedDay?.id ?? 0) }
+  });
+  const prevPerfMap = useMemo(() => {
+    const m: Record<number, { weight: string; reps: string }> = {};
+    for (const p of lastPerformanceData ?? []) {
+      m[p.exerciseId] = {
+        weight: p.weight != null ? String(p.weight) : "",
+        reps: String(p.reps),
+      };
+    }
+    return m;
+  }, [lastPerformanceData]);
+
   const stopRestTimer = useCallback(() => {
     if (restIntervalRef.current) {
       clearInterval(restIntervalRef.current);
@@ -551,7 +568,7 @@ export function WorkoutPage() {
     };
   }, []);
 
-  const initSets = useCallback((dayExercises: typeof exercises, applyAdjust: boolean, adjustPct: number) => {
+  const initSets = useCallback((dayExercises: typeof exercises, applyAdjust: boolean, adjustPct: number, prevPerf: Record<number, { weight: string; reps: string }> = {}) => {
     const initial: SetState[][] = dayExercises.map(ex => {
       const reps = ex.reps.includes("-") ? ex.reps.split("-")[1] : ex.reps;
       const meta = decodeExMeta(ex.notes);
@@ -559,15 +576,17 @@ export function WorkoutPage() {
       const setCount = applyAdjust
         ? Math.max(1, Math.round(ex.sets * (1 - adjustPct / 100)))
         : ex.sets;
+      const prev = prevPerf[ex.exerciseId];
       return Array.from({ length: setCount }, () => ({
         targetReps: reps,
-        weight: ex.weight ?? "",
-        reps,
+        weight: prev?.weight !== undefined ? prev.weight : (ex.weight ?? ""),
+        reps: prev?.reps !== undefined ? prev.reps : reps,
         leftReps: "",
         rightReps: "",
         isUnilateral,
         logged: false,
         rpe: null,
+        isPrevious: !!prev,
       }));
     });
     setSets(initial);
@@ -597,7 +616,7 @@ export function WorkoutPage() {
         setWorkoutLogId(log.id);
         setCurrentExIdx(0);
         setSwappedExercises({});
-        initSets(exercises, shouldAdjust, pct);
+        initSets(exercises, shouldAdjust, pct, prevPerfMap);
         setMode("active");
       },
       onError: () => toast({ title: "Failed to start workout", variant: "destructive" })
@@ -676,7 +695,7 @@ export function WorkoutPage() {
   const updateWeight = (setIdx: number, value: string) => {
     setSets(prev => {
       const next = prev.map(arr => [...arr]);
-      next[currentExIdx] = next[currentExIdx].map((s, i) => i === setIdx ? { ...s, weight: value } : s);
+      next[currentExIdx] = next[currentExIdx].map((s, i) => i === setIdx ? { ...s, weight: value, isPrevious: false } : s);
       return next;
     });
   };
@@ -684,7 +703,7 @@ export function WorkoutPage() {
   const updateReps = (setIdx: number, value: string) => {
     setSets(prev => {
       const next = prev.map(arr => [...arr]);
-      next[currentExIdx] = next[currentExIdx].map((s, i) => i === setIdx ? { ...s, reps: value } : s);
+      next[currentExIdx] = next[currentExIdx].map((s, i) => i === setIdx ? { ...s, reps: value, isPrevious: false } : s);
       return next;
     });
   };
@@ -750,7 +769,7 @@ export function WorkoutPage() {
   const updateWeightForEx = (exIdx: number, setIdx: number, value: string) => {
     setSets(prev => {
       const next = prev.map(arr => [...arr]);
-      next[exIdx] = next[exIdx].map((s, i) => i === setIdx ? { ...s, weight: value } : s);
+      next[exIdx] = next[exIdx].map((s, i) => i === setIdx ? { ...s, weight: value, isPrevious: false } : s);
       return next;
     });
   };
@@ -758,7 +777,7 @@ export function WorkoutPage() {
   const updateRepsForEx = (exIdx: number, setIdx: number, value: string) => {
     setSets(prev => {
       const next = prev.map(arr => [...arr]);
-      next[exIdx] = next[exIdx].map((s, i) => i === setIdx ? { ...s, reps: value } : s);
+      next[exIdx] = next[exIdx].map((s, i) => i === setIdx ? { ...s, reps: value, isPrevious: false } : s);
       return next;
     });
   };
@@ -1314,7 +1333,7 @@ export function WorkoutPage() {
                                       value={s.weight}
                                       onChange={e => updateWeightForEx(exIdx, i, e.target.value)}
                                       placeholder="lbs"
-                                      className="h-10 text-center text-sm font-semibold rounded-xl"
+                                      className={cn("h-10 text-center text-sm font-semibold rounded-xl", s.isPrevious && "text-muted-foreground italic")}
                                     />
                                   )}
                                 </div>
@@ -1354,7 +1373,7 @@ export function WorkoutPage() {
                                         value={s.reps}
                                         onChange={e => updateRepsForEx(exIdx, i, e.target.value)}
                                         placeholder={s.targetReps}
-                                        className="h-10 text-center text-sm font-semibold rounded-xl"
+                                        className={cn("h-10 text-center text-sm font-semibold rounded-xl", s.isPrevious && "text-muted-foreground italic")}
                                       />
                                     )}
                                   </div>
@@ -1700,7 +1719,7 @@ export function WorkoutPage() {
                               value={s.weight}
                               onChange={e => updateWeight(i, e.target.value)}
                               placeholder="lbs"
-                              className="h-12 text-center text-base font-semibold rounded-xl"
+                              className={cn("h-12 text-center text-base font-semibold rounded-xl", s.isPrevious && "text-muted-foreground italic")}
                             />
                           )}
                         </div>
@@ -1737,7 +1756,7 @@ export function WorkoutPage() {
                                 value={s.reps}
                                 onChange={e => updateReps(i, e.target.value)}
                                 placeholder={s.targetReps}
-                                className="h-12 text-center text-base font-semibold rounded-xl"
+                                className={cn("h-12 text-center text-base font-semibold rounded-xl", s.isPrevious && "text-muted-foreground italic")}
                               />
                             )}
                           </div>

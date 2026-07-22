@@ -50,6 +50,7 @@ export * from './healthStatus';
 export * from './inviteAcceptResult';
 export * from './inviteInfo';
 export * from './inviteLink';
+export * from './lastWorkoutPerformance';
 export * from './loginInput';
 export * from './loginResult';
 export * from './loginResultRole';

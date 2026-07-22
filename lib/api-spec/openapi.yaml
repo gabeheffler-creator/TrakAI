@@ -1136,6 +1136,32 @@ paths:
               schema:
                 $ref: "#/components/schemas/WorkoutLog"
 
+  /clients/{clientId}/workout-logs/last-performance/{programDayId}:
+    get:
+      operationId: getLastWorkoutPerformance
+      tags: [workouts]
+      summary: Get the last logged set per exercise for the most recent completed workout on a program day
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: programDayId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Last performance per exercise (empty array if no prior session)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LastWorkoutPerformance"
+
   /clients/{clientId}/workout-logs/{logId}:
     get:
       operationId: getWorkoutLog
@@ -3141,6 +3167,17 @@ components:
           type: integer
         notes:
           type: string
+
+    LastWorkoutPerformance:
+      type: object
+      required: [exerciseId, reps]
+      properties:
+        exerciseId:
+          type: integer
+        reps:
+          type: integer
+        weight:
+          type: number
 
     CoachNote:
       type: object
