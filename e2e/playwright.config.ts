@@ -1,4 +1,4 @@
-import { defineConfig } from "@playwright/test";
+import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./tests",
@@ -9,6 +9,25 @@ export default defineConfig({
   reporter: "list",
   use: {
     baseURL: "http://localhost:80",
-    extraHTTPHeaders: { "Content-Type": "application/json" },
+    trace: "on-first-retry",
   },
+  projects: [
+    {
+      name: "chromium",
+      use: {
+        ...devices["Desktop Chrome"],
+        launchOptions: {
+          executablePath:
+            process.env.REPLIT_PLAYWRIGHT_CHROMIUM_EXECUTABLE ?? undefined,
+          headless: true,
+          args: [
+            "--no-sandbox",
+            "--disable-setuid-sandbox",
+            "--disable-dev-shm-usage",
+            "--disable-gpu",
+          ],
+        },
+      },
+    },
+  ],
 });

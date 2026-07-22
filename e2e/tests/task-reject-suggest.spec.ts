@@ -1,122 +1,129 @@
 /**
- * E2E: Rejection path — client rejects, coach suggests alternative, client accepts.
+ * E2E — Rejection → suggest alternative → client accepts alternative.
  *
- * Uses Playwright APIRequestContext (no browser binary required).
- * Tests the full server-side lifecycle against the running dev server.
+ * Uses real Chromium browser (via REPLIT_PLAYWRIGHT_CHROMIUM_EXECUTABLE).
+ * Two browser contexts share the same Chromium process but have isolated cookies.
  *
- * Demo credentials: coach/coach  |  sam/sam (client id 83)
+ * Client: sam / sam (clientId 83)
  */
-import { test, expect } from "@playwright/test";
+import { test, expect, type Browser } from "@playwright/test";
+import { loginCoach, loginClient } from "./helpers/login";
 
-const CLIENT_ID = 83;
+const COACH_MESSAGES_URL = "/messages/83";
+const TASK_TEXT = `E2E reject-suggest ${Date.now()}`;
+const ALT_TEXT = `E2E alternative ${Date.now()}`;
+
+async function makePage(browser: Browser) {
+  const ctx = await browser.newContext();
+  return { ctx, page: await ctx.newPage() };
+}
 
 test.describe("Task rejection → suggest alternative", () => {
-  test("client rejects → coach suggests alternative → client accepts alternative", async ({
-    request,
-  }) => {
-    const taskText = `E2E reject ${Date.now()}`;
-    const altText = "Walk 10 minutes each morning instead";
-    const rejectReason = "I can't do this because of my schedule";
+  test(
+    "client rejects → coach suggests alternative → client accepts alternative → dashboard shows alt text",
+    async ({ browser }) => {
+      const { ctx: coachCtx, page: coachPage } = await makePage(browser);
+      const { ctx: clientCtx, page: clientPage } = await makePage(browser);
 
-    // ── Coach: log in and assign task ────────────────────────────────────────
-    const coachLoginRes = await request.post("/api/auth/coach/login", {
-      data: { username: "coach", password: "coach" },
-    });
-    expect(coachLoginRes.ok()).toBe(true);
+      try {
+        // ── Step 1: Coach assigns task via UI ────────────────────────────────
+        await loginCoach(coachPage);
+        await coachPage.goto(COACH_MESSAGES_URL);
 
-    const assignRes = await request.post(`/api/clients/${CLIENT_ID}/tasks`, {
-      data: { text: taskText },
-    });
-    expect(assignRes.ok()).toBe(true);
-    const task = await assignRes.json();
-    expect(task.status).toBe("pending");
+        await coachPage.waitForSelector('[data-testid="button-assign-task"]');
+        await coachPage.click('[data-testid="button-assign-task"]');
 
-    // ── Verify: task_assigned message in thread ───────────────────────────────
-    const messagesAfterAssign: any[] = await (
-      await request.get(`/api/clients/${CLIENT_ID}/messages`)
-    ).json();
-    const assignedMsg = messagesAfterAssign.find(
-      (m) => m.messageType === "task_assigned" && m.taskId === task.id,
-    );
-    expect(assignedMsg).toBeDefined();
+        await coachPage.waitForSelector('[data-testid="dialog-assign-task-textarea"]');
+        await coachPage.fill('[data-testid="dialog-assign-task-textarea"]', TASK_TEXT);
+        await coachPage.click('[data-testid="button-dialog-assign"]');
 
-    // ── Client: log in and reject ─────────────────────────────────────────────
-    const clientLoginRes = await request.post("/api/auth/client/login", {
-      data: { username: "sam", password: "sam" },
-    });
-    expect(clientLoginRes.ok()).toBe(true);
+        // Coach sees task card in thread
+        await expect(coachPage.locator(`text="${TASK_TEXT}"`).first()).toBeVisible({
+          timeout: 15_000,
+        });
 
-    const rejectRes = await request.patch(
-      `/api/clients/${CLIENT_ID}/tasks/${task.id}/reject`,
-      { data: { reason: rejectReason } },
-    );
-    expect(rejectRes.ok()).toBe(true);
-    const rejected = await rejectRes.json();
-    expect(rejected.status).toBe("rejected");
-    expect(rejected.rejectionReason).toBe(rejectReason);
-    expect(rejected.altStatus).toBeNull();
+        // ── Step 2: Client logs in and rejects the task ───────────────────────
+        await loginClient(clientPage, "sam");
+        await clientPage.goto("/client/messages");
 
-    // ── Verify: task_rejected message in thread ───────────────────────────────
-    const messagesAfterReject: any[] = await (
-      await request.get(`/api/clients/${CLIENT_ID}/messages`)
-    ).json();
-    const rejectedMsg = messagesAfterReject.find(
-      (m) => m.messageType === "task_rejected" && m.taskId === task.id,
-    );
-    expect(rejectedMsg).toBeDefined();
-    expect(rejectedMsg.content).toBe(rejectReason);
-    expect(rejectedMsg.sender).toBe("client");
+        // Scope to the message card wrapper containing our task text
+        const taskMsgCard = clientPage
+          .locator('[data-testid^="msg-"]')
+          .filter({ hasText: TASK_TEXT });
+        await expect(taskMsgCard).toBeVisible({ timeout: 15_000 });
 
-    // ── Coach: log in and suggest alternative ─────────────────────────────────
-    const coachLoginRes2 = await request.post("/api/auth/coach/login", {
-      data: { username: "coach", password: "coach" },
-    });
-    expect(coachLoginRes2.ok()).toBe(true);
+        const rejectBtn = taskMsgCard.locator('[data-testid="button-reject-task"]');
+        await expect(rejectBtn).toBeVisible();
 
-    const suggestRes = await request.patch(
-      `/api/clients/${CLIENT_ID}/tasks/${task.id}/suggest`,
-      { data: { alternativeText: altText } },
-    );
-    expect(suggestRes.ok()).toBe(true);
-    const suggested = await suggestRes.json();
-    expect(suggested.altStatus).toBe("pending");
-    expect(suggested.alternativeText).toBe(altText);
+        await rejectBtn.click();
 
-    // ── Verify: task_alternative message in thread ────────────────────────────
-    const messagesAfterSuggest: any[] = await (
-      await request.get(`/api/clients/${CLIENT_ID}/messages`)
-    ).json();
-    const altMsg = messagesAfterSuggest.find(
-      (m) => m.messageType === "task_alternative" && m.taskId === task.id,
-    );
-    expect(altMsg).toBeDefined();
-    expect(altMsg.content).toBe(altText);
-    expect(altMsg.sender).toBe("coach");
+        // Rejection dialog opens
+        await clientPage.waitForSelector('[data-testid="dialog-reject-reason"]');
+        await clientPage.fill(
+          '[data-testid="dialog-reject-reason"]',
+          "This task doesn't fit my schedule"
+        );
+        await clientPage.click('[data-testid="button-dialog-send-rejection"]');
 
-    // ── Client: log in and accept alternative ────────────────────────────────
-    const clientLoginRes2 = await request.post("/api/auth/client/login", {
-      data: { username: "sam", password: "sam" },
-    });
-    expect(clientLoginRes2.ok()).toBe(true);
+        // Dialog closes; rejected label appears; action buttons gone
+        await expect(
+          clientPage.locator('[data-testid="dialog-reject-reason"]')
+        ).not.toBeVisible({ timeout: 10_000 });
+        await expect(rejectBtn).not.toBeVisible();
 
-    const acceptRes = await request.patch(
-      `/api/clients/${CLIENT_ID}/tasks/${task.id}/accept`,
-    );
-    expect(acceptRes.ok()).toBe(true);
-    const altAccepted = await acceptRes.json();
-    expect(altAccepted.status).toBe("accepted");
-    expect(altAccepted.altStatus).toBe("accepted");
+        // ── Step 3: Coach reloads and sees the rejection card ────────────────
+        await coachPage.reload();
 
-    // ── Verify: active task shows alternative text on dashboard ──────────────
-    const activeRes = await request.get(
-      `/api/clients/${CLIENT_ID}/tasks/active`,
-    );
-    expect(activeRes.ok()).toBe(true);
-    const activeTask = await activeRes.json();
-    expect(activeTask).not.toBeNull();
-    expect(activeTask.id).toBe(task.id);
-    // altStatus=accepted means dashboard should show alternativeText
-    expect(activeTask.altStatus).toBe("accepted");
-    expect(activeTask.alternativeText).toBe(altText);
-  });
+        // Only the current task's rejection card has canAct=true (only one set of buttons)
+        const suggestBtn = coachPage.locator('[data-testid="button-suggest-alternative"]').first();
+        await expect(suggestBtn).toBeVisible({ timeout: 15_000 });
+        await expect(
+          coachPage.locator('[data-testid="button-leave-alone"]').first()
+        ).toBeVisible();
+
+        // ── Step 4: Coach opens suggest dialog and submits alternative ────────
+        await suggestBtn.click();
+        await coachPage.waitForSelector('[data-testid="dialog-suggest-textarea"]');
+        await coachPage.fill('[data-testid="dialog-suggest-textarea"]', ALT_TEXT);
+        await coachPage.click('[data-testid="button-dialog-suggest"]');
+
+        // Suggest / Leave buttons disappear; status label appears
+        await expect(suggestBtn).not.toBeVisible({ timeout: 10_000 });
+        await expect(
+          coachPage.locator("text=Alternative suggested.").first()
+        ).toBeVisible();
+
+        // ── Step 5: Client sees alternative task card and accepts it ──────────
+        await clientPage.reload();
+
+        // Alternative card has data-testid="msg-{id}" and contains ALT_TEXT
+        const altMsgCard = clientPage
+          .locator('[data-testid^="msg-"]')
+          .filter({ hasText: ALT_TEXT });
+        await expect(altMsgCard).toBeVisible({ timeout: 15_000 });
+
+        const acceptAltBtn = altMsgCard.locator('[data-testid="button-accept-task"]');
+        await expect(acceptAltBtn).toBeVisible();
+
+        await acceptAltBtn.click();
+
+        await expect(acceptAltBtn).not.toBeVisible({ timeout: 10_000 });
+        await expect(
+          altMsgCard.locator("text=Accepted — check your home screen")
+        ).toBeVisible();
+
+        // ── Step 6: Dashboard shows alternativeText (not original task text) ──
+        await clientPage.goto("/client/");
+        const taskCard = clientPage.locator('[data-testid="card-active-task"]');
+        await expect(taskCard).toBeVisible({ timeout: 15_000 });
+
+        // Alternative text displayed, not the original
+        await expect(taskCard.locator(`text="${ALT_TEXT}"`)).toBeVisible();
+        await expect(taskCard.locator(`text="${TASK_TEXT}"`)).not.toBeVisible();
+      } finally {
+        await coachCtx.close();
+        await clientCtx.close();
+      }
+    }
+  );
 });

@@ -1,106 +1,110 @@
 /**
- * E2E: Leave it alone — client rejects, coach clicks Leave It Alone.
+ * E2E — Coach leaves a rejected task alone.
  *
- * Uses Playwright APIRequestContext (no browser binary required).
- * Tests the full server-side lifecycle against the running dev server.
+ * Uses real Chromium browser (via REPLIT_PLAYWRIGHT_CHROMIUM_EXECUTABLE).
+ * Two browser contexts share the same Chromium process but have isolated cookies.
  *
- * Demo credentials: coach/coach  |  jordan/jordan (client id 84)
+ * Client: jordan / jordan (clientId 84)
  */
-import { test, expect } from "@playwright/test";
+import { test, expect, type Browser } from "@playwright/test";
+import { loginCoach, loginClient } from "./helpers/login";
 
-const CLIENT_ID = 84;
+const COACH_MESSAGES_URL = "/messages/84";
+const TASK_TEXT = `E2E leave-alone ${Date.now()}`;
+
+async function makePage(browser: Browser) {
+  const ctx = await browser.newContext();
+  return { ctx, page: await ctx.newPage() };
+}
 
 test.describe("Task leave it alone", () => {
-  test("coach leaves a rejected task alone → altStatus=left_alone, no active task", async ({
-    request,
-  }) => {
-    const taskText = `E2E leave ${Date.now()}`;
-    const rejectReason = "I simply cannot do this right now";
+  test(
+    "client rejects → coach leaves it alone → coach UI confirms → client has no active task",
+    async ({ browser }) => {
+      const { ctx: coachCtx, page: coachPage } = await makePage(browser);
+      const { ctx: clientCtx, page: clientPage } = await makePage(browser);
 
-    // ── Coach: log in and assign task ────────────────────────────────────────
-    const coachLoginRes = await request.post("/api/auth/coach/login", {
-      data: { username: "coach", password: "coach" },
-    });
-    expect(coachLoginRes.ok()).toBe(true);
+      try {
+        // ── Step 1: Coach assigns task via UI ────────────────────────────────
+        await loginCoach(coachPage);
+        await coachPage.goto(COACH_MESSAGES_URL);
 
-    const assignRes = await request.post(`/api/clients/${CLIENT_ID}/tasks`, {
-      data: { text: taskText },
-    });
-    expect(assignRes.ok()).toBe(true);
-    const task = await assignRes.json();
-    expect(task.status).toBe("pending");
+        await coachPage.waitForSelector('[data-testid="button-assign-task"]');
+        await coachPage.click('[data-testid="button-assign-task"]');
 
-    // ── Client: log in and reject ─────────────────────────────────────────────
-    const clientLoginRes = await request.post("/api/auth/client/login", {
-      data: { username: "jordan", password: "jordan" },
-    });
-    expect(clientLoginRes.ok()).toBe(true);
+        await coachPage.waitForSelector('[data-testid="dialog-assign-task-textarea"]');
+        await coachPage.fill('[data-testid="dialog-assign-task-textarea"]', TASK_TEXT);
+        await coachPage.click('[data-testid="button-dialog-assign"]');
 
-    const rejectRes = await request.patch(
-      `/api/clients/${CLIENT_ID}/tasks/${task.id}/reject`,
-      { data: { reason: rejectReason } },
-    );
-    expect(rejectRes.ok()).toBe(true);
-    const rejected = await rejectRes.json();
-    expect(rejected.status).toBe("rejected");
-    expect(rejected.altStatus).toBeNull();
+        await expect(coachPage.locator(`text="${TASK_TEXT}"`).first()).toBeVisible({
+          timeout: 15_000,
+        });
 
-    // ── Coach: log in and leave it alone ─────────────────────────────────────
-    const coachLoginRes2 = await request.post("/api/auth/coach/login", {
-      data: { username: "coach", password: "coach" },
-    });
-    expect(coachLoginRes2.ok()).toBe(true);
+        // ── Step 2: Client rejects the task ──────────────────────────────────
+        await loginClient(clientPage, "jordan");
+        await clientPage.goto("/client/messages");
 
-    const leaveRes = await request.patch(
-      `/api/clients/${CLIENT_ID}/tasks/${task.id}/leave`,
-    );
-    expect(leaveRes.ok()).toBe(true);
-    const leftAlone = await leaveRes.json();
-    expect(leftAlone.altStatus).toBe("left_alone");
-    // Status stays rejected (not accepted)
-    expect(leftAlone.status).toBe("rejected");
+        const taskMsgCard = clientPage
+          .locator('[data-testid^="msg-"]')
+          .filter({ hasText: TASK_TEXT });
+        await expect(taskMsgCard).toBeVisible({ timeout: 15_000 });
 
-    // ── Verify: thread contains the "left alone" message from coach ────────────
-    const messagesRes = await request.get(`/api/clients/${CLIENT_ID}/messages`);
-    expect(messagesRes.ok()).toBe(true);
-    const messages: any[] = await messagesRes.json();
-    const leftAloneMsg = messages.find(
-      (m) =>
-        m.taskId === task.id &&
-        m.content === "I'll leave this one — no alternative needed.",
-    );
-    expect(leftAloneMsg).toBeDefined();
-    expect(leftAloneMsg.sender).toBe("coach");
+        const rejectBtn = taskMsgCard.locator('[data-testid="button-reject-task"]');
+        await expect(rejectBtn).toBeVisible();
 
-    // ── Client: log back in and verify no active task ─────────────────────────
-    const clientLoginRes2 = await request.post("/api/auth/client/login", {
-      data: { username: "jordan", password: "jordan" },
-    });
-    expect(clientLoginRes2.ok()).toBe(true);
+        await rejectBtn.click();
+        await clientPage.waitForSelector('[data-testid="dialog-reject-reason"]');
+        await clientPage.fill(
+          '[data-testid="dialog-reject-reason"]',
+          "Can't do this right now"
+        );
+        await clientPage.click('[data-testid="button-dialog-send-rejection"]');
 
-    const activeRes = await request.get(
-      `/api/clients/${CLIENT_ID}/tasks/active`,
-    );
-    expect(activeRes.ok()).toBe(true);
-    const activeTask = await activeRes.json();
-    // This task should NOT be active (it was rejected and left alone)
-    expect(activeTask?.id ?? null).not.toBe(task.id);
+        await expect(rejectBtn).not.toBeVisible({ timeout: 10_000 });
 
-    // ── Verify: coach cannot suggest alternative after leaving it alone ────────
-    const coachLoginRes3 = await request.post("/api/auth/coach/login", {
-      data: { username: "coach", password: "coach" },
-    });
-    expect(coachLoginRes3.ok()).toBe(true);
+        // ── Step 3: Coach reloads and clicks "Leave It Alone" ─────────────────
+        await coachPage.reload();
 
-    // Re-fetch task state via messages to confirm altStatus
-    const finalMessages: any[] = await (
-      await request.get(`/api/clients/${CLIENT_ID}/messages`)
-    ).json();
-    const rejectedMsgFinal = finalMessages.find(
-      (m) => m.messageType === "task_rejected" && m.taskId === task.id,
-    );
-    expect(rejectedMsgFinal).toBeDefined();
-    // The embedded task object should show altStatus=left_alone
-    expect(rejectedMsgFinal.task?.altStatus).toBe("left_alone");
-  });
+        // Only the current task's rejection card has canAct=true buttons
+        const leaveAloneBtn = coachPage.locator('[data-testid="button-leave-alone"]').first();
+        await expect(leaveAloneBtn).toBeVisible({ timeout: 15_000 });
+
+        // Suggest button is also present before choosing leave-alone
+        await expect(
+          coachPage.locator('[data-testid="button-suggest-alternative"]').first()
+        ).toBeVisible();
+
+        await leaveAloneBtn.click();
+
+        // ── Step 4: Coach UI confirms the "left alone" state ──────────────────
+        // Action buttons disappear
+        await expect(leaveAloneBtn).not.toBeVisible({ timeout: 10_000 });
+        await expect(
+          coachPage.locator('[data-testid="button-suggest-alternative"]').first()
+        ).not.toBeVisible();
+
+        // "Left alone" confirmation text appears (may match multiple old runs; use first)
+        await expect(
+          coachPage.locator("text=You left this alone.").first()
+        ).toBeVisible();
+
+        // ── Step 5: Client reloads — sees "coach left this one alone" ─────────
+        await clientPage.reload();
+
+        // The task message card still shows the task text
+        const taskMsgCardReloaded = clientPage
+          .locator('[data-testid^="msg-"]')
+          .filter({ hasText: TASK_TEXT });
+        await expect(taskMsgCardReloaded).toBeVisible({ timeout: 15_000 });
+
+        // ── Step 6: Client dashboard has no active task card ──────────────────
+        await clientPage.goto("/client/");
+        const taskCard = clientPage.locator('[data-testid="card-active-task"]');
+        await expect(taskCard).not.toBeVisible({ timeout: 10_000 });
+      } finally {
+        await coachCtx.close();
+        await clientCtx.close();
+      }
+    }
+  );
 });

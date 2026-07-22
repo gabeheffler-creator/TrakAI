@@ -1,101 +1,92 @@
 /**
- * E2E: Happy path — coach assigns task, client accepts, client marks complete.
+ * E2E — Happy path: coach assigns task → client accepts → client marks complete.
  *
- * Uses Playwright APIRequestContext (no browser binary required).
- * Tests the full server-side lifecycle against the running dev server.
+ * Uses real Chromium browser (via REPLIT_PLAYWRIGHT_CHROMIUM_EXECUTABLE).
+ * Two browser contexts share the same Chromium process but have isolated cookies.
  *
- * Demo credentials: coach/coach  |  alex/alex (client id 82)
+ * Client: alex / alex (clientId 82)
  */
-import { test, expect } from "@playwright/test";
+import { test, expect, type Browser } from "@playwright/test";
+import { loginCoach, loginClient } from "./helpers/login";
 
-const CLIENT_ID = 82;
+const COACH_MESSAGES_URL = "/messages/82";
+const TASK_TEXT = `E2E happy-path ${Date.now()}`;
 
-async function coachLogin(request: Parameters<Parameters<typeof test>[1]>[0]["request"]) {
-  const res = await request.post("/api/auth/coach/login", {
-    data: { username: "coach", password: "coach" },
-  });
-  expect(res.ok()).toBe(true);
-  const body = await res.json();
-  expect(body.ok).toBe(true);
-}
-
-async function clientLogin(request: Parameters<Parameters<typeof test>[1]>[0]["request"]) {
-  const res = await request.post("/api/auth/client/login", {
-    data: { username: "alex", password: "alex" },
-  });
-  expect(res.ok()).toBe(true);
-  const body = await res.json();
-  expect(body.ok).toBe(true);
+async function makePage(browser: Browser) {
+  const ctx = await browser.newContext();
+  return { ctx, page: await ctx.newPage() };
 }
 
 test.describe("Task happy path", () => {
-  test("coach assigns → client accepts → client marks complete", async ({ request }) => {
-    const taskText = `E2E happy ${Date.now()}`;
+  test(
+    "coach assigns task via UI → client accepts → client marks complete on dashboard",
+    async ({ browser }) => {
+      const { ctx: coachCtx, page: coachPage } = await makePage(browser);
+      const { ctx: clientCtx, page: clientPage } = await makePage(browser);
 
-    // ── Coach: log in ─────────────────────────────────────────────────────────
-    await coachLogin(request);
+      try {
+        // ── Step 1: Coach logs in and assigns task ────────────────────────────
+        await loginCoach(coachPage);
+        await coachPage.goto(COACH_MESSAGES_URL);
 
-    // ── Coach: assign task ────────────────────────────────────────────────────
-    const assignRes = await request.post(`/api/clients/${CLIENT_ID}/tasks`, {
-      data: { text: taskText },
-    });
-    expect(assignRes.ok()).toBe(true);
-    const task = await assignRes.json();
-    expect(task.id).toBeDefined();
-    expect(task.status).toBe("pending");
-    expect(task.text).toBe(taskText);
+        await coachPage.waitForSelector('[data-testid="button-assign-task"]');
+        await coachPage.click('[data-testid="button-assign-task"]');
 
-    // ── Coach: verify task appears in the message thread ──────────────────────
-    const messagesRes = await request.get(`/api/clients/${CLIENT_ID}/messages`);
-    expect(messagesRes.ok()).toBe(true);
-    const messages: any[] = await messagesRes.json();
-    const taskMsg = messages.find(
-      (m) => m.messageType === "task_assigned" && m.taskId === task.id,
-    );
-    expect(taskMsg).toBeDefined();
-    expect(taskMsg.content).toBe(taskText);
-    expect(taskMsg.sender).toBe("coach");
+        await coachPage.waitForSelector('[data-testid="dialog-assign-task-textarea"]');
+        await coachPage.fill('[data-testid="dialog-assign-task-textarea"]', TASK_TEXT);
+        await coachPage.click('[data-testid="button-dialog-assign"]');
 
-    // ── Client: log in ────────────────────────────────────────────────────────
-    // (Same context — log in as client; session is replaced)
-    await clientLogin(request);
+        // Coach thread: wait for the task card text to appear
+        await expect(coachPage.locator(`text="${TASK_TEXT}"`).first()).toBeVisible({
+          timeout: 15_000,
+        });
 
-    // ── Client: accept task ───────────────────────────────────────────────────
-    const acceptRes = await request.patch(
-      `/api/clients/${CLIENT_ID}/tasks/${task.id}/accept`,
-    );
-    expect(acceptRes.ok()).toBe(true);
-    const accepted = await acceptRes.json();
-    expect(accepted.status).toBe("accepted");
+        // ── Step 2: Client logs in, finds the task card, and accepts ──────────
+        await loginClient(clientPage, "alex");
+        await clientPage.goto("/client/messages");
 
-    // ── Client: verify active task appears on dashboard endpoint ──────────────
-    const activeRes = await request.get(`/api/clients/${CLIENT_ID}/tasks/active`);
-    expect(activeRes.ok()).toBe(true);
-    const activeTask = await activeRes.json();
-    expect(activeTask).not.toBeNull();
-    expect(activeTask.id).toBe(task.id);
-    expect(activeTask.status).toBe("accepted");
+        // Scope to the message card wrapper that contains our specific task text
+        const taskMsgCard = clientPage
+          .locator('[data-testid^="msg-"]')
+          .filter({ hasText: TASK_TEXT });
+        await expect(taskMsgCard).toBeVisible({ timeout: 15_000 });
 
-    // ── Client: mark complete ─────────────────────────────────────────────────
-    const completeRes = await request.patch(
-      `/api/clients/${CLIENT_ID}/tasks/${task.id}/complete`,
-    );
-    expect(completeRes.ok()).toBe(true);
-    const completed = await completeRes.json();
-    expect(completed.status).toBe("completed");
+        // Accept / Reject buttons are inside this card
+        const acceptBtn = taskMsgCard.locator('[data-testid="button-accept-task"]');
+        await expect(acceptBtn).toBeVisible();
 
-    // ── Verify: no active task remains ───────────────────────────────────────
-    const afterRes = await request.get(`/api/clients/${CLIENT_ID}/tasks/active`);
-    expect(afterRes.ok()).toBe(true);
-    const afterActive = await afterRes.json();
-    // Should be null or a different task (not the one we just completed)
-    expect(afterActive?.id ?? null).not.toBe(task.id);
+        await acceptBtn.click();
 
-    // ── Verify: completion message appears in thread ──────────────────────────
-    const finalMessages = await (await request.get(`/api/clients/${CLIENT_ID}/messages`)).json() as any[];
-    const completeMsg = finalMessages.find(
-      (m) => m.content === "Task completed ✓" && m.taskId === task.id,
-    );
-    expect(completeMsg).toBeDefined();
-  });
+        // Accept/Reject buttons disappear; accepted label appears in the card
+        await expect(acceptBtn).not.toBeVisible({ timeout: 10_000 });
+        await expect(
+          taskMsgCard.locator("text=Accepted — check your home screen")
+        ).toBeVisible();
+
+        // ── Step 3: Client checks dashboard — active task card visible ─────────
+        await clientPage.goto("/client/");
+        const taskCard = clientPage.locator('[data-testid="card-active-task"]');
+        await expect(taskCard).toBeVisible({ timeout: 15_000 });
+        await expect(taskCard.locator(`text="${TASK_TEXT}"`)).toBeVisible();
+
+        // ── Step 4: Client marks task complete ────────────────────────────────
+        await clientPage.click('[data-testid="button-mark-complete"]');
+
+        // Our specific task text should no longer appear in the active task card
+        // (another task from a prior run may still be active — that's OK)
+        await expect(taskCard.locator(`text="${TASK_TEXT}"`)).not.toBeVisible({
+          timeout: 15_000,
+        });
+
+        // ── Step 5: Coach sees completed state in thread ──────────────────────
+        await coachPage.reload();
+        await expect(
+          coachPage.locator(`text="${TASK_TEXT}"`).locator("..").locator("text=Completed").first()
+        ).toBeVisible({ timeout: 15_000 });
+      } finally {
+        await coachCtx.close();
+        await clientCtx.close();
+      }
+    }
+  );
 });
