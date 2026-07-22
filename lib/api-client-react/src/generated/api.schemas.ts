@@ -69,6 +69,7 @@ export interface Client {
   createdAt: string;
   /** @nullable */
   programName?: string | null;
+  hasStalePendingTask?: boolean;
 }
 
 export interface ClientInput {

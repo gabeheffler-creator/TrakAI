@@ -10,8 +10,9 @@ import {
   programAssignmentsTable,
   programsTable,
   clientGoalHistoryTable,
+  clientTasksTable,
 } from "@workspace/db";
-import { eq, sql, desc } from "drizzle-orm";
+import { eq, sql, desc, and, inArray, lt } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import {
   CreateClientBody,
@@ -75,9 +76,23 @@ router.get("/clients", requireCoachAuth, async (req, res) => {
       .leftJoin(programsTable, eq(programsTable.id, programAssignmentsTable.programId))
       .where(eq(clientsTable.coachId, coach!.id))
       .orderBy(clientsTable.createdAt);
+    const clientIds = rows.map(r => r.id);
+    const staleCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const staleRows = clientIds.length > 0
+      ? await db.selectDistinct({ clientId: clientTasksTable.clientId })
+          .from(clientTasksTable)
+          .where(and(
+            inArray(clientTasksTable.clientId, clientIds),
+            eq(clientTasksTable.status, "pending"),
+            lt(clientTasksTable.createdAt, staleCutoff),
+          ))
+      : [];
+    const staleSet = new Set(staleRows.map(r => r.clientId));
+
     res.json(rows.map(r => ({
       ...r,
       createdAt: r.createdAt.toISOString(),
+      hasStalePendingTask: staleSet.has(r.id),
     })));
   } catch (err) {
     req.log.error(err);

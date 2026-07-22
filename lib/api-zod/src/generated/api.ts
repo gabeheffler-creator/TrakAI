@@ -72,7 +72,8 @@ export const ListClientsResponseItem = zod.object({
   "inviteToken": zod.string().nullish(),
   "status": zod.enum(['active', 'inactive']).optional(),
   "createdAt": zod.coerce.date(),
-  "programName": zod.string().nullish()
+  "programName": zod.string().nullish(),
+  "hasStalePendingTask": zod.boolean().optional()
 })
 export const ListClientsResponse = zod.array(ListClientsResponseItem)
 
@@ -110,7 +111,8 @@ export const GetClientResponse = zod.object({
   "inviteToken": zod.string().nullish(),
   "status": zod.enum(['active', 'inactive']).optional(),
   "createdAt": zod.coerce.date(),
-  "programName": zod.string().nullish()
+  "programName": zod.string().nullish(),
+  "hasStalePendingTask": zod.boolean().optional()
 })
 
 
@@ -141,7 +143,8 @@ export const UpdateClientResponse = zod.object({
   "inviteToken": zod.string().nullish(),
   "status": zod.enum(['active', 'inactive']).optional(),
   "createdAt": zod.coerce.date(),
-  "programName": zod.string().nullish()
+  "programName": zod.string().nullish(),
+  "hasStalePendingTask": zod.boolean().optional()
 })
 
 
@@ -175,7 +178,8 @@ export const UpdateClientStatusResponse = zod.object({
   "inviteToken": zod.string().nullish(),
   "status": zod.enum(['active', 'inactive']).optional(),
   "createdAt": zod.coerce.date(),
-  "programName": zod.string().nullish()
+  "programName": zod.string().nullish(),
+  "hasStalePendingTask": zod.boolean().optional()
 })
 
 
@@ -219,7 +223,8 @@ export const CreateClientGoalResponse = zod.object({
   "inviteToken": zod.string().nullish(),
   "status": zod.enum(['active', 'inactive']).optional(),
   "createdAt": zod.coerce.date(),
-  "programName": zod.string().nullish()
+  "programName": zod.string().nullish(),
+  "hasStalePendingTask": zod.boolean().optional()
 })
 
 
@@ -281,7 +286,8 @@ export const GetMyClientResponse = zod.object({
   "inviteToken": zod.string().nullish(),
   "status": zod.enum(['active', 'inactive']).optional(),
   "createdAt": zod.coerce.date(),
-  "programName": zod.string().nullish()
+  "programName": zod.string().nullish(),
+  "hasStalePendingTask": zod.boolean().optional()
 })
 
 
@@ -328,7 +334,8 @@ export const GetClientDashboardResponse = zod.object({
   "inviteToken": zod.string().nullish(),
   "status": zod.enum(['active', 'inactive']).optional(),
   "createdAt": zod.coerce.date(),
-  "programName": zod.string().nullish()
+  "programName": zod.string().nullish(),
+  "hasStalePendingTask": zod.boolean().optional()
 }),
   "currentProgram": zod.object({
   "id": zod.number(),

@@ -22,7 +22,7 @@ import {
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Plus, Search, UserX, UserCheck, LayoutGrid, List } from "lucide-react";
+import { Plus, Search, UserX, UserCheck, LayoutGrid, List, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 import { format } from "date-fns";
@@ -69,6 +69,16 @@ function ClientListRow({ client, onStatusChange }: { client: Client; onStatusCha
           {isActive ? "Active" : "Inactive"}
         </span>
       </Link>
+      {client.hasStalePendingTask && (
+        <Link
+          href={`/clients/${client.id}?tab=tasks`}
+          title="Has a task pending for 24+ hours — click to review"
+          className="shrink-0 text-amber-500 hover:text-amber-400 transition-colors"
+          data-testid={`badge-stale-task-${client.id}`}
+        >
+          <Clock className="w-4 h-4" />
+        </Link>
+      )}
       {isActive ? (
         <>
           <button
@@ -133,7 +143,18 @@ function ClientCard({ client }: { client: Client }) {
     <Card className={cn("h-full transition-colors", isActive ? "hover:border-primary" : "opacity-60 grayscale")}>
       <Link href={`/clients/${client.id}`} className="block cursor-pointer" data-testid={`link-client-${client.id}`}>
         <CardHeader className="pb-2">
-          <CardTitle className="truncate text-base">{client.name}</CardTitle>
+          <CardTitle className="truncate text-base flex items-center gap-2">
+            {client.name}
+            {client.hasStalePendingTask && (
+              <span
+                title="Has a task pending for 24+ hours"
+                className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded-full shrink-0"
+                data-testid={`badge-stale-task-${client.id}`}
+              >
+                <Clock className="w-3 h-3" /> Task pending
+              </span>
+            )}
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 pb-2">
           <div className="text-sm text-muted-foreground truncate">{client.email}</div>

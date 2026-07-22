@@ -2170,6 +2170,8 @@ components:
           format: date-time
         programName:
           type: ["string", "null"]
+        hasStalePendingTask:
+          type: boolean
 
     ClientInput:
       type: object

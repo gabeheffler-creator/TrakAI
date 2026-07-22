@@ -25,4 +25,5 @@ export interface Client {
   createdAt: Date;
   /** @nullable */
   programName?: string | null;
+  hasStalePendingTask?: boolean;
 }

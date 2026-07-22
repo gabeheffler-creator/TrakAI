@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useParams, useLocation } from "wouter";
+import { useParams, useLocation, useSearch } from "wouter";
 import {
   useGetClient,
   useUpdateClient,
@@ -656,6 +656,8 @@ export function ClientProfile() {
   const { clientId: clientIdStr } = useParams<{ clientId: string }>();
   const clientId = Number(clientIdStr);
   const [, setLocation] = useLocation();
+  const search = useSearch();
+  const initialTab = new URLSearchParams(search).get("tab") ?? "overview";
   const { toast } = useToast();
   const qc = useQueryClient();
   const [msgInput, setMsgInput] = useState("");
@@ -1262,7 +1264,7 @@ export function ClientProfile() {
         </DialogContent>
       </Dialog>
 
-      <Tabs defaultValue="overview">
+      <Tabs defaultValue={initialTab}>
         <div className="overflow-x-auto -mx-4 px-4 scrollbar-none border-b border-border">
           <TabsList className="flex w-max h-auto bg-transparent p-0 gap-0">
             {[
