@@ -77,6 +77,7 @@ import type {
   ProgramPhase,
   ProgramPhaseInput,
   ProgramPhaseUpdate,
+  ProgramSleepAdjustment,
   ProgramUpdate,
   ProgressPhoto,
   ProgressPhotoInput,
@@ -2175,6 +2176,78 @@ export const useDeleteProgram = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getDeleteProgramMutationOptions(options));
+    }
+
+export const getUpdateProgramSleepAdjustmentUrl = (programId: number,) => {
+
+
+
+
+  return `/api/programs/${programId}/sleep-adjustment`
+}
+
+/**
+ * @summary Update sleep auto-adjustment settings for a program
+ */
+export const updateProgramSleepAdjustment = async (programId: number,
+    programSleepAdjustment: ProgramSleepAdjustment, options?: RequestInit): Promise<Program> => {
+
+  return customFetch<Program>(getUpdateProgramSleepAdjustmentUrl(programId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      programSleepAdjustment,)
+  }
+);}
+
+
+
+
+export const getUpdateProgramSleepAdjustmentMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateProgramSleepAdjustment>>, TError,{programId: number;data: BodyType<ProgramSleepAdjustment>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateProgramSleepAdjustment>>, TError,{programId: number;data: BodyType<ProgramSleepAdjustment>}, TContext> => {
+
+const mutationKey = ['updateProgramSleepAdjustment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateProgramSleepAdjustment>>, {programId: number;data: BodyType<ProgramSleepAdjustment>}> = (props) => {
+          const {programId,data} = props ?? {};
+
+          return  updateProgramSleepAdjustment(programId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateProgramSleepAdjustmentMutationResult = NonNullable<Awaited<ReturnType<typeof updateProgramSleepAdjustment>>>
+    export type UpdateProgramSleepAdjustmentMutationBody = BodyType<ProgramSleepAdjustment>
+    export type UpdateProgramSleepAdjustmentMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update sleep auto-adjustment settings for a program
+ */
+export const useUpdateProgramSleepAdjustment = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateProgramSleepAdjustment>>, TError,{programId: number;data: BodyType<ProgramSleepAdjustment>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateProgramSleepAdjustment>>,
+        TError,
+        {programId: number;data: BodyType<ProgramSleepAdjustment>},
+        TContext
+      > => {
+      return useMutation(getUpdateProgramSleepAdjustmentMutationOptions(options));
     }
 
 export const getCreateProgramPhaseUrl = (programId: number,) => {
@@ -4326,6 +4399,83 @@ export const useLogSleep = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getLogSleepMutationOptions(options));
     }
+
+export const getGetLatestSleepLogUrl = (clientId: number,) => {
+
+
+
+
+  return `/api/clients/${clientId}/sleep/latest`
+}
+
+/**
+ * @summary Get the client's most recent sleep log
+ */
+export const getLatestSleepLog = async (clientId: number, options?: RequestInit): Promise<SleepLog | null> => {
+
+  return customFetch<SleepLog | null>(getGetLatestSleepLogUrl(clientId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetLatestSleepLogQueryKey = (clientId: number,) => {
+    return [
+    `/api/clients/${clientId}/sleep/latest`
+    ] as const;
+    }
+
+
+export const getGetLatestSleepLogQueryOptions = <TData = Awaited<ReturnType<typeof getLatestSleepLog>>, TError = ErrorType<unknown>>(clientId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLatestSleepLog>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetLatestSleepLogQueryKey(clientId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getLatestSleepLog>>> = ({ signal }) => getLatestSleepLog(clientId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(clientId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getLatestSleepLog>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetLatestSleepLogQueryResult = NonNullable<Awaited<ReturnType<typeof getLatestSleepLog>>>
+export type GetLatestSleepLogQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get the client's most recent sleep log
+ */
+
+export function useGetLatestSleepLog<TData = Awaited<ReturnType<typeof getLatestSleepLog>>, TError = ErrorType<unknown>>(
+ clientId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLatestSleepLog>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetLatestSleepLogQueryOptions(clientId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getDeleteSleepLogUrl = (clientId: number,
     sleepId: number,) => {

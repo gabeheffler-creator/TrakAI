@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sleepLogsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import {
   ListSleepLogsParams,
   LogSleepParams,
@@ -26,6 +26,20 @@ router.get("/clients/:clientId/sleep", requireClientOwnership(), async (req, res
   } catch (err) {
     req.log.error(err);
     res.status(500).json({ error: "Failed to list sleep logs" });
+  }
+});
+
+router.get("/clients/:clientId/sleep/latest", requireClientOwnership(), async (req, res) => {
+  try {
+    const clientId = Number(req.params.clientId);
+    const [log] = await db.select().from(sleepLogsTable)
+      .where(eq(sleepLogsTable.clientId, clientId))
+      .orderBy(desc(sleepLogsTable.date))
+      .limit(1);
+    res.json(log ? { ...log, hoursSlept: Number(log.hoursSlept), createdAt: log.createdAt.toISOString() } : null);
+  } catch (err) {
+    req.log.error(err);
+    res.status(500).json({ error: "Failed to get latest sleep log" });
   }
 });
 

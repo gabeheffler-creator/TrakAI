@@ -19,6 +19,8 @@ export interface ProgramDetail {
   clientId?: number | null;
   /** @nullable */
   sourceTemplateId?: number | null;
+  sleepAdjustEnabled?: boolean;
+  sleepAdjustPercent?: number;
   phases: ProgramPhaseDetail[];
   days: ProgramDayDetail[];
   createdAt?: Date;

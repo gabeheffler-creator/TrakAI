@@ -235,6 +235,8 @@ export interface ProgramDetail {
   clientId?: number | null;
   /** @nullable */
   sourceTemplateId?: number | null;
+  sleepAdjustEnabled?: boolean;
+  sleepAdjustPercent?: number;
   phases: ProgramPhaseDetail[];
   days: ProgramDayDetail[];
   createdAt?: string;
@@ -377,6 +379,8 @@ export interface Program {
   clientId?: number | null;
   /** @nullable */
   sourceTemplateId?: number | null;
+  sleepAdjustEnabled?: boolean;
+  sleepAdjustPercent?: number;
   createdAt: string;
 }
 
@@ -397,6 +401,15 @@ export interface ProgramInput {
   name: string;
   description?: string;
   durationWeeks?: number;
+}
+
+export interface ProgramSleepAdjustment {
+  sleepAdjustEnabled: boolean;
+  /**
+     * @minimum 0
+     * @maximum 50
+     */
+  sleepAdjustPercent: number;
 }
 
 export interface ProgramUpdate {

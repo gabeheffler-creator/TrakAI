@@ -575,6 +575,31 @@ paths:
         "204":
           description: Deleted
 
+  /programs/{programId}/sleep-adjustment:
+    patch:
+      operationId: updateProgramSleepAdjustment
+      tags: [workouts]
+      summary: Update sleep auto-adjustment settings for a program
+      parameters:
+        - name: programId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProgramSleepAdjustment"
+      responses:
+        "200":
+          description: Updated program
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Program"
+
   /programs/{programId}/phases:
     post:
       operationId: createProgramPhase
@@ -1302,6 +1327,27 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SleepLog"
+
+  /clients/{clientId}/sleep/latest:
+    get:
+      operationId: getLatestSleepLog
+      tags: [sleep]
+      summary: Get the client's most recent sleep log
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Most recent sleep log or null
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/SleepLog"
+                  - type: "null"
 
   /clients/{clientId}/sleep/{sleepId}:
     delete:
@@ -2516,6 +2562,10 @@ components:
           type: ["integer", "null"]
         sourceTemplateId:
           type: ["integer", "null"]
+        sleepAdjustEnabled:
+          type: boolean
+        sleepAdjustPercent:
+          type: integer
         createdAt:
           type: string
           format: date-time
@@ -2546,6 +2596,17 @@ components:
           type: string
         durationWeeks:
           type: integer
+
+    ProgramSleepAdjustment:
+      type: object
+      required: [sleepAdjustEnabled, sleepAdjustPercent]
+      properties:
+        sleepAdjustEnabled:
+          type: boolean
+        sleepAdjustPercent:
+          type: integer
+          minimum: 0
+          maximum: 50
 
     ProgramUpdate:
       type: object
@@ -2681,6 +2742,10 @@ components:
           type: ["integer", "null"]
         sourceTemplateId:
           type: ["integer", "null"]
+        sleepAdjustEnabled:
+          type: boolean
+        sleepAdjustPercent:
+          type: integer
         phases:
           type: array
           items:

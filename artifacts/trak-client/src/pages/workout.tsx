@@ -9,6 +9,8 @@ import {
   useUpdateWorkoutLog,
   useLogSet,
   useListExercises,
+  useGetLatestSleepLog,
+  getGetLatestSleepLogQueryKey,
   getListExercisesQueryKey,
   getGetClientProgramAssignmentQueryKey,
   getGetProgramQueryKey,
@@ -20,7 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle, ChevronRight, Dumbbell, X, Trophy, ArrowRight, RefreshCw, Upload, FolderOpen, ImageIcon, Pencil, RotateCcw, Check } from "lucide-react";
+import { CheckCircle, ChevronRight, Dumbbell, X, Trophy, ArrowRight, RefreshCw, Upload, FolderOpen, ImageIcon, Pencil, RotateCcw, Check, Moon } from "lucide-react";
 import { useLocation, Link } from "wouter";
 import { cn } from "@/lib/utils";
 import type { Exercise } from "@workspace/api-client-react";
@@ -415,11 +417,16 @@ export function WorkoutPage() {
   const { workoutView, showProgressBar } = useWorkoutPrefs();
 
   // Pre-workout checkin
-  const [sleep, setSleep] = useState("");
   const [energy, setEnergy] = useState<number | null>(null);
+  const [isAdjusted, setIsAdjusted] = useState(false);
+  const [adjustPercent, setAdjustPercent] = useState(20);
 
   const { data: assignment, isError: assignmentError, refetch: refetchAssignment, isFetching: assignmentFetching } = useGetClientProgramAssignment(clientId!, {
     query: { enabled: !!clientId, queryKey: getGetClientProgramAssignmentQueryKey(clientId!) }
+  });
+
+  const { data: latestSleepLog } = useGetLatestSleepLog(clientId!, {
+    query: { enabled: !!clientId, queryKey: getGetLatestSleepLogQueryKey(clientId!) }
   });
   const { data: program, isError: programError, refetch: refetchProgram, isFetching: programFetching } = useGetProgram(assignment?.programId ?? 0, {
     query: { enabled: !!assignment?.programId, queryKey: getGetProgramQueryKey(assignment?.programId ?? 0) }
@@ -460,12 +467,15 @@ export function WorkoutPage() {
   const currentEx = exercises[currentExIdx];
   const currentSets = sets[currentExIdx] ?? [];
 
-  const initSets = useCallback((dayExercises: typeof exercises) => {
+  const initSets = useCallback((dayExercises: typeof exercises, applyAdjust: boolean, adjustPct: number) => {
     const initial: SetState[][] = dayExercises.map(ex => {
       const reps = ex.reps.includes("-") ? ex.reps.split("-")[1] : ex.reps;
       const meta = decodeExMeta(ex.notes);
       const isUnilateral = meta.laterality === "unilateral";
-      return Array.from({ length: ex.sets }, () => ({
+      const setCount = applyAdjust
+        ? Math.max(1, Math.round(ex.sets * (1 - adjustPct / 100)))
+        : ex.sets;
+      return Array.from({ length: setCount }, () => ({
         targetReps: reps,
         weight: ex.weight ?? "",
         reps,
@@ -482,6 +492,13 @@ export function WorkoutPage() {
   const handleBeginWorkout = () => {
     if (!clientId || !selectedDay) return;
 
+    const poorSleep = latestSleepLog?.quality === "poor" || latestSleepLog?.quality === "fair";
+    const lowEnergy = (energy ?? 10) <= 5;
+    const pct = program?.sleepAdjustPercent ?? 20;
+    const shouldAdjust = (program?.sleepAdjustEnabled !== false) && poorSleep && lowEnergy;
+    setIsAdjusted(shouldAdjust);
+    setAdjustPercent(pct);
+
     createWorkoutLog.mutate({
       clientId,
       data: { programDayId: selectedDay.id, date: today }
@@ -490,7 +507,7 @@ export function WorkoutPage() {
         setWorkoutLogId(log.id);
         setCurrentExIdx(0);
         setSwappedExercises({});
-        initSets(exercises);
+        initSets(exercises, shouldAdjust, pct);
         setMode("active");
       },
       onError: () => toast({ title: "Failed to start workout", variant: "destructive" })
@@ -733,8 +750,9 @@ export function WorkoutPage() {
     setCurrentExIdx(0);
     setSets([]);
     setSwappedExercises({});
-    setSleep("");
     setEnergy(null);
+    setIsAdjusted(false);
+    setAdjustPercent(20);
     setShowEarlyExit(false);
     setEarlyExitReason("");
     setShowCancelConfirm(false);
@@ -909,24 +927,6 @@ export function WorkoutPage() {
             <p className="text-muted-foreground text-sm">Quick check-in</p>
           </div>
 
-          {/* Sleep */}
-          <div className="w-full max-w-sm space-y-3">
-            <label className="block text-base font-semibold text-center">How much sleep did you get last night?</label>
-            <div className="flex items-center gap-3">
-              <Input
-                type="number"
-                value={sleep}
-                onChange={e => setSleep(e.target.value)}
-                placeholder="e.g. 7.5"
-                className="text-center text-lg h-12"
-                min={0}
-                max={24}
-                step={0.5}
-              />
-              <span className="text-muted-foreground font-medium whitespace-nowrap">hours</span>
-            </div>
-          </div>
-
           {/* Energy */}
           <div className="w-full max-w-sm space-y-3">
             <label className="block text-base font-semibold text-center">How is your energy today?</label>
@@ -962,7 +962,7 @@ export function WorkoutPage() {
             size="lg"
             className="w-full h-14 text-base font-bold"
             onClick={() => setMode("overview")}
-            disabled={!sleep || !energy}
+            disabled={!energy}
           >
             Continue
           </Button>
@@ -1055,6 +1055,12 @@ export function WorkoutPage() {
                   label={`${loggedSets} of ${totalSets} sets`}
                 />
               )}
+              {isAdjusted && (
+                <div className="mt-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3 py-2 flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300">
+                  <Moon className="w-3.5 h-3.5 flex-shrink-0" />
+                  Volume reduced {adjustPercent}% — sleep & energy recovery mode
+                </div>
+              )}
             </div>
 
             {/* Scrollable exercise list */}
@@ -1081,6 +1087,15 @@ export function WorkoutPage() {
                           {ex.sets} × {ex.reps}{ex.restSeconds ? ` · ${ex.restSeconds}s rest` : ""}
                         </span>
                       </div>
+                      {isAdjusted && (
+                        <div className="ml-6 mt-1.5 inline-flex items-center gap-1.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg px-2 py-1">
+                          <Moon className="w-3 h-3 text-amber-500 flex-shrink-0" />
+                          <span className="text-[11px] font-medium text-amber-700 dark:text-amber-300">
+                            Today: {Math.max(1, Math.round(ex.sets * (1 - adjustPercent / 100)))} × {ex.reps}
+                            {ex.restSeconds ? ` · ${Math.round(ex.restSeconds * (1 + adjustPercent / 100))}s rest` : ""}
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Set rows */}
@@ -1415,6 +1430,12 @@ export function WorkoutPage() {
               <div className="w-16" />
             </div>
             {showProgressBar && <ProgressBar value={currentExIdx} total={exercises.length} />}
+            {isAdjusted && (
+              <div className="mt-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3 py-2 flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300">
+                <Moon className="w-3.5 h-3.5 flex-shrink-0" />
+                Volume reduced {adjustPercent}% — sleep & energy recovery mode
+              </div>
+            )}
           </div>
 
           {/* Exercise content */}
@@ -1427,6 +1448,15 @@ export function WorkoutPage() {
                 {currentEx.sets} sets × {currentEx.reps} reps
                 {currentEx.restSeconds ? ` · ${currentEx.restSeconds}s rest` : ""}
               </p>
+              {isAdjusted && (
+                <div className="mt-2 inline-flex items-center gap-1.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg px-2.5 py-1.5">
+                  <Moon className="w-3 h-3 text-amber-500 flex-shrink-0" />
+                  <span className="text-[11px] font-medium text-amber-700 dark:text-amber-300">
+                    Today: {Math.max(1, Math.round(currentEx.sets * (1 - adjustPercent / 100)))} × {currentEx.reps}
+                    {currentEx.restSeconds ? ` · ${Math.round(currentEx.restSeconds * (1 + adjustPercent / 100))}s rest` : ""}
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Set rows */}

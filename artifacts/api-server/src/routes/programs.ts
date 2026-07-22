@@ -492,6 +492,28 @@ router.delete("/programs/:programId", requireCoachAuth, async (req, res) => {
   }
 });
 
+const SleepAdjustmentBody = z.object({
+  sleepAdjustEnabled: z.boolean(),
+  sleepAdjustPercent: z.coerce.number().int().min(0).max(50),
+});
+
+router.patch("/programs/:programId/sleep-adjustment", requireCoachAuth, async (req, res) => {
+  try {
+    const programId = Number(req.params.programId);
+    if (!(await programBelongsToCoach(programId, coachIdOf(req)))) { res.status(404).json({ error: "Program not found" }); return; }
+    const body = SleepAdjustmentBody.parse(req.body);
+    const [program] = await db.update(programsTable)
+      .set({ sleepAdjustEnabled: body.sleepAdjustEnabled, sleepAdjustPercent: body.sleepAdjustPercent })
+      .where(eq(programsTable.id, programId))
+      .returning();
+    if (!program) { res.status(404).json({ error: "Program not found" }); return; }
+    res.json({ ...program, createdAt: program.createdAt.toISOString() });
+  } catch (err) {
+    req.log.error(err);
+    res.status(400).json({ error: "Failed to update sleep adjustment settings" });
+  }
+});
+
 // ── Program Phases ────────────────────────────────────────────────────────
 
 router.post("/programs/:programId/phases", requireCoachAuth, async (req, res) => {

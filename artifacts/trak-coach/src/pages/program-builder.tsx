@@ -13,6 +13,7 @@ import {
   useSetPhaseNutritionGoal,
   useSetDayNutritionGoal,
   useDeleteDayNutritionGoal,
+  useUpdateProgramSleepAdjustment,
   getGetProgramQueryKey,
   useGetProgramAssignedClients,
   getGetProgramAssignedClientsQueryKey,
@@ -26,6 +27,7 @@ import { Link as WLink, useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -33,7 +35,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, ArrowLeft, GripVertical, Layers, Pencil, Apple, LayoutGrid, List, Users, Save } from "lucide-react";
+import { Plus, Trash2, ArrowLeft, GripVertical, Layers, Pencil, Apple, LayoutGrid, List, Users, Save, Moon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { QueryErrorState } from "@/components/query-error-state";
@@ -156,6 +158,9 @@ export function ProgramBuilder() {
   const setPhaseNutritionGoal = useSetPhaseNutritionGoal();
   const setDayNutritionGoal = useSetDayNutritionGoal();
   const deleteDayNutritionGoal = useDeleteDayNutritionGoal();
+  const updateSleepAdjustment = useUpdateProgramSleepAdjustment();
+  const [sleepAdjustEnabled, setSleepAdjustEnabled] = useState<boolean | null>(null);
+  const [sleepAdjustPercent, setSleepAdjustPercent] = useState<number | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
   const [propagateOpen, setPropagateOpen] = useState(false);
@@ -419,6 +424,63 @@ export function ProgramBuilder() {
           </div>
         )}
       </div>
+
+      {/* Sleep Adjustment Settings */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <Moon className="w-4 h-4 text-muted-foreground" /> Sleep Adjustment
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium">Auto-adjust on poor sleep</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Reduces volume when client logs poor/fair sleep and low energy (≤ 5)</p>
+            </div>
+            <Switch
+              checked={sleepAdjustEnabled ?? program.sleepAdjustEnabled ?? true}
+              onCheckedChange={(enabled) => {
+                setSleepAdjustEnabled(enabled);
+                updateSleepAdjustment.mutate(
+                  { programId, data: { sleepAdjustEnabled: enabled, sleepAdjustPercent: sleepAdjustPercent ?? program.sleepAdjustPercent ?? 20 } },
+                  {
+                    onSuccess: () => qc.invalidateQueries({ queryKey: getGetProgramQueryKey(programId) }),
+                    onError: () => toast({ title: "Failed to update", variant: "destructive" }),
+                  }
+                );
+              }}
+            />
+          </div>
+          {(sleepAdjustEnabled ?? program.sleepAdjustEnabled ?? true) && (
+            <div className="flex items-center gap-3">
+              <label className="text-sm text-muted-foreground flex-1">Volume reduction</label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  min={5}
+                  max={50}
+                  value={sleepAdjustPercent ?? program.sleepAdjustPercent ?? 20}
+                  onChange={e => setSleepAdjustPercent(Number(e.target.value))}
+                  onBlur={() => {
+                    const pct = Math.min(50, Math.max(5, sleepAdjustPercent ?? program.sleepAdjustPercent ?? 20));
+                    setSleepAdjustPercent(pct);
+                    updateSleepAdjustment.mutate(
+                      { programId, data: { sleepAdjustEnabled: sleepAdjustEnabled ?? program.sleepAdjustEnabled ?? true, sleepAdjustPercent: pct } },
+                      {
+                        onSuccess: () => qc.invalidateQueries({ queryKey: getGetProgramQueryKey(programId) }),
+                        onError: () => toast({ title: "Failed to update", variant: "destructive" }),
+                      }
+                    );
+                  }}
+                  className="w-20 text-center"
+                />
+                <span className="text-sm text-muted-foreground">%</span>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid md:grid-cols-3 gap-6">
         {/* Phases + Days list */}

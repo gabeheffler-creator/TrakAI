@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { exercisesTable } from "./exercises";
@@ -13,6 +13,8 @@ export const programsTable = pgTable("programs", {
   name: text("name").notNull(),
   description: text("description"),
   durationWeeks: integer("duration_weeks"),
+  sleepAdjustEnabled: boolean("sleep_adjust_enabled").notNull().default(true),
+  sleepAdjustPercent: integer("sleep_adjust_percent").notNull().default(20),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

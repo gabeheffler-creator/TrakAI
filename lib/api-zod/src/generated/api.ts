@@ -345,6 +345,8 @@ export const GetClientDashboardResponse = zod.object({
   "durationWeeks": zod.number().nullish(),
   "clientId": zod.number().nullish(),
   "sourceTemplateId": zod.number().nullish(),
+  "sleepAdjustEnabled": zod.boolean().optional(),
+  "sleepAdjustPercent": zod.number().optional(),
   "phases": zod.array(zod.object({
   "id": zod.number(),
   "name": zod.string(),
@@ -536,6 +538,8 @@ export const ListProgramsResponseItem = zod.object({
   "durationWeeks": zod.number().nullish(),
   "clientId": zod.number().nullish(),
   "sourceTemplateId": zod.number().nullish(),
+  "sleepAdjustEnabled": zod.boolean().optional(),
+  "sleepAdjustPercent": zod.number().optional(),
   "createdAt": zod.coerce.date()
 })
 export const ListProgramsResponse = zod.array(ListProgramsResponseItem)
@@ -581,6 +585,8 @@ export const GetProgramResponse = zod.object({
   "durationWeeks": zod.number().nullish(),
   "clientId": zod.number().nullish(),
   "sourceTemplateId": zod.number().nullish(),
+  "sleepAdjustEnabled": zod.boolean().optional(),
+  "sleepAdjustPercent": zod.number().optional(),
   "phases": zod.array(zod.object({
   "id": zod.number(),
   "name": zod.string(),
@@ -677,6 +683,8 @@ export const UpdateProgramResponse = zod.object({
   "durationWeeks": zod.number().nullish(),
   "clientId": zod.number().nullish(),
   "sourceTemplateId": zod.number().nullish(),
+  "sleepAdjustEnabled": zod.boolean().optional(),
+  "sleepAdjustPercent": zod.number().optional(),
   "createdAt": zod.coerce.date()
 })
 
@@ -686,6 +694,36 @@ export const UpdateProgramResponse = zod.object({
  */
 export const DeleteProgramParams = zod.object({
   "programId": zod.coerce.number()
+})
+
+
+/**
+ * @summary Update sleep auto-adjustment settings for a program
+ */
+export const UpdateProgramSleepAdjustmentParams = zod.object({
+  "programId": zod.coerce.number()
+})
+
+export const updateProgramSleepAdjustmentBodySleepAdjustPercentMin = 0;
+export const updateProgramSleepAdjustmentBodySleepAdjustPercentMax = 50;
+
+
+
+export const UpdateProgramSleepAdjustmentBody = zod.object({
+  "sleepAdjustEnabled": zod.boolean(),
+  "sleepAdjustPercent": zod.number().min(updateProgramSleepAdjustmentBodySleepAdjustPercentMin).max(updateProgramSleepAdjustmentBodySleepAdjustPercentMax)
+})
+
+export const UpdateProgramSleepAdjustmentResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "durationWeeks": zod.number().nullish(),
+  "clientId": zod.number().nullish(),
+  "sourceTemplateId": zod.number().nullish(),
+  "sleepAdjustEnabled": zod.boolean().optional(),
+  "sleepAdjustPercent": zod.number().optional(),
+  "createdAt": zod.coerce.date()
 })
 
 
@@ -1260,6 +1298,25 @@ export const LogSleepBody = zod.object({
   "energyRating": zod.number().optional(),
   "notes": zod.string().optional()
 })
+
+
+/**
+ * @summary Get the client's most recent sleep log
+ */
+export const GetLatestSleepLogParams = zod.object({
+  "clientId": zod.coerce.number()
+})
+
+export const GetLatestSleepLogResponse = zod.union([zod.object({
+  "id": zod.number(),
+  "clientId": zod.number(),
+  "date": zod.coerce.date(),
+  "hoursSlept": zod.number(),
+  "quality": zod.union([zod.literal('poor'),zod.literal('fair'),zod.literal('good'),zod.literal('great'),zod.literal(null)]).nullish(),
+  "energyRating": zod.number().nullish(),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+}),zod.null()])
 
 
 /**

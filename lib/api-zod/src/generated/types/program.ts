@@ -17,5 +17,7 @@ export interface Program {
   clientId?: number | null;
   /** @nullable */
   sourceTemplateId?: number | null;
+  sleepAdjustEnabled?: boolean;
+  sleepAdjustPercent?: number;
   createdAt: Date;
 }
