@@ -331,6 +331,9 @@ export interface Exercise {
   id: number;
   name: string;
   muscleGroup: string;
+  isCompound: boolean;
+  /** @nullable */
+  movementPattern?: string | null;
   /** @nullable */
   description?: string | null;
   createdAt?: string;
@@ -341,6 +344,8 @@ export interface ExerciseInput {
   name: string;
   /** @minLength 1 */
   muscleGroup: string;
+  isCompound?: boolean;
+  movementPattern?: string;
   description?: string;
 }
 

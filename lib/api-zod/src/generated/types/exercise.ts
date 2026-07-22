@@ -10,6 +10,9 @@ export interface Exercise {
   id: number;
   name: string;
   muscleGroup: string;
+  isCompound: boolean;
+  /** @nullable */
+  movementPattern?: string | null;
   /** @nullable */
   description?: string | null;
   createdAt?: Date;

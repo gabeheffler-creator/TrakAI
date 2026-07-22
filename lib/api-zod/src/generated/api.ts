@@ -468,6 +468,8 @@ export const ListExercisesResponseItem = zod.object({
   "id": zod.number(),
   "name": zod.string(),
   "muscleGroup": zod.string(),
+  "isCompound": zod.boolean(),
+  "movementPattern": zod.string().nullish(),
   "description": zod.string().nullish(),
   "createdAt": zod.coerce.date().optional()
 })
@@ -484,6 +486,8 @@ export const ListExercisesResponse = zod.array(ListExercisesResponseItem)
 export const CreateExerciseBody = zod.object({
   "name": zod.string().min(1),
   "muscleGroup": zod.string().min(1),
+  "isCompound": zod.boolean().optional(),
+  "movementPattern": zod.string().optional(),
   "description": zod.string().optional()
 })
 

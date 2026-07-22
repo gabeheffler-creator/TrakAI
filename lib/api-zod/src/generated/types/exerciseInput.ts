@@ -11,5 +11,7 @@ export interface ExerciseInput {
   name: string;
   /** @minLength 1 */
   muscleGroup: string;
+  isCompound?: boolean;
+  movementPattern?: string;
   description?: string;
 }

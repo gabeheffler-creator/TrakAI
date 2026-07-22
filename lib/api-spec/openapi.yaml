@@ -2371,7 +2371,7 @@ components:
     # ── Exercise Library ────────────────────────────────────────────────────
     Exercise:
       type: object
-      required: [id, name, muscleGroup]
+      required: [id, name, muscleGroup, isCompound]
       properties:
         id:
           type: integer
@@ -2379,6 +2379,10 @@ components:
           type: string
         muscleGroup:
           type: string
+        isCompound:
+          type: boolean
+        movementPattern:
+          type: ["string", "null"]
         description:
           type: ["string", "null"]
         createdAt:
@@ -2395,6 +2399,10 @@ components:
         muscleGroup:
           type: string
           minLength: 1
+        isCompound:
+          type: boolean
+        movementPattern:
+          type: string
         description:
           type: string
 
