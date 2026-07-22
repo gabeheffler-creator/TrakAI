@@ -278,7 +278,7 @@ function AssignTaskDialog({
   );
 }
 
-function ConversationPanel({ clientId }: { clientId: number }) {
+function ConversationPanel({ clientId, onBack }: { clientId: number; onBack: () => void }) {
   const qc = useQueryClient();
   const [input, setInput] = useState("");
   const [assignOpen, setAssignOpen] = useState(false);
@@ -317,9 +317,18 @@ function ConversationPanel({ clientId }: { clientId: number }) {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Conversation header with Assign Task button */}
+      {/* Conversation header with back arrow and Assign Task button */}
       <div className="px-4 py-2 border-b border-border flex items-center justify-between flex-shrink-0 bg-background">
-        <span className="text-sm text-muted-foreground">Conversation</span>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={onBack}
+          data-testid="button-back-to-conversations"
+          aria-label="Back to conversations"
+        >
+          <ArrowLeft className="w-4 h-4" />
+        </Button>
         <Button
           variant="outline"
           className="h-11 text-sm gap-1.5 border-violet-300 text-violet-700 hover:bg-violet-50 px-3"
@@ -496,15 +505,7 @@ export function Messages() {
       </div>
 
       <div className={cn("flex-1 flex flex-col", activeClientId ? "flex" : "hidden sm:flex")}>
-        {activeClientId && (
-          <div className="sm:hidden flex items-center gap-2 px-3 py-2 border-b border-border flex-shrink-0">
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate("/messages")}>
-              <ArrowLeft className="w-4 h-4" />
-            </Button>
-            <span className="text-sm font-medium">Back to messages</span>
-          </div>
-        )}
-        {activeClientId ? <ConversationPanel clientId={activeClientId} /> : <EmptyState />}
+        {activeClientId ? <ConversationPanel clientId={activeClientId} onBack={() => navigate("/messages")} /> : <EmptyState />}
       </div>
     </div>
   );
