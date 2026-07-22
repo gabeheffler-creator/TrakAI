@@ -114,6 +114,20 @@ router.post("/clients/:clientId/tasks", requireCoachAuth, async (req, res) => {
   }
 });
 
+// GET /api/clients/:clientId/tasks/history — full task history for the client (client auth), newest first
+router.get("/clients/:clientId/tasks/history", requireClientOwnership(), async (req, res) => {
+  try {
+    const clientId = Number(req.params.clientId);
+    const tasks = await db.select().from(clientTasksTable)
+      .where(eq(clientTasksTable.clientId, clientId))
+      .orderBy(desc(clientTasksTable.createdAt));
+    res.json(tasks.map(serializeTask));
+  } catch (err) {
+    req.log.error(err);
+    res.status(500).json({ error: "Failed to list task history" });
+  }
+});
+
 // GET /api/clients/:clientId/tasks/active — active task for client home screen
 router.get("/clients/:clientId/tasks/active", requireClientOwnership(), async (req, res) => {
   try {

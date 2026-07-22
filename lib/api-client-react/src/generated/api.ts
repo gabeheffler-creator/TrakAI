@@ -5798,6 +5798,83 @@ export const useAssignTask = <TError = ErrorType<unknown>,
       return useMutation(getAssignTaskMutationOptions(options));
     }
 
+export const getListClientTaskHistoryUrl = (clientId: number,) => {
+
+
+
+
+  return `/api/clients/${clientId}/tasks/history`
+}
+
+/**
+ * @summary Get the client's full task history (all statuses), newest first
+ */
+export const listClientTaskHistory = async (clientId: number, options?: RequestInit): Promise<ClientTask[]> => {
+
+  return customFetch<ClientTask[]>(getListClientTaskHistoryUrl(clientId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListClientTaskHistoryQueryKey = (clientId: number,) => {
+    return [
+    `/api/clients/${clientId}/tasks/history`
+    ] as const;
+    }
+
+
+export const getListClientTaskHistoryQueryOptions = <TData = Awaited<ReturnType<typeof listClientTaskHistory>>, TError = ErrorType<void>>(clientId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listClientTaskHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListClientTaskHistoryQueryKey(clientId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listClientTaskHistory>>> = ({ signal }) => listClientTaskHistory(clientId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(clientId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listClientTaskHistory>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListClientTaskHistoryQueryResult = NonNullable<Awaited<ReturnType<typeof listClientTaskHistory>>>
+export type ListClientTaskHistoryQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get the client's full task history (all statuses), newest first
+ */
+
+export function useListClientTaskHistory<TData = Awaited<ReturnType<typeof listClientTaskHistory>>, TError = ErrorType<void>>(
+ clientId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listClientTaskHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListClientTaskHistoryQueryOptions(clientId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
 export const getGetActiveTaskUrl = (clientId: number,) => {
 
 

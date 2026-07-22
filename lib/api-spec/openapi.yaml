@@ -1741,6 +1741,29 @@ paths:
               schema:
                 $ref: "#/components/schemas/ClientTask"
 
+  /clients/{clientId}/tasks/history:
+    get:
+      operationId: listClientTaskHistory
+      tags: [tasks]
+      summary: Get the client's full task history (all statuses), newest first
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Full task list (all statuses)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ClientTask"
+        "403":
+          description: Not authorised
+
   /clients/{clientId}/tasks/active:
     get:
       operationId: getActiveTask

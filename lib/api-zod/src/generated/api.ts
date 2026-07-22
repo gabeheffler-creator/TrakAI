@@ -1599,6 +1599,27 @@ export const AssignTaskBody = zod.object({
 
 
 /**
+ * @summary Get the client's full task history (all statuses), newest first
+ */
+export const ListClientTaskHistoryParams = zod.object({
+  "clientId": zod.coerce.number()
+})
+
+export const ListClientTaskHistoryResponseItem = zod.object({
+  "id": zod.number(),
+  "clientId": zod.number(),
+  "text": zod.string(),
+  "status": zod.enum(['pending', 'accepted', 'rejected', 'completed']),
+  "rejectionReason": zod.string().nullish(),
+  "alternativeText": zod.string().nullish(),
+  "altStatus": zod.union([zod.literal('pending'),zod.literal('accepted'),zod.literal('rejected'),zod.literal('left_alone'),zod.literal(null)]).nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+export const ListClientTaskHistoryResponse = zod.array(ListClientTaskHistoryResponseItem)
+
+
+/**
  * @summary Get the client's current active (accepted) task
  */
 export const GetActiveTaskParams = zod.object({

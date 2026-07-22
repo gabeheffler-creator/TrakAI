@@ -138,7 +138,7 @@ export function Dashboard() {
               <ClipboardList className="w-4 h-4" />
               Your Tasks
             </h2>
-            <Link href="/assignments" className="text-xs text-primary hover:underline shrink-0">
+            <Link href="/tasks" className="text-xs text-primary hover:underline shrink-0">
               View all
             </Link>
           </div>
