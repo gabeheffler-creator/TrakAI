@@ -11,6 +11,8 @@ import {
   useSuggestAlternativeTask,
   useLeaveTask,
   useGetTaskAiAlternatives,
+  useGetClient,
+  getGetClientQueryKey,
   type ClientTask,
 } from "@workspace/api-client-react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
@@ -281,6 +283,14 @@ function AssignTaskDialog({
 function ConversationPanel({ clientId, clientName, onBack }: { clientId: number; clientName: string | undefined; onBack: () => void }) {
   const qc = useQueryClient();
   const [input, setInput] = useState("");
+
+  const { data: clientData } = useGetClient(clientId, {
+    query: {
+      queryKey: getGetClientQueryKey(clientId),
+      enabled: clientName === undefined,
+    },
+  });
+  const displayName = clientName ?? clientData?.name;
   const [assignOpen, setAssignOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const { data: messages, isLoading, isError, refetch, isFetching } = useListMessages(clientId, {
@@ -329,8 +339,12 @@ function ConversationPanel({ clientId, clientName, onBack }: { clientId: number;
         >
           <ArrowLeft className="w-4 h-4" />
         </Button>
-        {clientName && (
-          <span className="flex-1 text-center font-semibold text-sm truncate px-2">{clientName}</span>
+        {displayName ? (
+          <span className="flex-1 text-center font-semibold text-sm truncate px-2">{displayName}</span>
+        ) : (
+          <span className="flex-1 px-2">
+            <span className="block h-4 w-28 mx-auto rounded bg-muted animate-pulse" />
+          </span>
         )}
         <Button
           variant="outline"
