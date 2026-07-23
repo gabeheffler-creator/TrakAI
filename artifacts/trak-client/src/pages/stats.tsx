@@ -862,7 +862,7 @@ export function StatsPage() {
             <UploadDialog
               trigger={
                 <Button size="sm" className="gap-1">
-                  <Camera className="w-4 h-4" />Add photo
+                  <Plus className="w-4 h-4" /> Add photo
                 </Button>
               }
               onSave={handleSavePhoto}
@@ -870,86 +870,56 @@ export function StatsPage() {
           </div>
 
           {photosError && (
-            <QueryErrorState message="Couldn't load your photos." onRetry={() => refetchPhotos()} isRetrying={photosFetching} testId="button-retry-photos" />
+            <QueryErrorState message="Couldn't load progress photos." onRetry={() => refetchPhotos()} isRetrying={photosFetching} testId="button-retry-progress-photos" />
           )}
 
-          {!photosError && (photos ?? []).length === 0 && (
-            <div className="text-center py-16 text-muted-foreground">
-              <Camera className="w-12 h-12 mx-auto mb-4 opacity-20" />
-              <p>No photos yet. Add your first progress photo!</p>
+          {!photosError && (photos?.length ?? 0) === 0 && (
+            <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-2xl">
+              <Camera className="w-10 h-10 mx-auto mb-3 opacity-20" />
+              <p className="font-medium">No progress photos yet</p>
+              <p className="text-sm mt-1">Start documenting your journey!</p>
             </div>
           )}
 
-          {(photos ?? []).length > 0 && (() => {
-            const grouped: Record<string, typeof photos> = {};
-            for (const p of photos ?? []) {
-              if (!grouped[p.date]) grouped[p.date] = [];
-              grouped[p.date]!.push(p);
-            }
-            const dates = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
-
-            return (
-              <div className="space-y-6">
-                {dates.map(date => {
-                  const dayPhotos = grouped[date]!;
-                  const dayMeasurement = measurementByDate[date];
-                  const weightVal = dayMeasurement?.weight != null ? Number(dayMeasurement.weight) : null;
-
-                  return (
-                    <div key={date}>
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-sm font-semibold">{format(parseISO(date), "MMM d, yyyy")}</h3>
-                        {weightVal != null && (
-                          <span className="text-xs text-muted-foreground">{weightVal} {weightLabel}</span>
-                        )}
-                        <UploadDialog
-                          trigger={
-                            <button className="ml-auto p-1 text-muted-foreground hover:text-foreground transition-colors" aria-label="Add photo">
-                              <Plus className="w-4 h-4" />
-                            </button>
-                          }
-                          onSave={handleSavePhoto}
-                        />
-                      </div>
-                      <div className="grid grid-cols-3 gap-2">
-                        {dayPhotos.map(photo => (
-                          <div key={photo.id} className="relative group rounded-lg overflow-hidden">
-                            {isLegacyUrl(photo.imageUrl) ? (
-                              <BrokenPhotoPlaceholder />
-                            ) : (
-                              <img
-                                src={photo.imageUrl}
-                                alt={photo.notes ?? "Progress photo"}
-                                className="w-full aspect-[3/4] object-cover"
-                                onError={e => {
-                                  const parent = (e.target as HTMLImageElement).parentElement;
-                                  if (parent) parent.innerHTML = '<div class="w-full aspect-[3/4] bg-muted flex items-center justify-center"><svg class="w-5 h-5 text-muted-foreground opacity-40" ...></svg></div>';
-                                }}
-                              />
-                            )}
-                            <button
-                              onClick={() => {
-                                deletePhoto.mutate({ photoId: photo.id, clientId: clientId! }, {
-                                  onSuccess: () => qc.invalidateQueries({ queryKey: getListProgressPhotosQueryKey(clientId!) }),
-                                });
-                              }}
-                              className="absolute top-1 right-1 p-1 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                              aria-label="Delete photo"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </button>
-                            {photo.notes && (
-                              <p className="absolute bottom-0 left-0 right-0 px-2 py-1 text-[10px] text-white bg-black/50 truncate">{photo.notes}</p>
-                            )}
+          <div className="grid grid-cols-2 gap-3">
+            {!photosError && photos?.slice().reverse().map(p => {
+              const mForDate = measurementByDate[p.date];
+              const presentMetrics = mForDate
+                ? MEASUREMENT_CHARTS.filter(({ key }) => mForDate[key] != null).slice(0, 4)
+                : [];
+              return (
+                <Card key={p.id} className="overflow-hidden">
+                  <div className="relative">
+                    {isLegacyUrl(p.imageUrl) ? (
+                      <BrokenPhotoPlaceholder />
+                    ) : (
+                      <img src={p.imageUrl} alt="Progress" className="w-full aspect-[3/4] object-cover" />
+                    )}
+                    <button
+                      onClick={() => deletePhoto.mutate({ clientId: clientId!, photoId: p.id }, { onSuccess: () => qc.invalidateQueries({ queryKey: getListProgressPhotosQueryKey(clientId!) }) })}
+                      className="absolute top-2 right-2 bg-background/80 rounded-full p-1 text-muted-foreground hover:text-destructive transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <CardContent className="p-2 space-y-1">
+                    <p className="text-xs font-semibold">{p.date}</p>
+                    {p.notes && <p className="text-xs text-muted-foreground truncate">{p.notes}</p>}
+                    {presentMetrics.length > 0 && (
+                      <div className="pt-1 border-t border-border/40 space-y-0.5">
+                        {presentMetrics.map(({ key, label, unit }) => (
+                          <div key={key} className="flex justify-between text-[10px]">
+                            <span className="text-muted-foreground">{label}</span>
+                            <span className="font-medium">{mForDate[key]} {unit}</span>
                           </div>
                         ))}
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })()}
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
         </>
       )}
 
