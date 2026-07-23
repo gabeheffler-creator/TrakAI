@@ -1474,6 +1474,41 @@ export function ClientProfile() {
         {/* Workouts */}
         <TabsContent value="workouts" className="mt-4 space-y-3">
           {(workoutLogs?.length ?? 0) === 0 && <p className="text-muted-foreground text-sm">No workouts logged yet.</p>}
+          {(workoutLogs?.length ?? 0) > 0 && (() => {
+            const logs = workoutLogs!;
+            const total = logs.length;
+            const cutoff4wStr = (() => { const d = new Date(); d.setDate(d.getDate() - 28); return d.toISOString().split("T")[0]; })();
+            const last4w = logs.filter(l => l.date >= cutoff4wStr).length;
+            const sorted = [...logs].sort((a, b) => a.date.localeCompare(b.date));
+            const firstDate = sorted[0]?.date;
+            const lastDate = sorted[sorted.length - 1]?.date;
+            const spanWeeks = firstDate && lastDate
+              ? Math.max(4, (new Date(lastDate).getTime() - new Date(firstDate).getTime()) / (7 * 24 * 60 * 60 * 1000))
+              : 4;
+            const avgPerWeek = (total / spanWeeks).toFixed(1);
+            return (
+              <div className="grid grid-cols-3 gap-3">
+                <Card>
+                  <CardContent className="pt-3 pb-3 text-center">
+                    <p className="text-xs text-muted-foreground mb-0.5">Total Sessions</p>
+                    <p className="text-2xl font-bold">{total}</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-3 pb-3 text-center">
+                    <p className="text-xs text-muted-foreground mb-0.5">Last 4 Weeks</p>
+                    <p className="text-2xl font-bold">{last4w}</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-3 pb-3 text-center">
+                    <p className="text-xs text-muted-foreground mb-0.5">Avg / Week</p>
+                    <p className="text-2xl font-bold">{avgPerWeek}</p>
+                  </CardContent>
+                </Card>
+              </div>
+            );
+          })()}
           {workoutLogs?.slice().reverse().map(log => (
             <ExpandableWorkoutCard key={log.id} log={log} clientId={clientId} />
           ))}
