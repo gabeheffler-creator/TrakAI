@@ -13,9 +13,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Camera, Plus, Minus, Loader2, Pencil, Check, ChevronDown, ChevronUp, UtensilsCrossed, Trash2, Target, X } from "lucide-react";
+import { Camera, Plus, Minus, Loader2, Pencil, Check, ChevronLeft, ChevronRight, UtensilsCrossed, Trash2, Target, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { QueryErrorState } from "@/components/query-error-state";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 
 interface NutritionGoals {
   calories: number;
@@ -230,6 +232,24 @@ function makeSlot(label: string): MealSlot {
   };
 }
 
+function getTodayISO() {
+  return new Date().toISOString().split("T")[0];
+}
+
+function stepDate(iso: string, days: number): string {
+  const d = new Date(iso + "T12:00:00");
+  d.setDate(d.getDate() + days);
+  return d.toISOString().split("T")[0];
+}
+
+function formatDateLabel(iso: string): string {
+  return new Date(iso + "T12:00:00").toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+
 export function NutritionPage() {
   const { clientId } = useClientId();
   const qc = useQueryClient();
@@ -253,6 +273,17 @@ export function NutritionPage() {
       .catch(() => {});
   }, [clientId]);
 
+  const [selectedDate, setSelectedDate] = useState<string>(getTodayISO);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+
+  const today = getTodayISO();
+  const isToday = selectedDate === today;
+  const isFuture = selectedDate > today;
+  const isPast = selectedDate < today;
+
+  const goToPrev = () => setSelectedDate(d => stepDate(d, -1));
+  const goToNext = () => setSelectedDate(d => stepDate(d, 1));
+
   const [diarySlot, setDiarySlot] = useState<MealSlot>(makeSlot("MFP Diary Overview"));
   const [mealSlots, setMealSlots] = useState<MealSlot[]>([
     makeSlot("Meal 1"),
@@ -262,8 +293,6 @@ export function NutritionPage() {
   const [aiResults, setAiResults] = useState<Record<string, AiResult>>({});
   const [waterGlasses, setWaterGlasses] = useState(0);
   const [submitting, setSubmitting] = useState(false);
-  const [showPastLogs, setShowPastLogs] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   const { data: logs, isLoading, isError, refetch, isFetching } = useListNutritionLogs(clientId!, {
     query: { enabled: !!clientId, queryKey: getListNutritionLogsQueryKey(clientId!) }
@@ -371,7 +400,6 @@ export function NutritionPage() {
   const handleSubmitDay = async () => {
     if (!clientId) return;
     setSubmitting(true);
-    const today = new Date().toISOString().split("T")[0];
 
     const allSlots = [{ slot: diarySlot, isDiary: true }, ...mealSlots.map(s => ({ slot: s, isDiary: false }))];
     for (const { slot } of allSlots) {
@@ -380,7 +408,7 @@ export function NutritionPage() {
           createNutritionLog.mutate({
             clientId,
             data: {
-              date: today,
+              date: selectedDate,
               imageUrl: "cant_track",
               notes: `${slot.label}: ${slot.cantTrackNote}`,
               calories: slot.calorieGuess ? parseInt(slot.calorieGuess) : undefined,
@@ -393,7 +421,7 @@ export function NutritionPage() {
           createNutritionLog.mutate({
             clientId,
             data: {
-              date: today,
+              date: selectedDate,
               imageUrl: slot.uploadedUrl!,
               notes: slot.label,
               calories: ai?.calories ?? undefined,
@@ -413,7 +441,7 @@ export function NutritionPage() {
         createNutritionLog.mutate({
           clientId,
           data: {
-            date: today,
+            date: selectedDate,
             imageUrl: "water_only",
             notes: `Water: ${waterGlasses} glass${waterGlasses !== 1 ? "es" : ""} (${waterGlasses * OZ_PER_GLASS} oz)`,
             waterMl: waterGlasses * GLASS_ML,
@@ -424,44 +452,79 @@ export function NutritionPage() {
 
     qc.invalidateQueries({ queryKey: getListNutritionLogsQueryKey(clientId) });
     setSubmitting(false);
-    toast({ title: "Nutrition logged for today!" });
+    toast({ title: isToday ? "Nutrition logged for today!" : `Nutrition logged for ${formatDateLabel(selectedDate)}!` });
     setDiarySlot(makeSlot("MFP Diary Overview"));
     setMealSlots([makeSlot("Meal 1"), makeSlot("Meal 2"), makeSlot("Meal 3")]);
     setAiResults({});
     setWaterGlasses(0);
   };
 
-  const pastLogsByDate = useMemo(() => {
-    const today = new Date().toISOString().split("T")[0];
-    const past = (logs ?? []).filter(n => n.date !== today);
-    const grouped: Record<string, typeof past> = {};
-    for (const n of past) {
-      if (!grouped[n.date]) grouped[n.date] = [];
-      grouped[n.date].push(n);
-    }
-    return Object.entries(grouped).sort(([a], [b]) => b.localeCompare(a));
-  }, [logs]);
-
   const { units } = useUnitSystem();
   const calLabel = units === "imperial" ? "cal" : "kcal";
 
   if (!clientId) return <div className="p-4 text-muted-foreground">Please join via an invite link first.</div>;
 
-  const today = new Date().toISOString().split("T")[0];
-  const todayLogs = logs?.filter(n => n.date === today && n.imageUrl !== "water_only") ?? [];
-  const todayWater = logs?.find(n => n.date === today && n.imageUrl === "water_only");
+  const selectedLogs = logs?.filter(n => n.date === selectedDate && n.imageUrl !== "water_only") ?? [];
+  const selectedWater = logs?.find(n => n.date === selectedDate && n.imageUrl === "water_only");
 
-  const totalCal  = todayLogs.reduce((s, n) => s + (n.calories ?? 0), 0);
-  const totalPro  = todayLogs.reduce((s, n) => s + Number(n.protein ?? 0), 0);
-  const totalCarb = todayLogs.reduce((s, n) => s + Number(n.carbs   ?? 0), 0);
-  const totalFat  = todayLogs.reduce((s, n) => s + Number(n.fat     ?? 0), 0);
-  const hasTodayData = todayLogs.length > 0;
+  const totalCal  = selectedLogs.reduce((s, n) => s + (n.calories ?? 0), 0);
+  const totalPro  = selectedLogs.reduce((s, n) => s + Number(n.protein ?? 0), 0);
+  const totalCarb = selectedLogs.reduce((s, n) => s + Number(n.carbs   ?? 0), 0);
+  const totalFat  = selectedLogs.reduce((s, n) => s + Number(n.fat     ?? 0), 0);
+  const hasSelectedData = selectedLogs.length > 0;
+
+  const showForm = isToday || isFuture || !hasSelectedData;
 
   return (
     <div className="max-w-lg mx-auto space-y-6 pb-8">
       <div>
         <h1 className="text-2xl font-bold">Nutrition</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">Upload your MFP screenshots for today</p>
+        <p className="text-sm text-muted-foreground mt-0.5">
+          {isToday ? "Upload your MFP screenshots for today" : isFuture ? "Log nutrition for an upcoming day" : "Viewing a past day"}
+        </p>
+      </div>
+
+      {/* ── Date Navigator ───────────────────── */}
+      <div className="flex items-center justify-between gap-2">
+        <button
+          onClick={goToPrev}
+          className="w-9 h-9 flex items-center justify-center rounded-full border border-border hover:bg-muted/60 transition-colors text-muted-foreground"
+          aria-label="Previous day"
+        >
+          <ChevronLeft className="w-5 h-5" />
+        </button>
+
+        <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+          <PopoverTrigger asChild>
+            <button className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-xl hover:bg-muted/60 transition-colors">
+              <span className="text-sm font-semibold">
+                {isToday ? "Today" : formatDateLabel(selectedDate)}
+              </span>
+              <ChevronRight className="w-3.5 h-3.5 text-muted-foreground rotate-90" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="center">
+            <Calendar
+              mode="single"
+              selected={new Date(selectedDate + "T12:00:00")}
+              onSelect={d => {
+                if (d) {
+                  setSelectedDate(d.toISOString().split("T")[0]);
+                  setCalendarOpen(false);
+                }
+              }}
+              initialFocus
+            />
+          </PopoverContent>
+        </Popover>
+
+        <button
+          onClick={goToNext}
+          className="w-9 h-9 flex items-center justify-center rounded-full border border-border hover:bg-muted/60 transition-colors text-muted-foreground"
+          aria-label="Next day"
+        >
+          <ChevronRight className="w-5 h-5" />
+        </button>
       </div>
 
       {isError && (
@@ -473,10 +536,10 @@ export function NutritionPage() {
         />
       )}
 
-      {/* ── Today's Summary ───────────────────── */}
+      {/* ── Day Summary ───────────────────── */}
       <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
         {/* Day type badge — shown when coach has set different training/rest goals */}
-        {goalDayType && goalDayType !== "any" && isTrainingDay !== null && (
+        {isToday && goalDayType && goalDayType !== "any" && isTrainingDay !== null && (
           <div className="flex items-center gap-1.5">
             <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
               {isTrainingDay ? "🏋️ Training day" : "🌙 Rest day"}
@@ -508,7 +571,7 @@ export function NutritionPage() {
           )}
         </div>
 
-        {/* Calorie progress bar — always visible, dashed placeholder when no goal */}
+        {/* Calorie progress bar */}
         {coachGoals && (coachGoals.calories ?? 0) > 0 ? (
           <div className="space-y-1">
             <div className="h-2 rounded-full bg-muted overflow-hidden">
@@ -530,7 +593,7 @@ export function NutritionPage() {
           </div>
         )}
 
-        {/* Macro row — always visible, shows 0 until logged */}
+        {/* Macro row */}
         <div className="grid grid-cols-3 gap-2">
           {[
             { label: "Protein", val: Math.round(totalPro),  goal: coachGoals?.protein,  unit: "g", color: "bg-blue-500/10 text-blue-600 dark:text-blue-400" },
@@ -549,187 +612,158 @@ export function NutritionPage() {
         </div>
 
         {/* Water or empty-state note */}
-        {todayWater ? (
+        {selectedWater ? (
           <p className="text-xs text-muted-foreground">
-            💧 {Math.round((todayWater.waterMl ?? 0) / ML_PER_OZ)} oz water logged
+            💧 {Math.round((selectedWater.waterMl ?? 0) / ML_PER_OZ)} oz water logged
           </p>
-        ) : !hasTodayData ? (
-          <p className="text-xs text-muted-foreground italic">No entries logged yet — submit below to see your totals.</p>
+        ) : !hasSelectedData ? (
+          <p className="text-xs text-muted-foreground italic">
+            {isFuture ? "No entries yet — you can log ahead of time below." : "No entries logged yet — submit below to see your totals."}
+          </p>
         ) : null}
       </div>
 
-      {/* Diary Overview slot */}
-      <PhotoBox
-        slot={diarySlot}
-        aiResult={aiResults[diarySlot.id] ?? null}
-        calLabel={calLabel}
-        onFileChange={(f, u) => handleFileChange(diarySlot.id, true, f, u)}
-        onCantTrackToggle={() => updateSlot(diarySlot.id, true, { cantTrack: !diarySlot.cantTrack })}
-        onNoteChange={v => updateSlot(diarySlot.id, true, { cantTrackNote: v })}
-        onCalorieGuessChange={v => updateSlot(diarySlot.id, true, { calorieGuess: v })}
-        onAiEdit={() => setAiResults(p => ({ ...p, [diarySlot.id]: { ...p[diarySlot.id], editing: true } }))}
-        onAiSave={() => setAiResults(p => ({ ...p, [diarySlot.id]: { ...p[diarySlot.id], editing: false } }))}
-        onAiFieldChange={(field, val) => setAiResults(p => ({
-          ...p,
-          [diarySlot.id]: { ...p[diarySlot.id], [field]: val === "" ? null : Number(val) }
-        }))}
-      />
+      {/* ── Read-only past day view ───────────────────── */}
+      {isPast && hasSelectedData && (
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-1">Logged entries</p>
+          {selectedLogs.map(entry => (
+            <div key={entry.id} className="rounded-xl border border-border bg-card p-3 flex items-center gap-3">
+              {entry.imageUrl && entry.imageUrl !== "cant_track" ? (
+                <img
+                  src={entry.imageUrl}
+                  alt="log"
+                  className="w-12 h-12 rounded-lg object-cover flex-shrink-0 bg-muted"
+                />
+              ) : (
+                <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                  <UtensilsCrossed className="w-5 h-5 text-muted-foreground/40" />
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{entry.notes ?? "—"}</p>
+                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                  {entry.calories != null && (
+                    <span className="text-xs text-muted-foreground tabular-nums">{entry.calories} {calLabel}</span>
+                  )}
+                  {entry.protein != null && (
+                    <span className="text-xs text-blue-600 dark:text-blue-400 tabular-nums">P {Math.round(Number(entry.protein))}g</span>
+                  )}
+                  {entry.carbs != null && (
+                    <span className="text-xs text-orange-600 dark:text-orange-400 tabular-nums">C {Math.round(Number(entry.carbs))}g</span>
+                  )}
+                  {entry.fat != null && (
+                    <span className="text-xs text-yellow-600 dark:text-yellow-400 tabular-nums">F {Math.round(Number(entry.fat))}g</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
-      {/* Meal slots */}
-      <div className="space-y-3">
-        {mealSlots.map((slot) => (
+      {/* ── Submission form (today + future, or past with no entries) ───────────────────── */}
+      {showForm && (
+        <>
+          {/* Diary Overview slot */}
           <PhotoBox
-            key={slot.id}
-            slot={slot}
-            aiResult={aiResults[slot.id] ?? null}
+            slot={diarySlot}
+            aiResult={aiResults[diarySlot.id] ?? null}
             calLabel={calLabel}
-            onFileChange={(f, u) => handleFileChange(slot.id, false, f, u)}
-            onCantTrackToggle={() => updateSlot(slot.id, false, { cantTrack: !slot.cantTrack })}
-            onNoteChange={v => updateSlot(slot.id, false, { cantTrackNote: v })}
-            onCalorieGuessChange={v => updateSlot(slot.id, false, { calorieGuess: v })}
-            onAiEdit={() => setAiResults(p => ({ ...p, [slot.id]: { ...p[slot.id], editing: true } }))}
-            onAiSave={() => setAiResults(p => ({ ...p, [slot.id]: { ...p[slot.id], editing: false } }))}
+            onFileChange={(f, u) => handleFileChange(diarySlot.id, true, f, u)}
+            onCantTrackToggle={() => updateSlot(diarySlot.id, true, { cantTrack: !diarySlot.cantTrack })}
+            onNoteChange={v => updateSlot(diarySlot.id, true, { cantTrackNote: v })}
+            onCalorieGuessChange={v => updateSlot(diarySlot.id, true, { calorieGuess: v })}
+            onAiEdit={() => setAiResults(p => ({ ...p, [diarySlot.id]: { ...p[diarySlot.id], editing: true } }))}
+            onAiSave={() => setAiResults(p => ({ ...p, [diarySlot.id]: { ...p[diarySlot.id], editing: false } }))}
             onAiFieldChange={(field, val) => setAiResults(p => ({
               ...p,
-              [slot.id]: { ...p[slot.id], [field]: val === "" ? null : Number(val) }
+              [diarySlot.id]: { ...p[diarySlot.id], [field]: val === "" ? null : Number(val) }
             }))}
           />
-        ))}
-      </div>
 
-      {/* Add/Remove meal buttons */}
-      <div className="flex gap-3">
-        <Button variant="outline" size="sm" onClick={addMeal} className="flex-1 gap-1">
-          <Plus className="w-4 h-4" /> Add meal
-        </Button>
-        <Button variant="outline" size="sm" onClick={removeMeal} disabled={mealSlots.length <= 1} className="flex-1 gap-1">
-          <Minus className="w-4 h-4" /> Remove meal
-        </Button>
-      </div>
-
-      {/* Water intake */}
-      <div className="border border-border rounded-2xl bg-card px-4 py-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-semibold">Water intake</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {waterGlasses === 0
-                ? "How many glasses today?"
-                : `${waterGlasses} × 8 oz = ${waterGlasses * OZ_PER_GLASS} oz`}
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setWaterGlasses(g => Math.max(0, g - 1))}
-              disabled={waterGlasses === 0}
-              className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:border-primary/50 disabled:opacity-30 transition-colors"
-            >
-              <Minus className="w-4 h-4" />
-            </button>
-            <span className="text-xl font-bold w-6 text-center">{waterGlasses}</span>
-            <button
-              onClick={() => setWaterGlasses(g => g + 1)}
-              className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:border-primary/50 transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-        {waterGlasses > 0 && (
-          <div className="flex gap-1.5 mt-3 flex-wrap">
-            {Array.from({ length: waterGlasses }).map((_, i) => (
-              <span key={i} className="text-lg">💧</span>
+          {/* Meal slots */}
+          <div className="space-y-3">
+            {mealSlots.map((slot) => (
+              <PhotoBox
+                key={slot.id}
+                slot={slot}
+                aiResult={aiResults[slot.id] ?? null}
+                calLabel={calLabel}
+                onFileChange={(f, u) => handleFileChange(slot.id, false, f, u)}
+                onCantTrackToggle={() => updateSlot(slot.id, false, { cantTrack: !slot.cantTrack })}
+                onNoteChange={v => updateSlot(slot.id, false, { cantTrackNote: v })}
+                onCalorieGuessChange={v => updateSlot(slot.id, false, { calorieGuess: v })}
+                onAiEdit={() => setAiResults(p => ({ ...p, [slot.id]: { ...p[slot.id], editing: true } }))}
+                onAiSave={() => setAiResults(p => ({ ...p, [slot.id]: { ...p[slot.id], editing: false } }))}
+                onAiFieldChange={(field, val) => setAiResults(p => ({
+                  ...p,
+                  [slot.id]: { ...p[slot.id], [field]: val === "" ? null : Number(val) }
+                }))}
+              />
             ))}
           </div>
-        )}
-      </div>
 
-      <Button
-        size="lg"
-        className="w-full h-13 font-semibold"
-        onClick={handleSubmitDay}
-        disabled={submitting}
-      >
-        {submitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving…</> : "Submit Today's Nutrition"}
-      </Button>
+          {/* Add/Remove meal buttons */}
+          <div className="flex gap-3">
+            <Button variant="outline" size="sm" onClick={addMeal} className="flex-1 gap-1">
+              <Plus className="w-4 h-4" /> Add meal
+            </Button>
+            <Button variant="outline" size="sm" onClick={removeMeal} disabled={mealSlots.length <= 1} className="flex-1 gap-1">
+              <Minus className="w-4 h-4" /> Remove meal
+            </Button>
+          </div>
 
-      {/* Past logs — daily totals */}
-      {pastLogsByDate.length > 0 && (
-        <div>
-          <button
-            onClick={() => setShowPastLogs(v => !v)}
-            className="w-full flex items-center justify-between px-4 py-3 rounded-2xl border border-border bg-card hover:bg-muted/50 transition-colors"
-          >
-            <span className="text-sm font-semibold">Past Logs</span>
-            <span className="flex items-center gap-2 text-xs text-muted-foreground">
-              {pastLogsByDate.length} day{pastLogsByDate.length !== 1 ? "s" : ""}
-              {showPastLogs ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-            </span>
-          </button>
-
-          {showPastLogs && (
-            <div className="mt-2 space-y-2">
-              {pastLogsByDate.map(([date, entries]) => {
-                const food = entries.filter(n => n.imageUrl !== "water_only");
-                const water = entries.find(n => n.imageUrl === "water_only");
-                const dayCal  = food.reduce((s, n) => s + (n.calories ?? 0), 0);
-                const dayPro  = food.reduce((s, n) => s + Number(n.protein ?? 0), 0);
-                const dayCarb = food.reduce((s, n) => s + Number(n.carbs   ?? 0), 0);
-                const dayFat  = food.reduce((s, n) => s + Number(n.fat     ?? 0), 0);
-                const goalCal = coachGoals?.calories ?? 0;
-                const pct = goalCal > 0 ? Math.min(100, (dayCal / goalCal) * 100) : 0;
-                const over = goalCal > 0 && dayCal > goalCal;
-                return (
-                  <div key={date} className="p-3 rounded-xl border border-border bg-card space-y-2">
-                    {/* Date + calorie total */}
-                    <div className="flex items-end justify-between">
-                      <p className="text-sm font-semibold">
-                        {new Date(date + "T12:00:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
-                      </p>
-                      <div className="text-right">
-                        <span className="text-base font-bold tabular-nums">{dayCal.toLocaleString()}</span>
-                        <span className="text-xs text-muted-foreground ml-1">{calLabel}</span>
-                        {goalCal > 0 && (
-                          <span className={cn("text-xs ml-1", over ? "text-destructive" : "text-muted-foreground")}>
-                            / {goalCal.toLocaleString()}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Progress bar if goal set */}
-                    {goalCal > 0 && (
-                      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                        <div
-                          className={cn("h-full rounded-full transition-all", over ? "bg-destructive" : "bg-primary")}
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                    )}
-
-                    {/* Macro row */}
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
-                        P <span className="tabular-nums">{Math.round(dayPro)}g</span>
-                      </span>
-                      <span className="text-xs font-medium text-orange-600 dark:text-orange-400">
-                        C <span className="tabular-nums">{Math.round(dayCarb)}g</span>
-                      </span>
-                      <span className="text-xs font-medium text-yellow-600 dark:text-yellow-400">
-                        F <span className="tabular-nums">{Math.round(dayFat)}g</span>
-                      </span>
-                      {water && (
-                        <span className="text-xs text-muted-foreground ml-auto">
-                          💧 {Math.round((water.waterMl ?? 0) / ML_PER_OZ)} oz
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+          {/* Water intake */}
+          <div className="border border-border rounded-2xl bg-card px-4 py-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold">Water intake</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {waterGlasses === 0
+                    ? "How many glasses today?"
+                    : `${waterGlasses} × 8 oz = ${waterGlasses * OZ_PER_GLASS} oz`}
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setWaterGlasses(g => Math.max(0, g - 1))}
+                  disabled={waterGlasses === 0}
+                  className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:border-primary/50 disabled:opacity-30 transition-colors"
+                >
+                  <Minus className="w-4 h-4" />
+                </button>
+                <span className="text-xl font-bold w-6 text-center">{waterGlasses}</span>
+                <button
+                  onClick={() => setWaterGlasses(g => g + 1)}
+                  className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:border-primary/50 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
             </div>
-          )}
-        </div>
+            {waterGlasses > 0 && (
+              <div className="flex gap-1.5 mt-3 flex-wrap">
+                {Array.from({ length: waterGlasses }).map((_, i) => (
+                  <span key={i} className="text-lg">💧</span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <Button
+            size="lg"
+            className="w-full h-13 font-semibold"
+            onClick={handleSubmitDay}
+            disabled={submitting}
+          >
+            {submitting
+              ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving…</>
+              : isToday
+                ? "Submit Today's Nutrition"
+                : `Submit Nutrition for ${formatDateLabel(selectedDate)}`}
+          </Button>
+        </>
       )}
     </div>
   );
