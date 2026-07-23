@@ -4,7 +4,7 @@ import { useWorkoutPrefs } from "@/hooks/use-workout-prefs";
 import { useClientId } from "@/hooks/use-client-id";
 import {
   useGetClientProgramAssignment,
-  useGetProgram,
+  useGetClientProgram,
   useCreateWorkoutLog,
   useUpdateWorkoutLog,
   useLogSet,
@@ -15,7 +15,7 @@ import {
   getGetLastWorkoutPerformanceQueryKey,
   getListExercisesQueryKey,
   getGetClientProgramAssignmentQueryKey,
-  getGetProgramQueryKey,
+  getGetClientProgramQueryKey,
   getListWorkoutLogsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -477,8 +477,8 @@ export function WorkoutPage() {
   const { data: latestSleepLog } = useGetLatestSleepLog(clientId!, {
     query: { enabled: !!clientId, queryKey: getGetLatestSleepLogQueryKey(clientId!) }
   });
-  const { data: program, isError: programError, refetch: refetchProgram, isFetching: programFetching } = useGetProgram(assignment?.programId ?? 0, {
-    query: { enabled: !!assignment?.programId, queryKey: getGetProgramQueryKey(assignment?.programId ?? 0) }
+  const { data: program, isError: programError, refetch: refetchProgram, isFetching: programFetching } = useGetClientProgram(clientId!, {
+    query: { enabled: !!clientId && !!assignment, queryKey: getGetClientProgramQueryKey(clientId!) }
   });
   const { data: allExercises } = useListExercises({ query: { enabled: mode === "active" && swapModal, queryKey: getListExercisesQueryKey() } });
 

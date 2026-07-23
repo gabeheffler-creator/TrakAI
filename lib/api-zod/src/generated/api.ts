@@ -965,6 +965,98 @@ export const DeleteProgramExerciseParams = zod.object({
 
 
 /**
+ * @summary Get the full program detail for a client's current assignment
+ */
+export const GetClientProgramParams = zod.object({
+  "clientId": zod.coerce.number()
+})
+
+export const GetClientProgramResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "durationWeeks": zod.number().nullish(),
+  "clientId": zod.number().nullish(),
+  "sourceTemplateId": zod.number().nullish(),
+  "sleepAdjustEnabled": zod.boolean().optional(),
+  "sleepAdjustPercent": zod.number().optional(),
+  "phases": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "order": zod.number(),
+  "durationWeeks": zod.number(),
+  "daysPerWeek": zod.number().nullish(),
+  "nutritionGoal": zod.object({
+  "id": zod.number(),
+  "phaseId": zod.number(),
+  "dayId": zod.number().nullable(),
+  "calories": zod.number().nullish(),
+  "protein": zod.number().nullish(),
+  "carbs": zod.number().nullish(),
+  "fat": zod.number().nullish()
+}).optional(),
+  "days": zod.array(zod.object({
+  "id": zod.number(),
+  "dayNumber": zod.number(),
+  "name": zod.string(),
+  "notes": zod.string().nullish(),
+  "phaseId": zod.number().nullish(),
+  "nutritionGoalOverride": zod.object({
+  "id": zod.number(),
+  "phaseId": zod.number(),
+  "dayId": zod.number().nullable(),
+  "calories": zod.number().nullish(),
+  "protein": zod.number().nullish(),
+  "carbs": zod.number().nullish(),
+  "fat": zod.number().nullish()
+}).optional(),
+  "exercises": zod.array(zod.object({
+  "id": zod.number(),
+  "exerciseId": zod.number(),
+  "exerciseName": zod.string(),
+  "muscleGroup": zod.string(),
+  "sets": zod.number(),
+  "reps": zod.string(),
+  "order": zod.number(),
+  "weight": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "restSeconds": zod.number().nullish()
+}))
+}))
+})),
+  "days": zod.array(zod.object({
+  "id": zod.number(),
+  "dayNumber": zod.number(),
+  "name": zod.string(),
+  "notes": zod.string().nullish(),
+  "phaseId": zod.number().nullish(),
+  "nutritionGoalOverride": zod.object({
+  "id": zod.number(),
+  "phaseId": zod.number(),
+  "dayId": zod.number().nullable(),
+  "calories": zod.number().nullish(),
+  "protein": zod.number().nullish(),
+  "carbs": zod.number().nullish(),
+  "fat": zod.number().nullish()
+}).optional(),
+  "exercises": zod.array(zod.object({
+  "id": zod.number(),
+  "exerciseId": zod.number(),
+  "exerciseName": zod.string(),
+  "muscleGroup": zod.string(),
+  "sets": zod.number(),
+  "reps": zod.string(),
+  "order": zod.number(),
+  "weight": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "restSeconds": zod.number().nullish()
+}))
+})),
+  "createdAt": zod.coerce.date().optional()
+})
+
+
+/**
  * @summary Get the active program assigned to a client
  */
 export const GetClientProgramAssignmentParams = zod.object({

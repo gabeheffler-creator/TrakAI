@@ -798,6 +798,84 @@ router.delete("/programs/:programId/days/:dayId/exercises/:peId", requireCoachAu
   }
 });
 
+// ── Client Program (full detail, accessible by client session) ────────────
+
+router.get("/clients/:clientId/program", requireClientOwnership(), async (req, res) => {
+  try {
+    const clientId = Number(req.params.clientId);
+
+    const [assignment] = await db
+      .select({ programId: programAssignmentsTable.programId })
+      .from(programAssignmentsTable)
+      .where(eq(programAssignmentsTable.clientId, clientId))
+      .orderBy(programAssignmentsTable.createdAt);
+    if (!assignment) { res.status(404).json({ error: "No active program" }); return; }
+
+    const programId = assignment.programId;
+    const [program] = await db.select().from(programsTable).where(eq(programsTable.id, programId));
+    if (!program) { res.status(404).json({ error: "Program not found" }); return; }
+
+    const phases = await db.select().from(programPhasesTable)
+      .where(eq(programPhasesTable.programId, programId))
+      .orderBy(asc(programPhasesTable.order));
+
+    const days = await db.select().from(programDaysTable)
+      .where(eq(programDaysTable.programId, programId))
+      .orderBy(asc(programDaysTable.dayNumber));
+
+    const dayIds = days.map(d => d.id);
+    let allExercises: any[] = [];
+    if (dayIds.length > 0) {
+      allExercises = await db
+        .select({
+          id: programExercisesTable.id,
+          dayId: programExercisesTable.dayId,
+          exerciseId: programExercisesTable.exerciseId,
+          exerciseName: exercisesTable.name,
+          muscleGroup: exercisesTable.muscleGroup,
+          sets: programExercisesTable.sets,
+          reps: programExercisesTable.reps,
+          order: programExercisesTable.order,
+          weight: programExercisesTable.weight,
+          notes: programExercisesTable.notes,
+          restSeconds: programExercisesTable.restSeconds,
+        })
+        .from(programExercisesTable)
+        .innerJoin(exercisesTable, eq(programExercisesTable.exerciseId, exercisesTable.id))
+        .where(inArray(programExercisesTable.dayId, dayIds))
+        .orderBy(asc(programExercisesTable.order));
+    }
+
+    const phaseIds = phases.map(p => p.id);
+    let nutritionGoals: (typeof programNutritionGoalsTable.$inferSelect)[] = [];
+    if (phaseIds.length > 0) {
+      nutritionGoals = await db.select().from(programNutritionGoalsTable)
+        .where(inArray(programNutritionGoalsTable.phaseId, phaseIds));
+    }
+
+    const daysWithExercises = days.map(d => ({
+      ...d,
+      exercises: allExercises.filter(e => e.dayId === d.id),
+      nutritionGoalOverride: nutritionGoals.find(g => g.phaseId === d.phaseId && g.dayId === d.id),
+    }));
+
+    const detail = {
+      ...program,
+      createdAt: program.createdAt.toISOString(),
+      phases: phases.map(ph => ({
+        ...ph,
+        nutritionGoal: nutritionGoals.find(g => g.phaseId === ph.id && g.dayId === null),
+        days: daysWithExercises.filter(d => d.phaseId === ph.id),
+      })),
+      days: daysWithExercises,
+    };
+    res.json(detail);
+  } catch (err) {
+    req.log.error(err);
+    res.status(500).json({ error: "Failed to get program" });
+  }
+});
+
 // ── Program Assignments ───────────────────────────────────────────────────
 
 router.get("/clients/:clientId/program-assignment", requireClientOwnership(), async (req, res) => {

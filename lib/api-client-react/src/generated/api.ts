@@ -3135,6 +3135,83 @@ export const useDeleteProgramExercise = <TError = ErrorType<unknown>,
       return useMutation(getDeleteProgramExerciseMutationOptions(options));
     }
 
+export const getGetClientProgramUrl = (clientId: number,) => {
+
+
+
+
+  return `/api/clients/${clientId}/program`
+}
+
+/**
+ * @summary Get the full program detail for a client's current assignment
+ */
+export const getClientProgram = async (clientId: number, options?: RequestInit): Promise<ProgramDetail> => {
+
+  return customFetch<ProgramDetail>(getGetClientProgramUrl(clientId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetClientProgramQueryKey = (clientId: number,) => {
+    return [
+    `/api/clients/${clientId}/program`
+    ] as const;
+    }
+
+
+export const getGetClientProgramQueryOptions = <TData = Awaited<ReturnType<typeof getClientProgram>>, TError = ErrorType<void>>(clientId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClientProgram>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetClientProgramQueryKey(clientId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getClientProgram>>> = ({ signal }) => getClientProgram(clientId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(clientId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getClientProgram>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetClientProgramQueryResult = NonNullable<Awaited<ReturnType<typeof getClientProgram>>>
+export type GetClientProgramQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get the full program detail for a client's current assignment
+ */
+
+export function useGetClientProgram<TData = Awaited<ReturnType<typeof getClientProgram>>, TError = ErrorType<void>>(
+ clientId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClientProgram>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetClientProgramQueryOptions(clientId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
 export const getGetClientProgramAssignmentUrl = (clientId: number,) => {
 
 

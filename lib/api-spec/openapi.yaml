@@ -922,6 +922,28 @@ paths:
         "204":
           description: Deleted
 
+  # ── Client Program (full detail) ─────────────────────────────────────────
+  /clients/{clientId}/program:
+    get:
+      operationId: getClientProgram
+      tags: [workouts]
+      summary: Get the full program detail for a client's current assignment
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Program detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgramDetail"
+        "404":
+          description: No active program assigned
+
   # ── Program Assignments ───────────────────────────────────────────────────
   /clients/{clientId}/program-assignment:
     get:
