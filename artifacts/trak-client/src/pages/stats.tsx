@@ -17,12 +17,12 @@ import {
   getListProgressPhotosQueryKey,
 } from "@workspace/api-client-react";
 import {
-  LineChart, Line, BarChart, Bar, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
+  LineChart, Line, BarChart, Bar,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 import {
   TrendingUp, TrendingDown, Minus, Trophy, Dumbbell, Camera,
-  Plus, Trash2, Upload, ImageOff,
+  Plus, Trash2, Upload, ImageOff, ArrowUp, ArrowDown, Maximize2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -59,11 +59,11 @@ const EXAMPLE_SETS_DATA = [
 ];
 
 const EXAMPLE_PRS = [
-  { name: "Barbell Squat",       weight: 225, unit: "lbs", reps: 5, date: "Jun 23" },
+  { name: "Barbell Squat",         weight: 225, unit: "lbs", reps: 5, date: "Jun 23" },
   { name: "Conventional Deadlift", weight: 315, unit: "lbs", reps: 3, date: "Jun 16" },
-  { name: "Bench Press",         weight: 185, unit: "lbs", reps: 5, date: "Jun 23" },
-  { name: "Overhead Press",      weight: 115, unit: "lbs", reps: 5, date: "Jun 9"  },
-  { name: "Barbell Row",         weight: 155, unit: "lbs", reps: 8, date: "Jun 2"  },
+  { name: "Bench Press",           weight: 185, unit: "lbs", reps: 5, date: "Jun 23" },
+  { name: "Overhead Press",        weight: 115, unit: "lbs", reps: 5, date: "Jun 9"  },
+  { name: "Barbell Row",           weight: 155, unit: "lbs", reps: 8, date: "Jun 2"  },
 ];
 
 const EXAMPLE_BODY_DATA: ChartData[] = [
@@ -100,7 +100,7 @@ function ExampleBanner() {
 
 type ChartData = { date: string; [key: string]: number | string | null };
 type MeasurementEntry = ChartData & { date: string };
-type Timeframe = "1m" | "6m" | "1y" | "all";
+type Timeframe = "1w" | "1m" | "3m" | "6m" | "1y" | "all" | "custom";
 
 interface SetEntry {
   exerciseName: string;
@@ -117,6 +117,17 @@ interface WorkoutLogWithSets {
   sets?: SetEntry[];
 }
 
+type FullscreenChart = {
+  label: string;
+  color: string;
+  unit: string;
+  lowerIsBetter: boolean;
+  data: ChartData[];
+  dataKey: string;
+  lwDelta: number | null;
+  lastVal: number | null;
+};
+
 // ─── Unit conversion ─────────────────────────────────────────────────────────
 
 function toDisplayWeight(val: number, stored: string | null | undefined, display: UnitSystem): number {
@@ -132,40 +143,7 @@ function toDisplayLength(val: number, stored: string | null | undefined, display
   return Math.round(converted * 10) / 10;
 }
 
-// ─── Math helpers ─────────────────────────────────────────────────────────────
-
-function weeklyRate(points: { date: string; value: number }[]): number | null {
-  if (points.length < 2) return null;
-  const t0 = new Date(points[0].date).getTime();
-  const xs = points.map(p => (new Date(p.date).getTime() - t0) / (1000 * 60 * 60 * 24 * 7));
-  const ys = points.map(p => p.value);
-  const n = xs.length;
-  const sumX = xs.reduce((a, b) => a + b, 0);
-  const sumY = ys.reduce((a, b) => a + b, 0);
-  const sumXY = xs.reduce((a, x, i) => a + x * ys[i], 0);
-  const sumX2 = xs.reduce((a, x) => a + x * x, 0);
-  const denom = n * sumX2 - sumX * sumX;
-  if (Math.abs(denom) < 1e-10) return null;
-  return (n * sumXY - sumX * sumY) / denom;
-}
-
-function rolling7dDeltas(points: { date: string; value: number }[]): { date: string; delta: number }[] {
-  if (points.length < 2) return [];
-  const result: { date: string; delta: number }[] = [];
-  for (let i = 1; i < points.length; i++) {
-    const cur = points[i];
-    const curTime = new Date(cur.date).getTime();
-    const cutoff = curTime - 5 * 24 * 60 * 60 * 1000;
-    let best: { date: string; value: number } | null = null;
-    for (let j = i - 1; j >= 0; j--) {
-      if (new Date(points[j].date).getTime() <= cutoff) { best = points[j]; break; }
-    }
-    if (best) {
-      result.push({ date: format(parseISO(cur.date), "MMM d"), delta: Number((cur.value - best.value).toFixed(2)) });
-    }
-  }
-  return result;
-}
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function lastWeekDelta(points: { date: string; value: number }[]): number | null {
   if (points.length < 2) return null;
@@ -176,9 +154,18 @@ function lastWeekDelta(points: { date: string; value: number }[]): number | null
   return Number((last.value - prior.value).toFixed(2));
 }
 
-function filterByTf<T extends { date: string }>(items: T[], tf: Timeframe): T[] {
+function filterByTf<T extends { date: string }>(
+  items: T[],
+  tf: Timeframe,
+  customStart?: string | null,
+  customEnd?: string | null,
+): T[] {
+  if (tf === "custom") {
+    if (!customStart || !customEnd) return items;
+    return items.filter(i => i.date >= customStart && i.date <= customEnd);
+  }
   if (tf === "all") return items;
-  const days = tf === "1m" ? 30 : tf === "6m" ? 180 : 365;
+  const days = tf === "1w" ? 7 : tf === "1m" ? 30 : tf === "3m" ? 90 : tf === "6m" ? 180 : 365;
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - days);
   const cutoffStr = cutoff.toISOString().split("T")[0];
@@ -189,35 +176,21 @@ function filterByTf<T extends { date: string }>(items: T[], tf: Timeframe): T[] 
 
 function getMeasurementCharts(weightUnit: string, lengthUnit: string) {
   return [
-    { key: "weight",      label: "Body Weight",  color: "hsl(271,70%,56%)", unit: weightUnit, lowerIsBetter: true },
-    { key: "body_fat",    label: "Body Fat %",   color: "hsl(15,85%,55%)",  unit: "%",         lowerIsBetter: true },
-    { key: "chest",       label: "Chest",        color: "hsl(340,75%,55%)", unit: lengthUnit },
-    { key: "waist",       label: "Waist",        color: "hsl(200,70%,50%)", unit: lengthUnit,  lowerIsBetter: true },
-    { key: "hips",        label: "Hips",         color: "hsl(38,92%,50%)",  unit: lengthUnit,  lowerIsBetter: true },
-    { key: "left_arm",    label: "Left Arm",     color: "hsl(158,64%,38%)", unit: lengthUnit },
-    { key: "right_arm",   label: "Right Arm",    color: "hsl(158,64%,50%)", unit: lengthUnit },
-    { key: "left_thigh",  label: "Left Thigh",   color: "hsl(28,85%,50%)",  unit: lengthUnit },
-    { key: "right_thigh", label: "Right Thigh",  color: "hsl(28,85%,60%)",  unit: lengthUnit },
-    { key: "left_calf",   label: "Left Calf",    color: "hsl(260,50%,55%)", unit: lengthUnit },
-    { key: "right_calf",  label: "Right Calf",   color: "hsl(260,50%,65%)", unit: lengthUnit },
+    { key: "weight",      label: "Body Weight",  color: "hsl(271,70%,56%)", unit: weightUnit, lowerIsBetter: true  },
+    { key: "body_fat",    label: "Body Fat %",   color: "hsl(15,85%,55%)",  unit: "%",         lowerIsBetter: true  },
+    { key: "chest",       label: "Chest",        color: "hsl(340,75%,55%)", unit: lengthUnit                       },
+    { key: "waist",       label: "Waist",        color: "hsl(200,70%,50%)", unit: lengthUnit,  lowerIsBetter: true  },
+    { key: "hips",        label: "Hips",         color: "hsl(38,92%,50%)",  unit: lengthUnit,  lowerIsBetter: true  },
+    { key: "left_arm",    label: "Left Arm",     color: "hsl(158,64%,38%)", unit: lengthUnit                       },
+    { key: "right_arm",   label: "Right Arm",    color: "hsl(158,64%,50%)", unit: lengthUnit                       },
+    { key: "left_thigh",  label: "Left Thigh",   color: "hsl(28,85%,50%)",  unit: lengthUnit                       },
+    { key: "right_thigh", label: "Right Thigh",  color: "hsl(28,85%,60%)",  unit: lengthUnit                       },
+    { key: "left_calf",   label: "Left Calf",    color: "hsl(260,50%,55%)", unit: lengthUnit                       },
+    { key: "right_calf",  label: "Right Calf",   color: "hsl(260,50%,65%)", unit: lengthUnit                       },
   ];
 }
 
 // ─── Small UI components ──────────────────────────────────────────────────────
-
-function RateChip({ rate, unit, lowerIsBetter = false }: { rate: number | null; unit: string; lowerIsBetter?: boolean }) {
-  if (rate == null || Math.abs(rate) < 0.001) {
-    return <span className="inline-flex items-center gap-0.5 text-xs text-muted-foreground"><Minus className="w-3 h-3" /> stable avg</span>;
-  }
-  const positive = rate > 0;
-  const good = lowerIsBetter ? !positive : positive;
-  return (
-    <span className={`inline-flex items-center gap-0.5 text-xs font-medium ${good ? "text-emerald-500" : "text-red-400"}`}>
-      {positive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-      {positive ? "+" : ""}{rate.toFixed(2)} {unit}/wk avg
-    </span>
-  );
-}
 
 function LastWeekChip({ delta, unit, lowerIsBetter = false }: { delta: number | null; unit: string; lowerIsBetter?: boolean }) {
   if (delta == null) return null;
@@ -234,77 +207,58 @@ function LastWeekChip({ delta, unit, lowerIsBetter = false }: { delta: number | 
   );
 }
 
-function MiniLineChart({ data, dataKey, color, unit }: { data: ChartData[]; dataKey: string; color: string; unit?: string }) {
+function MiniLineChart({ data, dataKey, color, unit, fullHeight = false }: {
+  data: ChartData[];
+  dataKey: string;
+  color: string;
+  unit?: string;
+  fullHeight?: boolean;
+}) {
   return (
-    <div className="h-28 w-full">
+    <div className={fullHeight ? "h-full w-full" : "h-28 w-full"}>
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-          <XAxis dataKey="date" tick={{ fontSize: 9, fill: "var(--color-muted-foreground)" }} tickFormatter={v => { const d = new Date(v); return `${d.getMonth() + 1}/${d.getDate()}`; }} />
-          <YAxis tick={{ fontSize: 9, fill: "var(--color-muted-foreground)" }} domain={["auto", "auto"]} unit={unit ? ` ${unit}` : ""} width={40} />
-          <Tooltip contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 8, fontSize: 11 }} labelFormatter={v => new Date(v).toLocaleDateString()} formatter={(val: number) => [`${val}${unit ? ` ${unit}` : ""}`, ""]} />
-          <Line type="monotone" dataKey={dataKey} stroke={color} strokeWidth={2} dot={{ r: 3, fill: color }} activeDot={{ r: 5 }} connectNulls />
+          <XAxis
+            dataKey="date"
+            tick={{ fontSize: fullHeight ? 11 : 9, fill: "var(--color-muted-foreground)" }}
+            tickFormatter={v => { const d = new Date(v); return `${d.getMonth() + 1}/${d.getDate()}`; }}
+          />
+          <YAxis
+            tick={{ fontSize: fullHeight ? 11 : 9, fill: "var(--color-muted-foreground)" }}
+            domain={["auto", "auto"]}
+            unit={unit ? ` ${unit}` : ""}
+            width={40}
+          />
+          <Tooltip
+            contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 8, fontSize: 11 }}
+            labelFormatter={v => new Date(v).toLocaleDateString()}
+            formatter={(val: number) => [`${val}${unit ? ` ${unit}` : ""}`, ""]}
+          />
+          <Line
+            type="monotone"
+            dataKey={dataKey}
+            stroke={color}
+            strokeWidth={fullHeight ? 2.5 : 2}
+            dot={{ r: fullHeight ? 4 : 3, fill: color }}
+            activeDot={{ r: fullHeight ? 6 : 5 }}
+            connectNulls
+          />
         </LineChart>
       </ResponsiveContainer>
     </div>
   );
 }
 
-function DeltaHistoryChart({ deltas, unit, lowerIsBetter = false }: { deltas: { date: string; delta: number }[]; unit: string; lowerIsBetter?: boolean }) {
-  if (deltas.length === 0) return null;
-  return (
-    <div className="mt-2 border-t border-border/50 pt-2">
-      <p className="text-[10px] text-muted-foreground mb-1 px-1">Net change vs. prior ~7 days ({unit})</p>
-      <div className="h-20 w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={deltas} margin={{ top: 2, right: 8, left: -20, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
-            <XAxis dataKey="date" tick={{ fontSize: 9, fill: "var(--color-muted-foreground)" }} />
-            <YAxis tick={{ fontSize: 9, fill: "var(--color-muted-foreground)" }} width={38} />
-            <ReferenceLine y={0} stroke="hsl(var(--border))" strokeWidth={1.5} />
-            <Tooltip contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 8, fontSize: 11 }} formatter={(val: number) => { const sign = val > 0 ? "+" : ""; return [`${sign}${val} ${unit}`, "7d change"]; }} />
-            <Bar dataKey="delta" radius={[3, 3, 0, 0]}>
-              {deltas.map((d, i) => {
-                const isGood = lowerIsBetter ? d.delta < 0 : d.delta > 0;
-                return <Cell key={i} fill={Math.abs(d.delta) < 0.01 ? "hsl(var(--muted-foreground))" : isGood ? "hsl(142,70%,45%)" : "hsl(0,72%,60%)"} />;
-              })}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
-}
-
-function StatCard({ title, value, sub, delta, deltaUnit = "lbs" }: { title: string; value: string | number; sub?: string; delta?: number | null; deltaUnit?: string }) {
+function StatCard({ title, value, sub }: { title: string; value: string | number; sub?: string }) {
   return (
     <Card>
       <CardContent className="pt-4 pb-4 text-center">
         <p className="text-xs text-muted-foreground mb-1">{title}</p>
         <p className="text-2xl font-bold">{value}</p>
         {sub && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
-        {delta != null && (
-          <p className={`text-xs font-medium mt-1 ${delta < 0 ? "text-emerald-500" : delta > 0 ? "text-red-500" : "text-muted-foreground"}`}>
-            {delta > 0 ? "+" : ""}{Math.abs(delta).toFixed(1)} {deltaUnit}
-          </p>
-        )}
       </CardContent>
     </Card>
-  );
-}
-
-function RateRow({ label, rate, unit, lowerIsBetter = false }: { label: string; rate: number | null; unit: string; lowerIsBetter?: boolean }) {
-  if (rate == null || Math.abs(rate) < 0.001) return null;
-  const positive = rate > 0;
-  const good = lowerIsBetter ? !positive : positive;
-  return (
-    <div className="flex items-center justify-between py-1.5 border-b border-border/40 last:border-0">
-      <span className="text-sm text-muted-foreground">{label}</span>
-      <span className={`text-sm font-semibold ${good ? "text-emerald-500" : "text-red-400"}`}>
-        {positive ? <TrendingUp className="w-3 h-3 inline mr-0.5" /> : <TrendingDown className="w-3 h-3 inline mr-0.5" />}
-        {positive ? "+" : ""}{rate.toFixed(2)} {unit}/wk
-      </span>
-    </div>
   );
 }
 
@@ -439,6 +393,9 @@ export function StatsPage() {
   const [tab, setTab] = useState<Tab>("training");
   const [bodyView, setBodyView] = useState<"charts" | "history">("charts");
   const [timeframe, setTimeframe] = useState<Timeframe>("all");
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
+  const [fullscreenChart, setFullscreenChart] = useState<FullscreenChart | null>(null);
   const { clientId } = useClientId();
   const { units, weightLabel, lengthLabel } = useUnitSystem();
   const { toast } = useToast();
@@ -522,7 +479,12 @@ export function StatsPage() {
 
   // ── Body data (for Body tab) ───────────────────────────────────────────────
   const MEASUREMENT_CHARTS = getMeasurementCharts(weightLabel, lengthLabel);
-  const sorted = filterByTf((measurements ?? []).slice().sort((a, b) => a.date.localeCompare(b.date)), timeframe);
+  const sorted = filterByTf(
+    (measurements ?? []).slice().sort((a, b) => a.date.localeCompare(b.date)),
+    timeframe,
+    customStart || null,
+    customEnd || null,
+  );
   const first = sorted[0];
   const last = sorted[sorted.length - 1];
   const firstWeightDisplay = first?.weight != null ? toDisplayWeight(Number(first.weight), first.unit, units) : null;
@@ -532,42 +494,30 @@ export function StatsPage() {
 
   const measurementData: ChartData[] = sorted.map(m => ({
     date: m.date,
-    weight:       m.weight      != null ? toDisplayWeight(Number(m.weight),    m.unit, units) : null,
-    body_fat:     m.bodyFat     != null ? Number(m.bodyFat)                                   : null,
-    chest:        m.chest       != null ? toDisplayLength(Number(m.chest),     m.unit, units) : null,
-    waist:        m.waist       != null ? toDisplayLength(Number(m.waist),     m.unit, units) : null,
-    hips:         m.hips        != null ? toDisplayLength(Number(m.hips),      m.unit, units) : null,
-    left_arm:     m.leftArm     != null ? toDisplayLength(Number(m.leftArm),   m.unit, units) : null,
-    right_arm:    m.rightArm    != null ? toDisplayLength(Number(m.rightArm),  m.unit, units) : null,
-    left_thigh:   m.leftThigh   != null ? toDisplayLength(Number(m.leftThigh), m.unit, units) : null,
-    right_thigh:  m.rightThigh  != null ? toDisplayLength(Number(m.rightThigh),m.unit, units) : null,
-    left_calf:    m.leftCalf    != null ? toDisplayLength(Number(m.leftCalf),  m.unit, units) : null,
-    right_calf:   m.rightCalf   != null ? toDisplayLength(Number(m.rightCalf), m.unit, units) : null,
+    weight:       m.weight      != null ? toDisplayWeight(Number(m.weight),     m.unit, units) : null,
+    body_fat:     m.bodyFat     != null ? Number(m.bodyFat)                                    : null,
+    chest:        m.chest       != null ? toDisplayLength(Number(m.chest),      m.unit, units) : null,
+    waist:        m.waist       != null ? toDisplayLength(Number(m.waist),      m.unit, units) : null,
+    hips:         m.hips        != null ? toDisplayLength(Number(m.hips),       m.unit, units) : null,
+    left_arm:     m.leftArm     != null ? toDisplayLength(Number(m.leftArm),    m.unit, units) : null,
+    right_arm:    m.rightArm    != null ? toDisplayLength(Number(m.rightArm),   m.unit, units) : null,
+    left_thigh:   m.leftThigh   != null ? toDisplayLength(Number(m.leftThigh),  m.unit, units) : null,
+    right_thigh:  m.rightThigh  != null ? toDisplayLength(Number(m.rightThigh), m.unit, units) : null,
+    left_calf:    m.leftCalf    != null ? toDisplayLength(Number(m.leftCalf),   m.unit, units) : null,
+    right_calf:   m.rightCalf   != null ? toDisplayLength(Number(m.rightCalf),  m.unit, units) : null,
   }));
 
-  const sortedSleep = filterByTf((sleepLogs ?? []).slice().sort((a, b) => a.date.localeCompare(b.date)), timeframe);
+  const sortedSleep = filterByTf(
+    (sleepLogs ?? []).slice().sort((a, b) => a.date.localeCompare(b.date)),
+    timeframe,
+    customStart || null,
+    customEnd || null,
+  );
   const sleepData: ChartData[] = sortedSleep.map(s => ({ date: s.date, hours: s.hoursSlept }));
   const sleepPoints = sortedSleep.map(s => ({ date: s.date, value: Number(s.hoursSlept) }));
   const hasSleep = sortedSleep.length > 0;
 
-  const sortedWorkouts = filterByTf(allLogs.slice().sort((a, b) => a.date.localeCompare(b.date)), timeframe);
-  const hasWorkouts = sortedWorkouts.length > 0;
-  const workoutRate = (() => {
-    if (sortedWorkouts.length < 2) return null;
-    const t0 = new Date(sortedWorkouts[0].date).getTime();
-    const tN = new Date(sortedWorkouts[sortedWorkouts.length - 1].date).getTime();
-    const weeks = (tN - t0) / (1000 * 60 * 60 * 24 * 7);
-    if (weeks < 0.5) return null;
-    return sortedWorkouts.length / weeks;
-  })();
-
-  const rateRows = MEASUREMENT_CHARTS.map(({ key, label, unit, lowerIsBetter }) => {
-    const points = measurementData.filter(d => d[key] != null).map(d => ({ date: d.date as string, value: d[key] as number }));
-    return { label, unit, lowerIsBetter, rate: weeklyRate(points) };
-  }).filter(r => r.rate != null && Math.abs(r.rate) >= 0.001);
-
   // ── Photos data ────────────────────────────────────────────────────────────
-  // Map: date → first photo url for that date (for History view thumbnails)
   const photosByDate = useMemo(() => {
     const map: Record<string, string> = {};
     for (const p of photos ?? []) {
@@ -576,7 +526,6 @@ export function StatsPage() {
     return map;
   }, [photos]);
 
-  // Map: date → measurement data for that date (for Photos tab measurement display)
   const measurementByDate = useMemo(() => {
     const map: Record<string, ChartData> = {};
     for (const m of measurementData) map[m.date as string] = m;
@@ -721,10 +670,13 @@ export function StatsPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="1m">Last month</SelectItem>
-                <SelectItem value="6m">Last 6 months</SelectItem>
-                <SelectItem value="1y">Last year</SelectItem>
+                <SelectItem value="1w">Week</SelectItem>
+                <SelectItem value="1m">Month</SelectItem>
+                <SelectItem value="3m">3 Months</SelectItem>
+                <SelectItem value="6m">6 Months</SelectItem>
+                <SelectItem value="1y">Year</SelectItem>
                 <SelectItem value="all">All time</SelectItem>
+                <SelectItem value="custom">Custom</SelectItem>
               </SelectContent>
             </Select>
             {hasMeasurements && (
@@ -735,8 +687,21 @@ export function StatsPage() {
             )}
           </div>
 
+          {timeframe === "custom" && (
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground whitespace-nowrap">From</span>
+                <Input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="h-8 text-xs w-[140px]" />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground whitespace-nowrap">To</span>
+                <Input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="h-8 text-xs w-[140px]" />
+              </div>
+            </div>
+          )}
+
           {(() => {
-            const isBodyExample = !hasMeasurements && !hasSleep && !hasWorkouts && !measurementsError && !sleepError;
+            const isBodyExample = !hasMeasurements && !hasSleep && !measurementsError && !sleepError;
             const bodyData = isBodyExample ? EXAMPLE_BODY_DATA : measurementData;
             const exSleepData = isBodyExample ? EXAMPLE_SLEEP_DATA : sleepData;
             const exSleepPoints = isBodyExample
@@ -744,7 +709,6 @@ export function StatsPage() {
               : sleepPoints;
             const showMeasurements = isBodyExample || hasMeasurements;
             const showSleep = isBodyExample || (hasSleep && exSleepData.length >= 2);
-            const showWorkouts = !isBodyExample && hasWorkouts;
 
             const exFirst = bodyData[0];
             const exLast  = bodyData[bodyData.length - 1];
@@ -753,26 +717,38 @@ export function StatsPage() {
             const exDelta = exFirstWeight != null && exLastWeight != null
               ? Number((exLastWeight - exFirstWeight).toFixed(1)) : null;
 
+            // Unified weight delta: real data delta when available, fall back to example delta
+            const effectiveDelta = isBodyExample ? exDelta : (weightDelta ?? exDelta);
+
             return (
               <>
                 {isBodyExample && <ExampleBanner />}
 
                 {showMeasurements && (
                   <div className="grid grid-cols-3 gap-3">
-                    <StatCard title="Starting Weight"
+                    <StatCard
+                      title="Starting Weight"
                       value={exFirstWeight != null ? `${isBodyExample ? exFirstWeight : firstWeightDisplay} ${weightLabel}` : "—"}
                       sub={exFirst?.date as string | undefined}
                     />
-                    <StatCard title="Current Weight"
+                    <StatCard
+                      title="Current Weight"
                       value={exLastWeight != null ? `${isBodyExample ? exLastWeight : lastWeightDisplay} ${weightLabel}` : "—"}
                       sub={exLast?.date as string | undefined}
                     />
-                    <StatCard title="Total Change"
-                      value={exDelta != null ? `${Math.abs(isBodyExample ? exDelta : (weightDelta ?? exDelta))} ${weightLabel}` : "—"}
-                      sub={exDelta != null ? ((isBodyExample ? exDelta : weightDelta ?? exDelta) < 0 ? "lost" : "gained") : undefined}
-                      delta={isBodyExample ? exDelta : weightDelta}
-                      deltaUnit={weightLabel}
-                    />
+                    <Card>
+                      <CardContent className="pt-4 pb-4 text-center">
+                        <p className="text-xs text-muted-foreground mb-1">Total Change</p>
+                        <div className="flex items-center justify-center gap-1">
+                          {effectiveDelta != null && effectiveDelta < 0 && <ArrowDown className="w-5 h-5 text-emerald-500 shrink-0" />}
+                          {effectiveDelta != null && effectiveDelta > 0 && <ArrowUp className="w-5 h-5 text-red-400 shrink-0" />}
+                          {effectiveDelta != null && effectiveDelta === 0 && <Minus className="w-5 h-5 text-muted-foreground shrink-0" />}
+                          <p className="text-2xl font-bold">
+                            {effectiveDelta != null ? `${Math.abs(effectiveDelta)} ${weightLabel}` : "—"}
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
                   </div>
                 )}
 
@@ -792,35 +768,39 @@ export function StatsPage() {
                           {MEASUREMENT_CHARTS.map(({ key, label, color, unit, lowerIsBetter }) => {
                             const points = bodyData.filter(d => d[key] != null).map(d => ({ date: d.date as string, value: d[key] as number }));
                             if (points.length === 0) return null;
-                            const firstVal = points[0].value;
                             const lastVal = points[points.length - 1].value;
+                            const firstVal = points[0].value;
                             const diff = lastVal - firstVal;
-                            const rate = weeklyRate(points);
                             const lwDelta = lastWeekDelta(points);
-                            const deltas = rolling7dDeltas(points);
                             return (
                               <Card key={key}>
                                 <CardHeader className="pb-0 pt-3 px-4">
                                   <div className="flex items-center justify-between">
                                     <CardTitle className="text-sm font-semibold">{label}</CardTitle>
-                                    <div className="flex items-baseline gap-1.5">
-                                      <span className="text-sm font-bold">{lastVal} {unit}</span>
-                                      {Math.abs(diff) > 0.05 && (
-                                        <span className={`text-xs font-medium ${lowerIsBetter ? diff < 0 ? "text-emerald-500" : "text-red-400" : diff > 0 ? "text-emerald-500" : "text-red-400"}`}>
-                                          {diff > 0 ? "+" : ""}{diff.toFixed(1)}
-                                        </span>
-                                      )}
+                                    <div className="flex items-center gap-1.5">
+                                      <div className="flex items-baseline gap-1">
+                                        <span className="text-sm font-bold">{lastVal} {unit}</span>
+                                        {Math.abs(diff) > 0.05 && (
+                                          <span className={`text-xs font-medium ${lowerIsBetter ? diff < 0 ? "text-emerald-500" : "text-red-400" : diff > 0 ? "text-emerald-500" : "text-red-400"}`}>
+                                            {diff > 0 ? "+" : ""}{diff.toFixed(1)}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <button
+                                        onClick={() => setFullscreenChart({ label, color, unit, lowerIsBetter: lowerIsBetter ?? false, data: bodyData, dataKey: key, lwDelta, lastVal })}
+                                        className="p-1 text-muted-foreground hover:text-foreground transition-colors"
+                                        aria-label={`View ${label} fullscreen`}
+                                      >
+                                        <Maximize2 className="w-4 h-4" />
+                                      </button>
                                     </div>
                                   </div>
-                                  <div className="flex items-center gap-3 mt-1 flex-wrap">
-                                    <RateChip rate={rate} unit={unit} lowerIsBetter={lowerIsBetter} />
-                                    <span className="text-muted-foreground text-xs">·</span>
+                                  <div className="mt-1">
                                     <LastWeekChip delta={lwDelta} unit={unit} lowerIsBetter={lowerIsBetter} />
                                   </div>
                                 </CardHeader>
                                 <CardContent className="pt-2 pb-3 px-2">
                                   <MiniLineChart data={bodyData} dataKey={key} color={color} unit={unit} />
-                                  <DeltaHistoryChart deltas={deltas} unit={unit} lowerIsBetter={lowerIsBetter} />
                                 </CardContent>
                               </Card>
                             );
@@ -836,35 +816,34 @@ export function StatsPage() {
                           <CardHeader className="pb-0 pt-3 px-4">
                             <div className="flex items-center justify-between">
                               <CardTitle className="text-sm font-semibold">Hours slept</CardTitle>
-                              <span className="text-sm font-bold">{Number(exSleepData[exSleepData.length - 1]?.hours).toFixed(1)} hrs</span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-sm font-bold">{Number(exSleepData[exSleepData.length - 1]?.hours).toFixed(1)} hrs</span>
+                                <button
+                                  onClick={() => setFullscreenChart({
+                                    label: "Hours Slept",
+                                    color: "hsl(200,70%,50%)",
+                                    unit: "hrs",
+                                    lowerIsBetter: false,
+                                    data: exSleepData,
+                                    dataKey: "hours",
+                                    lwDelta: lastWeekDelta(exSleepPoints),
+                                    lastVal: Number(exSleepData[exSleepData.length - 1]?.hours),
+                                  })}
+                                  className="p-1 text-muted-foreground hover:text-foreground transition-colors"
+                                  aria-label="View sleep fullscreen"
+                                >
+                                  <Maximize2 className="w-4 h-4" />
+                                </button>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-3 mt-1 flex-wrap">
-                              <RateChip rate={weeklyRate(exSleepPoints)} unit="hrs" lowerIsBetter={false} />
-                              <span className="text-muted-foreground text-xs">·</span>
+                            <div className="mt-1">
                               <LastWeekChip delta={lastWeekDelta(exSleepPoints)} unit="hrs" lowerIsBetter={false} />
                             </div>
                           </CardHeader>
                           <CardContent className="pt-2 pb-3 px-2">
                             <MiniLineChart data={exSleepData} dataKey="hours" color="hsl(200,70%,50%)" unit="hrs" />
-                            <DeltaHistoryChart deltas={rolling7dDeltas(exSleepPoints)} unit="hrs" lowerIsBetter={false} />
                           </CardContent>
                         </Card>
-                      </div>
-                    )}
-
-                    {showWorkouts && (
-                      <div>
-                        <h2 className="text-base font-semibold mb-3">Workouts</h2>
-                        <div className="grid grid-cols-2 gap-3">
-                          <StatCard title="Total Sessions" value={sortedWorkouts.length} sub="in timeframe" />
-                          <Card>
-                            <CardContent className="pt-4 pb-4 text-center">
-                              <p className="text-xs text-muted-foreground mb-1">Avg Frequency</p>
-                              <p className="text-2xl font-bold">{workoutRate != null ? workoutRate.toFixed(1) : "—"}</p>
-                              <p className="text-xs text-muted-foreground mt-0.5">sessions/week</p>
-                            </CardContent>
-                          </Card>
-                        </div>
                       </div>
                     )}
                   </>
@@ -883,7 +862,7 @@ export function StatsPage() {
             <UploadDialog
               trigger={
                 <Button size="sm" className="gap-1">
-                  <Plus className="w-4 h-4" /> Add photo
+                  <Camera className="w-4 h-4" />Add photo
                 </Button>
               }
               onSave={handleSavePhoto}
@@ -891,58 +870,118 @@ export function StatsPage() {
           </div>
 
           {photosError && (
-            <QueryErrorState message="Couldn't load progress photos." onRetry={() => refetchPhotos()} isRetrying={photosFetching} testId="button-retry-progress-photos" />
+            <QueryErrorState message="Couldn't load your photos." onRetry={() => refetchPhotos()} isRetrying={photosFetching} testId="button-retry-photos" />
           )}
 
-          {!photosError && (photos?.length ?? 0) === 0 && (
-            <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-2xl">
-              <Camera className="w-10 h-10 mx-auto mb-3 opacity-20" />
-              <p className="font-medium">No progress photos yet</p>
-              <p className="text-sm mt-1">Start documenting your journey!</p>
+          {!photosError && (photos ?? []).length === 0 && (
+            <div className="text-center py-16 text-muted-foreground">
+              <Camera className="w-12 h-12 mx-auto mb-4 opacity-20" />
+              <p>No photos yet. Add your first progress photo!</p>
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
-            {!photosError && photos?.slice().reverse().map(p => {
-              const mForDate = measurementByDate[p.date];
-              const presentMetrics = mForDate
-                ? MEASUREMENT_CHARTS.filter(({ key }) => mForDate[key] != null).slice(0, 4)
-                : [];
-              return (
-                <Card key={p.id} className="overflow-hidden">
-                  <div className="relative">
-                    {isLegacyUrl(p.imageUrl) ? (
-                      <BrokenPhotoPlaceholder />
-                    ) : (
-                      <img src={p.imageUrl} alt="Progress" className="w-full aspect-[3/4] object-cover" />
-                    )}
-                    <button
-                      onClick={() => deletePhoto.mutate({ clientId: clientId!, photoId: p.id }, { onSuccess: () => qc.invalidateQueries({ queryKey: getListProgressPhotosQueryKey(clientId!) }) })}
-                      className="absolute top-2 right-2 bg-background/80 rounded-full p-1 text-muted-foreground hover:text-destructive transition-colors"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                  <CardContent className="p-2 space-y-1">
-                    <p className="text-xs font-semibold">{p.date}</p>
-                    {p.notes && <p className="text-xs text-muted-foreground truncate">{p.notes}</p>}
-                    {presentMetrics.length > 0 && (
-                      <div className="pt-1 border-t border-border/40 space-y-0.5">
-                        {presentMetrics.map(({ key, label, unit }) => (
-                          <div key={key} className="flex justify-between text-[10px]">
-                            <span className="text-muted-foreground">{label}</span>
-                            <span className="font-medium">{mForDate[key]} {unit}</span>
+          {(photos ?? []).length > 0 && (() => {
+            const grouped: Record<string, typeof photos> = {};
+            for (const p of photos ?? []) {
+              if (!grouped[p.date]) grouped[p.date] = [];
+              grouped[p.date]!.push(p);
+            }
+            const dates = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
+
+            return (
+              <div className="space-y-6">
+                {dates.map(date => {
+                  const dayPhotos = grouped[date]!;
+                  const dayMeasurement = measurementByDate[date];
+                  const weightVal = dayMeasurement?.weight != null ? Number(dayMeasurement.weight) : null;
+
+                  return (
+                    <div key={date}>
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="text-sm font-semibold">{format(parseISO(date), "MMM d, yyyy")}</h3>
+                        {weightVal != null && (
+                          <span className="text-xs text-muted-foreground">{weightVal} {weightLabel}</span>
+                        )}
+                        <UploadDialog
+                          trigger={
+                            <button className="ml-auto p-1 text-muted-foreground hover:text-foreground transition-colors" aria-label="Add photo">
+                              <Plus className="w-4 h-4" />
+                            </button>
+                          }
+                          onSave={handleSavePhoto}
+                        />
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        {dayPhotos.map(photo => (
+                          <div key={photo.id} className="relative group rounded-lg overflow-hidden">
+                            {isLegacyUrl(photo.imageUrl) ? (
+                              <BrokenPhotoPlaceholder />
+                            ) : (
+                              <img
+                                src={photo.imageUrl}
+                                alt={photo.notes ?? "Progress photo"}
+                                className="w-full aspect-[3/4] object-cover"
+                                onError={e => {
+                                  const parent = (e.target as HTMLImageElement).parentElement;
+                                  if (parent) parent.innerHTML = '<div class="w-full aspect-[3/4] bg-muted flex items-center justify-center"><svg class="w-5 h-5 text-muted-foreground opacity-40" ...></svg></div>';
+                                }}
+                              />
+                            )}
+                            <button
+                              onClick={() => {
+                                deletePhoto.mutate({ photoId: photo.id, clientId: clientId! }, {
+                                  onSuccess: () => qc.invalidateQueries({ queryKey: getListProgressPhotosQueryKey(clientId!) }),
+                                });
+                              }}
+                              className="absolute top-1 right-1 p-1 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                              aria-label="Delete photo"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                            {photo.notes && (
+                              <p className="absolute bottom-0 left-0 right-0 px-2 py-1 text-[10px] text-white bg-black/50 truncate">{photo.notes}</p>
+                            )}
                           </div>
                         ))}
                       </div>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
         </>
       )}
+
+      {/* ═══ FULLSCREEN CHART DIALOG ════════════════════════════════════════ */}
+      <Dialog open={!!fullscreenChart} onOpenChange={open => !open && setFullscreenChart(null)}>
+        <DialogContent className="max-w-full w-[95vw] h-[85vh] flex flex-col p-4 gap-2">
+          <DialogHeader>
+            <div className="flex items-center justify-between gap-4 pr-6">
+              <DialogTitle>{fullscreenChart?.label}</DialogTitle>
+              {fullscreenChart && (
+                <div className="flex items-center gap-3">
+                  <span className="text-base font-bold">
+                    {fullscreenChart.lastVal != null ? `${fullscreenChart.lastVal} ${fullscreenChart.unit}` : "—"}
+                  </span>
+                  <LastWeekChip delta={fullscreenChart.lwDelta} unit={fullscreenChart.unit} lowerIsBetter={fullscreenChart.lowerIsBetter} />
+                </div>
+              )}
+            </div>
+          </DialogHeader>
+          <div className="flex-1 min-h-0">
+            {fullscreenChart && (
+              <MiniLineChart
+                data={fullscreenChart.data}
+                dataKey={fullscreenChart.dataKey}
+                color={fullscreenChart.color}
+                unit={fullscreenChart.unit}
+                fullHeight
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
