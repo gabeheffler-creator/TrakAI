@@ -473,7 +473,7 @@ export function NutritionPage() {
   const totalFat  = selectedLogs.reduce((s, n) => s + Number(n.fat     ?? 0), 0);
   const hasSelectedData = selectedLogs.length > 0;
 
-  const showForm = isToday || isFuture || !hasSelectedData;
+  const showForm = isToday || isFuture;
 
   return (
     <div className="max-w-lg mx-auto space-y-6 pb-8">
