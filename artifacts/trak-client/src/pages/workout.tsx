@@ -581,8 +581,8 @@ export function WorkoutPage() {
         targetReps: reps,
         weight: prev?.weight !== undefined ? prev.weight : (ex.weight ?? ""),
         reps: prev?.reps !== undefined ? prev.reps : reps,
-        leftReps: "",
-        rightReps: "",
+        leftReps: prev && isUnilateral ? (prev.reps ?? "") : "",
+        rightReps: prev && isUnilateral ? (prev.reps ?? "") : "",
         isUnilateral,
         logged: false,
         rpe: null,
@@ -679,6 +679,17 @@ export function WorkoutPage() {
       return next;
     });
 
+    const prev = prevPerfMap[ex.exerciseId];
+    if (prev) {
+      const loggedWeight = s.weight ? parseFloat(s.weight) : 0;
+      const prevWeight = prev.weight ? parseFloat(prev.weight) : 0;
+      const prevReps = parseInt(prev.reps) || 0;
+      const isPR = loggedWeight > prevWeight || (loggedWeight >= prevWeight && repsToLog > prevReps);
+      if (isPR) {
+        toast({ title: "🏆 New PR!", description: "You beat your last session on this exercise!" });
+      }
+    }
+
     const exSets = sets[exIdx] ?? [];
     const isLastSetOfExercise = setIdx >= exSets.length - 1;
     if (!isLastSetOfExercise) {
@@ -711,7 +722,7 @@ export function WorkoutPage() {
   const updateLeftReps = (setIdx: number, value: string) => {
     setSets(prev => {
       const next = prev.map(arr => [...arr]);
-      next[currentExIdx] = next[currentExIdx].map((s, i) => i === setIdx ? { ...s, leftReps: value } : s);
+      next[currentExIdx] = next[currentExIdx].map((s, i) => i === setIdx ? { ...s, leftReps: value, isPrevious: false } : s);
       return next;
     });
   };
@@ -719,7 +730,7 @@ export function WorkoutPage() {
   const updateRightReps = (setIdx: number, value: string) => {
     setSets(prev => {
       const next = prev.map(arr => [...arr]);
-      next[currentExIdx] = next[currentExIdx].map((s, i) => i === setIdx ? { ...s, rightReps: value } : s);
+      next[currentExIdx] = next[currentExIdx].map((s, i) => i === setIdx ? { ...s, rightReps: value, isPrevious: false } : s);
       return next;
     });
   };
@@ -785,7 +796,7 @@ export function WorkoutPage() {
   const updateLeftRepsForEx = (exIdx: number, setIdx: number, value: string) => {
     setSets(prev => {
       const next = prev.map(arr => [...arr]);
-      next[exIdx] = next[exIdx].map((s, i) => i === setIdx ? { ...s, leftReps: value } : s);
+      next[exIdx] = next[exIdx].map((s, i) => i === setIdx ? { ...s, leftReps: value, isPrevious: false } : s);
       return next;
     });
   };
@@ -793,7 +804,7 @@ export function WorkoutPage() {
   const updateRightRepsForEx = (exIdx: number, setIdx: number, value: string) => {
     setSets(prev => {
       const next = prev.map(arr => [...arr]);
-      next[exIdx] = next[exIdx].map((s, i) => i === setIdx ? { ...s, rightReps: value } : s);
+      next[exIdx] = next[exIdx].map((s, i) => i === setIdx ? { ...s, rightReps: value, isPrevious: false } : s);
       return next;
     });
   };
@@ -1346,7 +1357,7 @@ export function WorkoutPage() {
                                           {s.leftReps || "—"}
                                         </div>
                                       ) : (
-                                        <Input type="number" value={s.leftReps} onChange={e => updateLeftRepsForEx(exIdx, i, e.target.value)} placeholder={s.targetReps} className="h-10 text-center text-sm font-semibold rounded-xl" />
+                                        <Input type="number" value={s.leftReps} onChange={e => updateLeftRepsForEx(exIdx, i, e.target.value)} placeholder={s.targetReps} className={cn("h-10 text-center text-sm font-semibold rounded-xl", s.isPrevious && "text-muted-foreground italic")} />
                                       )}
                                     </div>
                                     <div className="flex-1">
@@ -1356,7 +1367,7 @@ export function WorkoutPage() {
                                           {s.rightReps || "—"}
                                         </div>
                                       ) : (
-                                        <Input type="number" value={s.rightReps} onChange={e => updateRightRepsForEx(exIdx, i, e.target.value)} placeholder={s.targetReps} className="h-10 text-center text-sm font-semibold rounded-xl" />
+                                        <Input type="number" value={s.rightReps} onChange={e => updateRightRepsForEx(exIdx, i, e.target.value)} placeholder={s.targetReps} className={cn("h-10 text-center text-sm font-semibold rounded-xl", s.isPrevious && "text-muted-foreground italic")} />
                                       )}
                                     </div>
                                   </>
@@ -1731,7 +1742,7 @@ export function WorkoutPage() {
                               {s.logged ? (
                                 <div className="h-12 rounded-xl bg-muted/40 flex items-center justify-center text-sm font-semibold text-muted-foreground">{s.leftReps || "—"}</div>
                               ) : (
-                                <Input type="number" value={s.leftReps} onChange={e => updateLeftReps(i, e.target.value)} placeholder={s.targetReps} className="h-12 text-center text-base font-semibold rounded-xl" />
+                                <Input type="number" value={s.leftReps} onChange={e => updateLeftReps(i, e.target.value)} placeholder={s.targetReps} className={cn("h-12 text-center text-base font-semibold rounded-xl", s.isPrevious && "text-muted-foreground italic")} />
                               )}
                             </div>
                             <div className="flex-1">
@@ -1739,7 +1750,7 @@ export function WorkoutPage() {
                               {s.logged ? (
                                 <div className="h-12 rounded-xl bg-muted/40 flex items-center justify-center text-sm font-semibold text-muted-foreground">{s.rightReps || "—"}</div>
                               ) : (
-                                <Input type="number" value={s.rightReps} onChange={e => updateRightReps(i, e.target.value)} placeholder={s.targetReps} className="h-12 text-center text-base font-semibold rounded-xl" />
+                                <Input type="number" value={s.rightReps} onChange={e => updateRightReps(i, e.target.value)} placeholder={s.targetReps} className={cn("h-12 text-center text-base font-semibold rounded-xl", s.isPrevious && "text-muted-foreground italic")} />
                               )}
                             </div>
                           </>
