@@ -365,6 +365,14 @@ function FullCalendarOverlay({ today, buildBlocks, onClose, onSelectDate }: Full
     else setMonth(m => m + 1);
   }
 
+  function goToToday() {
+    setYear(todayDate.getFullYear());
+    setMonth(todayDate.getMonth());
+  }
+
+  const isViewingCurrentMonth =
+    year === todayDate.getFullYear() && month === todayDate.getMonth();
+
   const isCurrentMonth = (iso: string) => {
     const d = new Date(iso + "T12:00:00");
     return d.getFullYear() === year && d.getMonth() === month;
@@ -382,23 +390,36 @@ function FullCalendarOverlay({ today, buildBlocks, onClose, onSelectDate }: Full
           <ChevronLeft className="w-5 h-5" />
         </button>
         <h2 className="text-base font-bold">{monthLabel}</h2>
-        <button
-          onClick={nextMonth}
-          className="p-2 rounded-lg hover:bg-muted transition-colors"
-          aria-label="Next month"
-        >
-          <ChevronRight className="w-5 h-5" />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={nextMonth}
+            className="p-2 rounded-lg hover:bg-muted transition-colors"
+            aria-label="Next month"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
+          <button
+            onClick={goToToday}
+            disabled={isViewingCurrentMonth}
+            className={cn(
+              "px-2.5 py-1 text-xs font-semibold rounded-lg transition-colors",
+              isViewingCurrentMonth
+                ? "text-muted-foreground/40 cursor-default"
+                : "text-primary hover:bg-primary/10"
+            )}
+            aria-label="Go to today"
+          >
+            Today
+          </button>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+            aria-label="Close calendar"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
       </div>
-
-      {/* Close button */}
-      <button
-        onClick={onClose}
-        className="absolute top-3 right-4 p-1.5 rounded-lg hover:bg-muted transition-colors z-10"
-        aria-label="Close calendar"
-      >
-        <X className="w-5 h-5" />
-      </button>
 
       {/* Day-of-week labels */}
       <div className="grid grid-cols-7 border-b border-border bg-muted/40 flex-shrink-0">
