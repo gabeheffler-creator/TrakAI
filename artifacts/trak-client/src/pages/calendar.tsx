@@ -1,4 +1,4 @@
-import { useMemo, useRef, useEffect, useState } from "react";
+import { useMemo, useRef, useEffect, useState, useCallback } from "react";
 import { useLocation } from "wouter";
 import { useClientId } from "@/hooks/use-client-id";
 import { useVideoCallStatus } from "@/hooks/use-video-call-status";
@@ -29,7 +29,24 @@ import type {
   ClientTask,
 } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
-import { ChevronDown, ChevronRight, CheckCircle2, Circle, Video } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  CheckCircle2,
+  Circle,
+  ChevronLeft,
+  X,
+  CalendarDays,
+  LayoutList,
+  LayoutGrid,
+} from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
 
@@ -67,6 +84,40 @@ function formatDateShort(iso: string): string {
   });
 }
 
+/** Format a local Date as YYYY-MM-DD without UTC conversion (avoids day-shift in positive-offset timezones). */
+function localDateToISO(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/** Returns all ISO dates in a given month grid (including padding days from prev/next month). */
+function getMonthGridDates(year: number, month: number): string[] {
+  // month is 0-indexed
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const startDow = firstDay.getDay(); // 0=Sun
+  const dates: string[] = [];
+
+  // Pad start (days from previous month)
+  for (let i = startDow - 1; i >= 0; i--) {
+    dates.push(localDateToISO(new Date(year, month, -i)));
+  }
+  // Days in current month
+  for (let d = 1; d <= lastDay.getDate(); d++) {
+    dates.push(localDateToISO(new Date(year, month, d)));
+  }
+  // Pad end to complete the last week
+  const remaining = 7 - (dates.length % 7);
+  if (remaining < 7) {
+    for (let i = 1; i <= remaining; i++) {
+      dates.push(localDateToISO(new Date(year, month + 1, i)));
+    }
+  }
+  return dates;
+}
+
 // ─── Workout schedule helper ──────────────────────────────────────────────────
 
 function getScheduledProgramDay(
@@ -75,10 +126,10 @@ function getScheduledProgramDay(
   date: string
 ): ProgramDayDetail | null {
   const dayIndex = daysBetween(assignment.startDate, date);
-  if (dayIndex < 0) return null; // before program started
+  if (dayIndex < 0) return null;
   const totalDays = program.days.length;
   if (totalDays === 0) return null;
-  const cycleDayNumber = (dayIndex % totalDays) + 1; // 1-based
+  const cycleDayNumber = (dayIndex % totalDays) + 1;
   return program.days.find(d => d.dayNumber === cycleDayNumber) ?? null;
 }
 
@@ -108,7 +159,6 @@ function BlockRow({ done, label, sublabel, href, badge, pulse }: BlockRowProps) 
       ) : (
         <Circle className="w-5 h-5 text-muted-foreground/50 shrink-0" />
       )}
-
       <div className="flex-1 min-w-0">
         <span
           className={cn(
@@ -128,19 +178,17 @@ function BlockRow({ done, label, sublabel, href, badge, pulse }: BlockRowProps) 
           <span className="text-xs text-muted-foreground leading-tight block">{sublabel}</span>
         )}
       </div>
-
       {badge && (
         <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground capitalize shrink-0">
           {badge}
         </span>
       )}
-
       <ChevronRight className="w-4 h-4 text-muted-foreground/40 shrink-0" />
     </button>
   );
 }
 
-// ─── DayCard ──────────────────────────────────────────────────────────────────
+// ─── DayBlock type ────────────────────────────────────────────────────────────
 
 interface DayBlock {
   id: string;
@@ -152,7 +200,10 @@ interface DayBlock {
   pulse?: boolean;
   isRestDay?: boolean;
   isCallBlock?: boolean;
+  blockType?: "workout" | "nutrition" | "sleep" | "assignment" | "task" | "call";
 }
+
+// ─── DayCard ──────────────────────────────────────────────────────────────────
 
 interface DayCardProps {
   date: string;
@@ -160,16 +211,14 @@ interface DayCardProps {
   blocks: DayBlock[];
   isToday: boolean;
   isFuture: boolean;
-  todayRef?: React.RefObject<HTMLDivElement | null>;
+  cardRef?: (el: HTMLDivElement | null) => void;
 }
 
-function DayCard({ date, today, blocks, isToday, isFuture, todayRef }: DayCardProps) {
+function DayCard({ date, today, blocks, isToday, isFuture, cardRef }: DayCardProps) {
   const isPast = date < today;
   const checkableBlocks = blocks.filter(b => !b.isRestDay && !b.isCallBlock);
   const allDone = checkableBlocks.length > 0 && checkableBlocks.every(b => b.done);
 
-  // Derive open state from data until the user manually toggles.
-  // Past days with everything checked collapse; today/future stay open.
   const [userToggled, setUserToggled] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
   const derivedOpen = isToday || isFuture || !allDone;
@@ -183,7 +232,7 @@ function DayCard({ date, today, blocks, isToday, isFuture, todayRef }: DayCardPr
 
   return (
     <div
-      ref={isToday ? todayRef : undefined}
+      ref={cardRef}
       className={cn(
         "rounded-2xl border overflow-hidden transition-colors",
         isToday
@@ -192,7 +241,6 @@ function DayCard({ date, today, blocks, isToday, isFuture, todayRef }: DayCardPr
       )}
       data-testid={isToday ? "card-calendar-today" : `card-calendar-${date}`}
     >
-      {/* Header */}
       <button
         onClick={() => { setUserToggled(true); setManualOpen(!open); }}
         className="w-full flex items-center justify-between px-4 py-3 text-left"
@@ -212,7 +260,9 @@ function DayCard({ date, today, blocks, isToday, isFuture, todayRef }: DayCardPr
             </span>
           )}
           {isFuture && totalCount > 0 && (
-            <span className="text-xs text-muted-foreground">{totalCount} item{totalCount !== 1 ? "s" : ""}</span>
+            <span className="text-xs text-muted-foreground">
+              {totalCount} item{totalCount !== 1 ? "s" : ""}
+            </span>
           )}
         </div>
         {open ? (
@@ -222,39 +272,20 @@ function DayCard({ date, today, blocks, isToday, isFuture, todayRef }: DayCardPr
         )}
       </button>
 
-      {/* Body */}
       {open && (
         <div className="px-2 pb-2 space-y-0.5">
           {blocks.length === 0 && (
             <p className="text-xs text-muted-foreground text-center py-4">Nothing scheduled</p>
           )}
-
           {blocks.map(block => {
             if (block.isRestDay) {
               return (
-                <div
-                  key={block.id}
-                  className="flex items-center gap-3 px-3 py-2.5 text-muted-foreground"
-                >
+                <div key={block.id} className="flex items-center gap-3 px-3 py-2.5 text-muted-foreground">
                   <span className="text-lg">😴</span>
                   <span className="text-sm">Rest day</span>
                 </div>
               );
             }
-
-            if (block.isCallBlock) {
-              return (
-                <BlockRow
-                  key={block.id}
-                  done={false}
-                  label={block.label}
-                  sublabel={block.sublabel}
-                  href={block.href}
-                  pulse={block.pulse}
-                />
-              );
-            }
-
             return (
               <BlockRow
                 key={block.id}
@@ -273,27 +304,259 @@ function DayCard({ date, today, blocks, isToday, isFuture, todayRef }: DayCardPr
   );
 }
 
+// ─── Full Calendar Overlay ────────────────────────────────────────────────────
+
+const DOW_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+interface BlockDots {
+  workout: boolean;
+  workoutDone: boolean;
+  nutrition: boolean;
+  nutritionDone: boolean;
+  sleep: boolean;
+  sleepDone: boolean;
+  assignments: number;
+  assignmentsDone: number;
+}
+
+function getBlockDots(blocks: DayBlock[]): BlockDots {
+  const workout = blocks.find(b => b.blockType === "workout" && !b.isRestDay);
+  const nutrition = blocks.find(b => b.blockType === "nutrition");
+  const sleep = blocks.find(b => b.blockType === "sleep");
+  const assignmentBlocks = blocks.filter(b => b.blockType === "assignment");
+
+  return {
+    workout: !!workout,
+    workoutDone: workout?.done ?? false,
+    nutrition: !!nutrition,
+    nutritionDone: nutrition?.done ?? false,
+    sleep: !!sleep,
+    sleepDone: sleep?.done ?? false,
+    assignments: assignmentBlocks.length,
+    assignmentsDone: assignmentBlocks.filter(b => b.done).length,
+  };
+}
+
+interface FullCalendarOverlayProps {
+  today: string;
+  buildBlocks: (date: string) => DayBlock[];
+  onClose: () => void;
+  onSelectDate: (date: string) => void;
+}
+
+function FullCalendarOverlay({ today, buildBlocks, onClose, onSelectDate }: FullCalendarOverlayProps) {
+  const todayDate = new Date(today + "T12:00:00");
+  const [year, setYear] = useState(todayDate.getFullYear());
+  const [month, setMonth] = useState(todayDate.getMonth());
+
+  const gridDates = useMemo(() => getMonthGridDates(year, month), [year, month]);
+
+  const monthLabel = new Date(year, month, 1).toLocaleDateString(undefined, {
+    month: "long",
+    year: "numeric",
+  });
+
+  function prevMonth() {
+    if (month === 0) { setYear(y => y - 1); setMonth(11); }
+    else setMonth(m => m - 1);
+  }
+  function nextMonth() {
+    if (month === 11) { setYear(y => y + 1); setMonth(0); }
+    else setMonth(m => m + 1);
+  }
+
+  const isCurrentMonth = (iso: string) => {
+    const d = new Date(iso + "T12:00:00");
+    return d.getFullYear() === year && d.getMonth() === month;
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col bg-background">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card flex-shrink-0">
+        <button
+          onClick={prevMonth}
+          className="p-2 rounded-lg hover:bg-muted transition-colors"
+          aria-label="Previous month"
+        >
+          <ChevronLeft className="w-5 h-5" />
+        </button>
+        <h2 className="text-base font-bold">{monthLabel}</h2>
+        <button
+          onClick={nextMonth}
+          className="p-2 rounded-lg hover:bg-muted transition-colors"
+          aria-label="Next month"
+        >
+          <ChevronRight className="w-5 h-5" />
+        </button>
+      </div>
+
+      {/* Close button */}
+      <button
+        onClick={onClose}
+        className="absolute top-3 right-4 p-1.5 rounded-lg hover:bg-muted transition-colors z-10"
+        aria-label="Close calendar"
+      >
+        <X className="w-5 h-5" />
+      </button>
+
+      {/* Day-of-week labels */}
+      <div className="grid grid-cols-7 border-b border-border bg-muted/40 flex-shrink-0">
+        {DOW_LABELS.map(d => (
+          <div key={d} className="text-center text-[10px] font-semibold text-muted-foreground py-2">
+            {d}
+          </div>
+        ))}
+      </div>
+
+      {/* Calendar grid */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="grid grid-cols-7 divide-x divide-y divide-border border-b border-border">
+          {gridDates.map(date => {
+            const inMonth = isCurrentMonth(date);
+            const isToday = date === today;
+            const blocks = inMonth ? buildBlocks(date) : [];
+            const dots = getBlockDots(blocks);
+            const checkable = blocks.filter(b => !b.isRestDay && !b.isCallBlock);
+            const allDone = checkable.length > 0 && checkable.every(b => b.done);
+            const dayNum = new Date(date + "T12:00:00").getDate();
+
+            return (
+              <button
+                key={date}
+                onClick={() => inMonth && onSelectDate(date)}
+                disabled={!inMonth}
+                className={cn(
+                  "min-h-[72px] flex flex-col items-center gap-1 p-1.5 text-left transition-colors",
+                  inMonth ? "hover:bg-muted/60 cursor-pointer" : "opacity-25 cursor-default",
+                  isToday && "bg-primary/10",
+                  allDone && inMonth && !isToday && "bg-emerald-500/5"
+                )}
+              >
+                {/* Day number */}
+                <span
+                  className={cn(
+                    "text-xs font-semibold w-6 h-6 flex items-center justify-center rounded-full",
+                    isToday
+                      ? "bg-primary text-primary-foreground"
+                      : "text-foreground"
+                  )}
+                >
+                  {dayNum}
+                </span>
+
+                {/* Block dots */}
+                {inMonth && (
+                  <div className="flex flex-wrap gap-0.5 justify-center">
+                    {dots.workout && (
+                      <span className={cn(
+                        "w-1.5 h-1.5 rounded-full",
+                        dots.workoutDone ? "bg-primary" : "bg-primary/30"
+                      )} title="Workout" />
+                    )}
+                    {dots.nutrition && (
+                      <span className={cn(
+                        "w-1.5 h-1.5 rounded-full",
+                        dots.nutritionDone ? "bg-emerald-500" : "bg-emerald-500/30"
+                      )} title="Nutrition" />
+                    )}
+                    {dots.sleep && (
+                      <span className={cn(
+                        "w-1.5 h-1.5 rounded-full",
+                        dots.sleepDone ? "bg-blue-500" : "bg-blue-500/30"
+                      )} title="Sleep" />
+                    )}
+                    {Array.from({ length: Math.min(dots.assignments, 3) }).map((_, i) => (
+                      <span
+                        key={i}
+                        className={cn(
+                          "w-1.5 h-1.5 rounded-full",
+                          i < dots.assignmentsDone ? "bg-orange-400" : "bg-orange-400/30"
+                        )}
+                        title="Assignment"
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {/* All-done check */}
+                {allDone && inMonth && (
+                  <span className="text-[9px] text-emerald-600 font-bold leading-none">✓</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Legend */}
+      <div className="flex items-center justify-center gap-4 px-4 py-3 border-t border-border bg-card flex-shrink-0 flex-wrap">
+        {[
+          { color: "bg-primary", label: "Workout" },
+          { color: "bg-emerald-500", label: "Nutrition" },
+          { color: "bg-blue-500", label: "Sleep" },
+          { color: "bg-orange-400", label: "Assignment" },
+        ].map(({ color, label }) => (
+          <div key={label} className="flex items-center gap-1.5">
+            <span className={cn("w-2 h-2 rounded-full", color)} />
+            <span className="text-xs text-muted-foreground">{label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── CalendarPage ─────────────────────────────────────────────────────────────
+
+type ViewMode = "list" | "grid";
+
+const VIEW_STORAGE_KEY = "trak-calendar-view";
 
 export function CalendarPage() {
   const { clientId } = useClientId();
   const today = getTodayISO();
-  const todayRef = useRef<HTMLDivElement>(null);
+
+  // View mode persisted in localStorage
+  const [view, setView] = useState<ViewMode>(() => {
+    try {
+      const stored = localStorage.getItem(VIEW_STORAGE_KEY);
+      return stored === "grid" ? "grid" : "list";
+    } catch {
+      return "list";
+    }
+  });
+
+  const [showFullCalendar, setShowFullCalendar] = useState(false);
+
   const callActive = useVideoCallStatus(clientId);
+
+  // Ref map for scrolling to a specific date card
+  const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
+  const setCardRef = useCallback((date: string) => (el: HTMLDivElement | null) => {
+    if (el) cardRefs.current.set(date, el);
+    else cardRefs.current.delete(date);
+  }, []);
 
   // Scroll to today on mount
   useEffect(() => {
-    if (todayRef.current) {
-      todayRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    const todayEl = cardRefs.current.get(today);
+    if (todayEl) {
+      todayEl.scrollIntoView({ behavior: "smooth", block: "start" });
     }
-  }, []);
+  }, [today]);
+
+  // Persist view change
+  function handleViewChange(v: ViewMode) {
+    setView(v);
+    try { localStorage.setItem(VIEW_STORAGE_KEY, v); } catch {}
+  }
 
   // Date range: 14 days back through 14 days ahead
   const dates = useMemo(() => {
     const arr: string[] = [];
-    for (let i = -14; i <= 14; i++) {
-      arr.push(addDays(today, i));
-    }
+    for (let i = -14; i <= 14; i++) arr.push(addDays(today, i));
     return arr;
   }, [today]);
 
@@ -326,7 +589,7 @@ export function CalendarPage() {
     query: { enabled: !!clientId, queryKey: getListActiveTasksQueryKey(clientId!) },
   });
 
-  // Build lookup maps for O(1) access
+  // Lookup maps
   const workoutLogsByDate = useMemo(() => {
     const map = new Map<string, WorkoutLog[]>();
     for (const log of workoutLogs ?? []) {
@@ -368,12 +631,12 @@ export function CalendarPage() {
   }, [assignments]);
 
   // Build blocks for a given date
-  function buildBlocks(date: string): DayBlock[] {
+  const buildBlocks = useCallback((date: string): DayBlock[] => {
     const isToday = date === today;
     const isPast = date < today;
     const blocks: DayBlock[] = [];
 
-    // ── Workout block ─────────────────────────────────────────────────────
+    // Workout
     if (program && assignment) {
       const scheduledDay = getScheduledProgramDay(program, assignment, date);
       const workoutDone = (workoutLogsByDate.get(date)?.length ?? 0) > 0;
@@ -382,15 +645,16 @@ export function CalendarPage() {
         const exerciseCount = scheduledDay.exercises?.length ?? 0;
         blocks.push({
           id: "workout",
+          blockType: "workout",
           done: workoutDone,
           label: scheduledDay.name,
           sublabel: exerciseCount > 0 ? `${exerciseCount} exercise${exerciseCount !== 1 ? "s" : ""}` : undefined,
           href: isToday || !isPast ? "/workout" : "/workouts",
         });
       } else if (daysBetween(assignment.startDate, date) >= 0) {
-        // Program started but this slot is a rest day
         blocks.push({
           id: "rest",
+          blockType: "workout",
           done: true,
           label: "Rest day",
           href: "/workout",
@@ -399,34 +663,36 @@ export function CalendarPage() {
       }
     }
 
-    // ── Nutrition block ───────────────────────────────────────────────────
+    // Nutrition
     const nutLogs = nutritionLogsByDate.get(date) ?? [];
     const nutDone = nutLogs.length > 0;
     const totalCal = nutLogs.reduce((s, l) => s + (l.calories ?? 0), 0);
     blocks.push({
       id: "nutrition",
+      blockType: "nutrition",
       done: nutDone,
       label: "Nutrition",
       sublabel: nutDone ? `${totalCal} cal logged` : "Nothing logged yet",
       href: date === today ? "/nutrition" : `/nutrition?date=${date}`,
     });
 
-    // ── Sleep block ───────────────────────────────────────────────────────
+    // Sleep
     const sleepLog = sleepLogsByDate.get(date);
     const sleepDone = !!sleepLog;
     blocks.push({
       id: "sleep",
+      blockType: "sleep",
       done: sleepDone,
       label: "Sleep",
       sublabel: sleepDone ? `${sleepLog!.hoursSlept}h logged` : "Not logged yet",
       href: "/sleep",
     });
 
-    // ── Assignment blocks ─────────────────────────────────────────────────
-    const dayAssignments = assignmentsByDate.get(date) ?? [];
-    for (const a of dayAssignments) {
+    // Assignments
+    for (const a of assignmentsByDate.get(date) ?? []) {
       blocks.push({
         id: `assignment-${a.id}`,
+        blockType: "assignment",
         done: a.status === "completed",
         label: a.title,
         href: "/assignments",
@@ -434,14 +700,16 @@ export function CalendarPage() {
       });
     }
 
-    // ── Coach task blocks (today only) ────────────────────────────────────
+    // Coach tasks (today only)
     if (isToday && activeTasks && activeTasks.length > 0) {
       for (const task of activeTasks as ClientTask[]) {
-        const taskLabel = task.altStatus === "accepted" && task.alternativeText
-          ? task.alternativeText
-          : task.text;
+        const taskLabel =
+          task.altStatus === "accepted" && task.alternativeText
+            ? task.alternativeText
+            : task.text;
         blocks.push({
           id: `task-${task.id}`,
+          blockType: "task",
           done: task.status === "completed",
           label: taskLabel,
           href: "/tasks",
@@ -450,10 +718,11 @@ export function CalendarPage() {
       }
     }
 
-    // ── Coaching call block (today only, when active) ─────────────────────
+    // Coaching call (today only)
     if (isToday && callActive) {
       blocks.push({
         id: "call",
+        blockType: "call",
         done: false,
         label: "Coaching call active — Join",
         sublabel: "Your coach is waiting",
@@ -464,6 +733,18 @@ export function CalendarPage() {
     }
 
     return blocks;
+  }, [
+    today, program, assignment, workoutLogsByDate, nutritionLogsByDate,
+    sleepLogsByDate, assignmentsByDate, activeTasks, callActive,
+  ]);
+
+  // Tap a full-calendar cell → close overlay, scroll to list card
+  function handleSelectDate(date: string) {
+    setShowFullCalendar(false);
+    setTimeout(() => {
+      const el = cardRefs.current.get(date);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
   }
 
   if (!clientId) {
@@ -471,26 +752,77 @@ export function CalendarPage() {
   }
 
   return (
-    <div className="max-w-lg mx-auto space-y-3 pb-8">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Calendar</h1>
-        <p className="text-xs text-muted-foreground">14 days each way</p>
-      </div>
+    <>
+      {/* Full calendar overlay */}
+      {showFullCalendar && (
+        <FullCalendarOverlay
+          today={today}
+          buildBlocks={buildBlocks}
+          onClose={() => setShowFullCalendar(false)}
+          onSelectDate={handleSelectDate}
+        />
+      )}
 
-      {dates.map(date => {
-        const blocks = buildBlocks(date);
-        return (
-          <DayCard
-            key={date}
-            date={date}
-            today={today}
-            blocks={blocks}
-            isToday={date === today}
-            isFuture={date > today}
-            todayRef={todayRef}
-          />
-        );
-      })}
-    </div>
+      <div className="max-w-lg mx-auto pb-8">
+        {/* Header */}
+        <div className="flex items-center justify-between gap-2 mb-4">
+          <h1 className="text-2xl font-bold">Calendar</h1>
+
+          <div className="flex items-center gap-2">
+            {/* View full calendar button */}
+            <button
+              onClick={() => setShowFullCalendar(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-card text-sm font-medium hover:bg-muted transition-colors"
+            >
+              <CalendarDays className="w-4 h-4" />
+              <span className="hidden sm:inline">Full calendar</span>
+            </button>
+
+            {/* List / Grid view toggle */}
+            <Select value={view} onValueChange={v => handleViewChange(v as ViewMode)}>
+              <SelectTrigger className="w-[110px] h-9 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="list">
+                  <span className="flex items-center gap-1.5">
+                    <LayoutList className="w-3.5 h-3.5" /> List
+                  </span>
+                </SelectItem>
+                <SelectItem value="grid">
+                  <span className="flex items-center gap-1.5">
+                    <LayoutGrid className="w-3.5 h-3.5" /> Grid
+                  </span>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* Day cards */}
+        <div
+          className={cn(
+            view === "grid"
+              ? "grid grid-cols-2 gap-3"
+              : "space-y-3"
+          )}
+        >
+          {dates.map(date => {
+            const blocks = buildBlocks(date);
+            return (
+              <DayCard
+                key={date}
+                date={date}
+                today={today}
+                blocks={blocks}
+                isToday={date === today}
+                isFuture={date > today}
+                cardRef={setCardRef(date)}
+              />
+            );
+          })}
+        </div>
+      </div>
+    </>
   );
 }
