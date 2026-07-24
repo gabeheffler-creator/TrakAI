@@ -19,6 +19,7 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false);
   const { setUser } = useAuth();
   const [, setLocation] = useLocation();
+  const returnTo = new URLSearchParams(window.location.search).get("returnTo");
 
   const fill = (u: string, p: string) => {
     setUsername(u);
@@ -43,7 +44,7 @@ export function LoginPage() {
         return;
       }
       setUser({ id: data.id, name: data.name, role: "client" });
-      setLocation("/");
+      setLocation(returnTo && returnTo.startsWith("/") ? returnTo : "/");
     } catch {
       setError("Network error. Please try again.");
     } finally {

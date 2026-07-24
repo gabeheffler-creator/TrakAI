@@ -47,7 +47,11 @@ export function LogoutButton({ className }: { className?: string }) {
 function Protected({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   if (loading) return null;
-  if (!user) return <Redirect to="/login" />;
+  if (!user) {
+    const returnTo = window.location.pathname.replace(basePath, "") + window.location.search;
+    const encoded = encodeURIComponent(returnTo);
+    return <Redirect to={`/login?returnTo=${encoded}`} />;
+  }
   return <Layout>{children}</Layout>;
 }
 

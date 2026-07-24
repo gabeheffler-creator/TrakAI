@@ -129,7 +129,8 @@ export const UpdateClientBody = zod.object({
   "phone": zod.string().nullish(),
   "goal": zod.string().nullish(),
   "goalTargetDate": zod.string().nullish(),
-  "notes": zod.string().nullish()
+  "notes": zod.string().nullish(),
+  "connectedAlarmAppId": zod.string().nullish()
 })
 
 export const UpdateClientResponse = zod.object({
@@ -144,7 +145,8 @@ export const UpdateClientResponse = zod.object({
   "status": zod.enum(['active', 'inactive']).optional(),
   "createdAt": zod.coerce.date(),
   "programName": zod.string().nullish(),
-  "hasStalePendingTask": zod.boolean().optional()
+  "hasStalePendingTask": zod.boolean().optional(),
+  "connectedAlarmAppId": zod.string().nullish()
 })
 
 

@@ -17,6 +17,7 @@ export const clientsTable = pgTable("clients", {
   notes: text("notes"),
   inviteToken: text("invite_token"),
   inviteTokenUsed: boolean("invite_token_used").notNull().default(false),
+  connectedAlarmAppId: text("connected_alarm_app_id"),
   status: text("status", { enum: ["active", "inactive"] }).notNull().default("active"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

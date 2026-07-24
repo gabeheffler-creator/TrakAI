@@ -70,6 +70,8 @@ export interface Client {
   /** @nullable */
   programName?: string | null;
   hasStalePendingTask?: boolean;
+  /** @nullable */
+  connectedAlarmAppId?: string | null;
 }
 
 export interface ClientInput {
@@ -92,6 +94,8 @@ export interface ClientUpdate {
   goalTargetDate?: string | null;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  connectedAlarmAppId?: string | null;
 }
 
 export type ClientStatusUpdateStatus = typeof ClientStatusUpdateStatus[keyof typeof ClientStatusUpdateStatus];

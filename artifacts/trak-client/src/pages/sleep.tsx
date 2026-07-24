@@ -5,6 +5,8 @@ import {
   useLogSleep,
   useDeleteSleepLog,
   getListSleepLogsQueryKey,
+  useGetMyClient,
+  useUpdateClient,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
@@ -145,7 +147,7 @@ const ALARM_APPS: AlarmApp[] = [
   },
 ];
 
-const ALARM_STORAGE_KEY = "trak_connected_alarm_app";
+const ALARM_STORAGE_KEY = "trak_connected_alarm_app"; // fallback cache only
 
 // ─── Alarm sheet ─────────────────────────────────────────────────────────────
 
@@ -176,7 +178,6 @@ function AlarmSheet({
   const handleDone = () => {
     if (selected) {
       onConnect(selected.id);
-      localStorage.setItem(ALARM_STORAGE_KEY, selected.id);
     }
     onOpenChange(false);
     setSelected(null);
@@ -373,12 +374,22 @@ export function SleepPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [timeframe, setTimeframe] = useState<Timeframe>("1m");
   const [alarmSheetOpen, setAlarmSheetOpen] = useState(false);
-  const [connectedAppId, setConnectedAppId] = useState<string | null>(null);
 
-  useEffect(() => {
-    const stored = localStorage.getItem(ALARM_STORAGE_KEY);
-    if (stored) setConnectedAppId(stored);
-  }, []);
+  // Fetch client profile to read server-persisted alarm app preference.
+  // Fall back to localStorage while the fetch is in-flight.
+  const { data: myClient } = useGetMyClient();
+  const updateClient = useUpdateClient();
+  const localFallback = typeof window !== "undefined" ? localStorage.getItem(ALARM_STORAGE_KEY) : null;
+  const connectedAppId: string | null = myClient?.connectedAlarmAppId ?? localFallback ?? null;
+
+  const handleAlarmConnect = (appId: string) => {
+    // Write to localStorage immediately as optimistic cache.
+    localStorage.setItem(ALARM_STORAGE_KEY, appId);
+    // Persist to server; clientId is always a number here.
+    if (clientId) {
+      updateClient.mutate({ clientId, data: { connectedAlarmAppId: appId } });
+    }
+  };
 
   const { data: logs, isLoading, isError, refetch, isFetching } = useListSleepLogs(clientId!, {
     query: { enabled: !!clientId, queryKey: getListSleepLogsQueryKey(clientId!) }
@@ -534,7 +545,7 @@ export function SleepPage() {
         open={alarmSheetOpen}
         onOpenChange={setAlarmSheetOpen}
         connectedAppId={connectedAppId}
-        onConnect={setConnectedAppId}
+        onConnect={handleAlarmConnect}
       />
 
       {avgSleep && (

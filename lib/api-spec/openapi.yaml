@@ -2337,6 +2337,8 @@ components:
           type: ["string", "null"]
         hasStalePendingTask:
           type: boolean
+        connectedAlarmAppId:
+          type: ["string", "null"]
 
     ClientInput:
       type: object
@@ -2368,6 +2370,8 @@ components:
         goalTargetDate:
           type: ["string", "null"]
         notes:
+          type: ["string", "null"]
+        connectedAlarmAppId:
           type: ["string", "null"]
 
     ClientStatusUpdate:
