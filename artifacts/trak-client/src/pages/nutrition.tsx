@@ -273,7 +273,11 @@ export function NutritionPage() {
       .catch(() => {});
   }, [clientId]);
 
-  const [selectedDate, setSelectedDate] = useState<string>(getTodayISO);
+  const [selectedDate, setSelectedDate] = useState<string>(() => {
+    const param = new URLSearchParams(window.location.search).get("date");
+    if (param && /^\d{4}-\d{2}-\d{2}$/.test(param)) return param;
+    return getTodayISO();
+  });
   const [calendarOpen, setCalendarOpen] = useState(false);
 
   const today = getTodayISO();
