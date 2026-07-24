@@ -348,6 +348,7 @@ function FullCalendarOverlay({ today, buildBlocks, onClose, onSelectDate }: Full
   const todayDate = new Date(today + "T12:00:00");
   const [year, setYear] = useState(todayDate.getFullYear());
   const [month, setMonth] = useState(todayDate.getMonth());
+  const [slideDir, setSlideDir] = useState<"left" | "right" | null>(null);
 
   const gridDates = useMemo(() => getMonthGridDates(year, month), [year, month]);
 
@@ -374,17 +375,23 @@ function FullCalendarOverlay({ today, buildBlocks, onClose, onSelectDate }: Full
   });
 
   function prevMonth() {
+    setSlideDir("right");
     if (month === 0) { setYear(y => y - 1); setMonth(11); }
     else setMonth(m => m - 1);
   }
   function nextMonth() {
+    setSlideDir("left");
     if (month === 11) { setYear(y => y + 1); setMonth(0); }
     else setMonth(m => m + 1);
   }
 
   function goToToday() {
-    setYear(todayDate.getFullYear());
-    setMonth(todayDate.getMonth());
+    const targetYear = todayDate.getFullYear();
+    const targetMonth = todayDate.getMonth();
+    const isAfter = year > targetYear || (year === targetYear && month > targetMonth);
+    setSlideDir(isAfter ? "right" : month === targetMonth && year === targetYear ? null : "left");
+    setYear(targetYear);
+    setMonth(targetMonth);
   }
 
   const isViewingCurrentMonth =
@@ -448,12 +455,32 @@ function FullCalendarOverlay({ today, buildBlocks, onClose, onSelectDate }: Full
       </div>
 
       {/* Calendar grid */}
+      <style>{`
+        @keyframes trak-slide-in-left {
+          from { transform: translateX(100%); }
+          to   { transform: translateX(0); }
+        }
+        @keyframes trak-slide-in-right {
+          from { transform: translateX(-100%); }
+          to   { transform: translateX(0); }
+        }
+      `}</style>
       <div
-        className="flex-1 overflow-y-auto"
+        className="flex-1 overflow-y-auto overflow-x-hidden"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        <div className="grid grid-cols-7 divide-x divide-y divide-border border-b border-border">
+        <div
+          key={`${year}-${month}`}
+          style={{
+            animation: slideDir === "left"
+              ? "trak-slide-in-left 250ms ease-out"
+              : slideDir === "right"
+              ? "trak-slide-in-right 250ms ease-out"
+              : undefined,
+          }}
+          className="grid grid-cols-7 divide-x divide-y divide-border border-b border-border"
+        >
           {gridDates.map(date => {
             const inMonth = isCurrentMonth(date);
             const isToday = date === today;
