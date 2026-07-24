@@ -351,6 +351,23 @@ function FullCalendarOverlay({ today, buildBlocks, onClose, onSelectDate }: Full
 
   const gridDates = useMemo(() => getMonthGridDates(year, month), [year, month]);
 
+  // Swipe gesture tracking
+  const touchStartX = useRef<number | null>(null);
+  const SWIPE_THRESHOLD = 50;
+
+  function handleTouchStart(e: React.TouchEvent) {
+    touchStartX.current = e.touches[0].clientX;
+  }
+
+  function handleTouchEnd(e: React.TouchEvent) {
+    if (touchStartX.current === null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    touchStartX.current = null;
+    if (Math.abs(dx) < SWIPE_THRESHOLD) return;
+    if (dx < 0) nextMonth();
+    else prevMonth();
+  }
+
   const monthLabel = new Date(year, month, 1).toLocaleDateString(undefined, {
     month: "long",
     year: "numeric",
@@ -431,7 +448,11 @@ function FullCalendarOverlay({ today, buildBlocks, onClose, onSelectDate }: Full
       </div>
 
       {/* Calendar grid */}
-      <div className="flex-1 overflow-y-auto">
+      <div
+        className="flex-1 overflow-y-auto"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
         <div className="grid grid-cols-7 divide-x divide-y divide-border border-b border-border">
           {gridDates.map(date => {
             const inMonth = isCurrentMonth(date);
