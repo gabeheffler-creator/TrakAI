@@ -473,6 +473,7 @@ export const ListExercisesResponseItem = zod.object({
   "name": zod.string(),
   "muscleGroup": zod.string(),
   "isCompound": zod.boolean(),
+  "isUnilateral": zod.boolean(),
   "movementPattern": zod.string().nullish(),
   "description": zod.string().nullish(),
   "videoUrl": zod.string().nullish(),
@@ -492,6 +493,7 @@ export const CreateExerciseBody = zod.object({
   "name": zod.string().min(1),
   "muscleGroup": zod.string().min(1),
   "isCompound": zod.boolean().optional(),
+  "isUnilateral": zod.boolean().optional(),
   "movementPattern": zod.string().optional(),
   "description": zod.string().optional(),
   "videoUrl": zod.string().optional()
@@ -513,6 +515,7 @@ export const UpdateExerciseBody = zod.object({
   "name": zod.string().min(1).optional(),
   "muscleGroup": zod.string().min(1).optional(),
   "isCompound": zod.boolean().optional(),
+  "isUnilateral": zod.boolean().optional(),
   "movementPattern": zod.string().nullish(),
   "description": zod.string().nullish(),
   "videoUrl": zod.string().nullish()
@@ -523,6 +526,7 @@ export const UpdateExerciseResponse = zod.object({
   "name": zod.string(),
   "muscleGroup": zod.string(),
   "isCompound": zod.boolean(),
+  "isUnilateral": zod.boolean(),
   "movementPattern": zod.string().nullish(),
   "description": zod.string().nullish(),
   "videoUrl": zod.string().nullish(),

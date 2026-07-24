@@ -2540,7 +2540,7 @@ components:
     # ── Exercise Library ────────────────────────────────────────────────────
     Exercise:
       type: object
-      required: [id, name, muscleGroup, isCompound]
+      required: [id, name, muscleGroup, isCompound, isUnilateral]
       properties:
         id:
           type: integer
@@ -2549,6 +2549,8 @@ components:
         muscleGroup:
           type: string
         isCompound:
+          type: boolean
+        isUnilateral:
           type: boolean
         movementPattern:
           type: ["string", "null"]
@@ -2572,6 +2574,8 @@ components:
           minLength: 1
         isCompound:
           type: boolean
+        isUnilateral:
+          type: boolean
         movementPattern:
           type: string
         description:
@@ -2589,6 +2593,8 @@ components:
           type: string
           minLength: 1
         isCompound:
+          type: boolean
+        isUnilateral:
           type: boolean
         movementPattern:
           type: ["string", "null"]

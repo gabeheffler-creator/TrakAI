@@ -34,7 +34,7 @@ const CARDIO_GROUPS = new Set(["Cardio", "HIIT"]);
 const MOBILITY_GROUPS = new Set(["Mobility"]);
 
 type FilterMode = "all" | "strength" | "cardio" | "mobility";
-type SortMode = "default" | "name-asc" | "name-desc" | "target-area" | "compound-first" | "isolation-first" | "movement";
+type SortMode = "default" | "name-asc" | "name-desc" | "target-area" | "compound-first" | "isolation-first" | "movement" | "unilateral-first" | "bilateral-first";
 type ViewMode = "list" | "grid";
 
 const VIEW_STORAGE_KEY = "trak-exercises-view";
@@ -69,6 +69,14 @@ function ExerciseDetailContent({ exercise }: { exercise: Exercise }) {
           )}>
             {exercise.isCompound ? "Compound" : "Isolation"}
           </span>
+          <span className={cn(
+            "text-xs font-medium px-2.5 py-1 rounded-full",
+            exercise.isUnilateral
+              ? "bg-sky-500/10 text-sky-600"
+              : "bg-muted text-muted-foreground"
+          )}>
+            {exercise.isUnilateral ? "Unilateral" : "Bilateral"}
+          </span>
           {exercise.movementPattern && (
             <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-muted text-muted-foreground">
               {exercise.movementPattern}
@@ -89,6 +97,7 @@ function ExerciseDetailContent({ exercise }: { exercise: Exercise }) {
       <div className="grid grid-cols-2 gap-4 pt-1">
         <DetailField label="Target muscle" value={exercise.muscleGroup} />
         <DetailField label="Type" value={exercise.isCompound ? "Compound" : "Isolation"} />
+        <DetailField label="Laterality" value={exercise.isUnilateral ? "Unilateral" : "Bilateral"} />
         {exercise.movementPattern && (
           <DetailField label="Movement pattern" value={exercise.movementPattern} />
         )}
@@ -251,6 +260,12 @@ export function ExercisesPage() {
         case "isolation-first":
           if (a.isCompound !== b.isCompound) return a.isCompound ? 1 : -1;
           return a.name.localeCompare(b.name);
+        case "unilateral-first":
+          if (a.isUnilateral !== b.isUnilateral) return a.isUnilateral ? -1 : 1;
+          return a.name.localeCompare(b.name);
+        case "bilateral-first":
+          if (a.isUnilateral !== b.isUnilateral) return a.isUnilateral ? 1 : -1;
+          return a.name.localeCompare(b.name);
         case "movement": {
           const mo = movementOrder(a.movementPattern) - movementOrder(b.movementPattern);
           return mo !== 0 ? mo : a.name.localeCompare(b.name);
@@ -379,6 +394,8 @@ export function ExercisesPage() {
               <SelectItem value="compound-first">Compound first</SelectItem>
               <SelectItem value="isolation-first">Isolation first</SelectItem>
               <SelectItem value="movement">Movement pattern</SelectItem>
+              <SelectItem value="unilateral-first">Unilateral first</SelectItem>
+              <SelectItem value="bilateral-first">Bilateral first</SelectItem>
             </SelectContent>
           </Select>
         </div>

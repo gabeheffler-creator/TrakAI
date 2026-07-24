@@ -338,6 +338,7 @@ export interface Exercise {
   name: string;
   muscleGroup: string;
   isCompound: boolean;
+  isUnilateral: boolean;
   /** @nullable */
   movementPattern?: string | null;
   /** @nullable */
@@ -353,6 +354,7 @@ export interface ExerciseInput {
   /** @minLength 1 */
   muscleGroup: string;
   isCompound?: boolean;
+  isUnilateral?: boolean;
   movementPattern?: string;
   description?: string;
   videoUrl?: string;
@@ -364,6 +366,7 @@ export interface ExercisePatch {
   /** @minLength 1 */
   muscleGroup?: string;
   isCompound?: boolean;
+  isUnilateral?: boolean;
   /** @nullable */
   movementPattern?: string | null;
   /** @nullable */

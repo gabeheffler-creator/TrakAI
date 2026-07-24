@@ -29,6 +29,7 @@ const exerciseSchema = z.object({
   name: z.string().min(1),
   muscleGroup: z.string().min(1),
   isCompound: z.boolean().optional(),
+  isUnilateral: z.boolean().optional(),
   movementPattern: z.string().optional(),
   description: z.string().optional(),
 });
@@ -53,6 +54,7 @@ type Exercise = {
   name: string;
   muscleGroup: string;
   isCompound: boolean;
+  isUnilateral: boolean;
   movementPattern?: string | null;
   description?: string | null;
   videoUrl?: string | null;
@@ -229,6 +231,7 @@ function ExerciseDetailPanel({
   const [editName, setEditName] = useState(exercise.name);
   const [editMuscleGroup, setEditMuscleGroup] = useState(exercise.muscleGroup);
   const [editIsCompound, setEditIsCompound] = useState(exercise.isCompound);
+  const [editIsUnilateral, setEditIsUnilateral] = useState(exercise.isUnilateral);
   const [editMovement, setEditMovement] = useState(exercise.movementPattern ?? "");
   const [editDescription, setEditDescription] = useState(exercise.description ?? "");
 
@@ -240,6 +243,7 @@ function ExerciseDetailPanel({
     setEditName(exercise.name);
     setEditMuscleGroup(exercise.muscleGroup);
     setEditIsCompound(exercise.isCompound);
+    setEditIsUnilateral(exercise.isUnilateral);
     setEditMovement(exercise.movementPattern ?? "");
     setEditDescription(exercise.description ?? "");
     setEditing(true);
@@ -253,6 +257,7 @@ function ExerciseDetailPanel({
           name: editName,
           muscleGroup: editMuscleGroup,
           isCompound: editIsCompound,
+          isUnilateral: editIsUnilateral,
           movementPattern: editMovement || null,
           description: editDescription || null,
         },
@@ -379,6 +384,22 @@ function ExerciseDetailPanel({
             </div>
 
             <div>
+              <p className="text-sm font-medium mb-2">Laterality</p>
+              <div className="flex gap-2">
+                {[{ label: "Bilateral", val: false }, { label: "Unilateral", val: true }].map(opt => (
+                  <button
+                    key={opt.label}
+                    type="button"
+                    onClick={() => setEditIsUnilateral(opt.val)}
+                    className={`flex-1 text-sm px-3 py-2 rounded border transition-colors ${editIsUnilateral === opt.val ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
               <p className="text-sm font-medium mb-2">Movement Pattern</p>
               <div className="flex gap-2">
                 {["bilateral", "unilateral"].map(mp => (
@@ -409,16 +430,21 @@ function ExerciseDetailPanel({
               </p>
             </div>
             <div className="rounded-xl border bg-card p-4">
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">Laterality</p>
+              <p className="font-semibold text-base">{exercise.isUnilateral ? "Unilateral" : "Bilateral"}</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {exercise.isUnilateral
+                  ? "Each side works independently"
+                  : "Both sides of the body work together"}
+              </p>
+            </div>
+            <div className="rounded-xl border bg-card p-4">
               <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">Movement</p>
               <p className="font-semibold text-base">
                 {exercise.movementPattern ? capitalize(exercise.movementPattern) : "—"}
               </p>
               <p className="text-sm text-muted-foreground mt-1">
-                {exercise.movementPattern === "bilateral"
-                  ? "Both sides of the body work together"
-                  : exercise.movementPattern === "unilateral"
-                  ? "Each side works independently"
-                  : "Movement pattern not specified"}
+                {exercise.movementPattern ? `${capitalize(exercise.movementPattern)} movement` : "Movement pattern not specified"}
               </p>
             </div>
             <div className="rounded-xl border bg-card p-4">
@@ -519,7 +545,7 @@ export function Exercises() {
 
   const form = useForm<z.infer<typeof exerciseSchema>>({
     resolver: zodResolver(exerciseSchema),
-    defaultValues: { name: "", muscleGroup: "", isCompound: false, movementPattern: "", description: "" },
+    defaultValues: { name: "", muscleGroup: "", isCompound: false, isUnilateral: false, movementPattern: "", description: "" },
   });
 
   const onSubmit = (values: z.infer<typeof exerciseSchema>) => {
@@ -528,6 +554,7 @@ export function Exercises() {
         name: values.name,
         muscleGroup: values.muscleGroup,
         isCompound: values.isCompound,
+        isUnilateral: values.isUnilateral,
         movementPattern: values.movementPattern || undefined,
         description: values.description || undefined,
       }
@@ -589,6 +616,19 @@ export function Exercises() {
                         {[{ label: "Compound", val: true }, { label: "Isolation", val: false }].map(opt => (
                           <button key={opt.label} type="button"
                             onClick={() => form.setValue("isCompound", opt.val)}
+                            className={`flex-1 text-sm px-3 py-2 rounded border transition-colors ${field.value === opt.val ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}
+                          >{opt.label}</button>
+                        ))}
+                      </div>
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="isUnilateral" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Laterality</FormLabel>
+                      <div className="flex gap-2">
+                        {[{ label: "Bilateral", val: false }, { label: "Unilateral", val: true }].map(opt => (
+                          <button key={opt.label} type="button"
+                            onClick={() => form.setValue("isUnilateral", opt.val)}
                             className={`flex-1 text-sm px-3 py-2 rounded border transition-colors ${field.value === opt.val ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}
                           >{opt.label}</button>
                         ))}
