@@ -429,6 +429,7 @@ router.get("/programs/:programId", requireCoachAuth, async (req, res) => {
         })
         .from(programExercisesTable)
         .innerJoin(exercisesTable, eq(programExercisesTable.exerciseId, exercisesTable.id))
+        .where(inArray(programExercisesTable.dayId, dayIds))
         .orderBy(asc(programExercisesTable.order));
     }
 
