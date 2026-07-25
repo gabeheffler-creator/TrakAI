@@ -76,7 +76,23 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import { Copy, Send, Plus, CheckCircle, Circle, Trash2, ArrowLeft, ChevronDown, ChevronRight, Dumbbell, Pencil, X, Check, Phone, StickyNote, Clock, Video, Target, Sparkles, Loader2, ImageOff, Moon, Columns2, Search } from "lucide-react";
+import { Copy, Send, Plus, CheckCircle, Circle, Trash2, ArrowLeft, ChevronDown, ChevronRight, Dumbbell, Pencil, X, Check, Phone, StickyNote, Clock, Video, Target, Sparkles, Loader2, ImageOff, Moon, Columns2, Search, GripVertical } from "lucide-react";
+import {
+  DndContext,
+  PointerSensor,
+  TouchSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { Link as WLink } from "wouter";
 import { format, parseISO } from "date-fns";
 import { QueryErrorState } from "@/components/query-error-state";
@@ -490,12 +506,20 @@ function EditableExerciseRow({
   dayId,
   onDeleted,
   onUpdated,
+  dragHandleProps,
 }: {
   ex: DayExercise;
   programId: number;
   dayId: number;
   onDeleted: () => void;
   onUpdated: () => void;
+  dragHandleProps?: {
+    ref: (el: HTMLElement | null) => void;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    attributes: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    listeners: any;
+  };
 }) {
   const [editing, setEditing] = useState(false);
   const [sets, setSets] = useState(String(ex.sets));
@@ -568,6 +592,18 @@ function EditableExerciseRow({
 
   return (
     <div className="flex items-center gap-2 py-2 border-b border-border/50 last:border-0 group">
+      {dragHandleProps ? (
+        <button
+          ref={dragHandleProps.ref as React.Ref<HTMLButtonElement>}
+          {...(dragHandleProps.attributes as React.HTMLAttributes<HTMLButtonElement>)}
+          {...(dragHandleProps.listeners as React.HTMLAttributes<HTMLButtonElement>)}
+          className="p-1 text-muted-foreground/40 hover:text-muted-foreground cursor-grab active:cursor-grabbing flex-shrink-0 touch-none"
+          aria-label="Drag to reorder"
+          tabIndex={-1}
+        >
+          <GripVertical className="w-4 h-4" />
+        </button>
+      ) : null}
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium">{ex.exerciseName}</p>
         <p className="text-xs text-muted-foreground">{ex.muscleGroup}</p>
@@ -582,6 +618,34 @@ function EditableExerciseRow({
       <button onClick={handleDelete} disabled={deleteEx.isPending} className="p-1.5 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">
         <Trash2 className="w-3.5 h-3.5" />
       </button>
+    </div>
+  );
+}
+
+// ── Sortable wrapper for drag-and-drop ───────────────────────────────────────
+function SortableExerciseRow({
+  ex, programId, dayId, onDeleted, onUpdated,
+}: {
+  ex: DayExercise; programId: number; dayId: number; onDeleted: () => void; onUpdated: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: ex.id });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    position: "relative",
+    zIndex: isDragging ? 10 : undefined,
+  };
+  return (
+    <div ref={setNodeRef} style={style}>
+      <EditableExerciseRow
+        ex={ex}
+        programId={programId}
+        dayId={dayId}
+        onDeleted={onDeleted}
+        onUpdated={onUpdated}
+        dragHandleProps={{ ref: setActivatorNodeRef, attributes, listeners }}
+      />
     </div>
   );
 }
@@ -936,8 +1000,41 @@ function AddExerciseRow({
 
 function ProgramDayCard({ day, dayNumber, programId, onChanged }: { day: ProgramDay; dayNumber: number; programId: number; onChanged: () => void }) {
   const [open, setOpen] = useState(false);
+  const [localExercises, setLocalExercises] = useState<DayExercise[]>(day.exercises);
   const { data: allExercises } = useListExercises({ query: { enabled: open, queryKey: getListExercisesQueryKey() } });
+  const updateEx = useUpdateProgramExercise();
   const muscleGroups = [...new Set(day.exercises.map(e => e.muscleGroup))];
+
+  // Sync when parent data changes (e.g. after add/delete)
+  useEffect(() => {
+    setLocalExercises(day.exercises);
+  }, [day.exercises]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } }),
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    setLocalExercises(prev => {
+      const oldIdx = prev.findIndex(e => e.id === active.id);
+      const newIdx = prev.findIndex(e => e.id === over.id);
+      if (oldIdx === -1 || newIdx === -1) return prev;
+      const reordered = arrayMove(prev, oldIdx, newIdx);
+      // Persist new order for each exercise that changed position
+      reordered.forEach((ex, idx) => {
+        const newOrder = idx + 1;
+        const originalOrder = prev.findIndex(e => e.id === ex.id) + 1;
+        if (newOrder !== originalOrder) {
+          updateEx.mutate({ programId, dayId: day.id, peId: ex.id, data: { order: newOrder } });
+        }
+      });
+      return reordered;
+    });
+  };
 
   return (
     <Card>
@@ -962,22 +1059,26 @@ function ProgramDayCard({ day, dayNumber, programId, onChanged }: { day: Program
       {open && (
         <div className="border-t border-border px-4 pb-4 pt-3">
           {day.notes && <p className="text-xs text-muted-foreground mb-3 italic">{day.notes}</p>}
-          <div className="space-y-0">
-            {day.exercises.map(ex => (
-              <EditableExerciseRow
-                key={ex.id}
-                ex={ex}
-                programId={programId}
-                dayId={day.id}
-                onDeleted={onChanged}
-                onUpdated={onChanged}
-              />
-            ))}
-          </div>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={localExercises.map(e => e.id)} strategy={verticalListSortingStrategy}>
+              <div className="space-y-0">
+                {localExercises.map(ex => (
+                  <SortableExerciseRow
+                    key={ex.id}
+                    ex={ex}
+                    programId={programId}
+                    dayId={day.id}
+                    onDeleted={onChanged}
+                    onUpdated={onChanged}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
           <AddExerciseRow
             programId={programId}
             dayId={day.id}
-            currentCount={day.exercises.length}
+            currentCount={localExercises.length}
             allExercises={allExercises ?? []}
             onAdded={onChanged}
           />
