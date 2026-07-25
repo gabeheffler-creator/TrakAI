@@ -83,7 +83,7 @@ import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import { Copy, Send, Plus, CheckCircle, Circle, Trash2, ArrowLeft, ChevronDown, ChevronRight, Dumbbell, Pencil, X, Check, Phone, StickyNote, Clock, Video, Target, Sparkles, Loader2, ImageOff, Moon, Columns2, Search, GripVertical, ArrowRight, ShieldCheck, RotateCcw } from "lucide-react";
+import { Copy, Send, Plus, CheckCircle, Circle, Trash2, ArrowLeft, ChevronDown, ChevronRight, Dumbbell, Pencil, X, Check, Phone, StickyNote, Clock, Video, Target, Sparkles, Loader2, ImageOff, Moon, Columns2, Search, GripVertical, ArrowRight, ShieldCheck, RotateCcw, Camera, Ruler, MessageSquare } from "lucide-react";
 import {
   DndContext,
   PointerSensor,
@@ -106,6 +106,7 @@ import { QueryErrorState } from "@/components/query-error-state";
 import { VideoCall } from "@/components/video-call";
 import { CallNoteReviewSheet } from "@/components/call-note-review-sheet";
 import { ClientMeasurementsTab } from "@/components/client-measurements-tab";
+import { EmptyState } from "@/components/empty-state";
 import { useCallPrefs } from "@/hooks/use-call-prefs";
 
 // ── Vertical drum / scroll picker ────────────────────────────
@@ -2437,7 +2438,7 @@ export function ClientProfile() {
 
         {/* Measurements */}
         <TabsContent value="measurements" className="mt-4">
-          <ClientMeasurementsTab measurements={measurements ?? []} />
+          <ClientMeasurementsTab measurements={measurements ?? []} clientId={clientId} />
         </TabsContent>
 
         {/* Sleep */}
@@ -2852,7 +2853,15 @@ export function ClientProfile() {
 
             return (
               <>
-                {filtered.length === 0 && <p className="text-muted-foreground text-sm">No progress photos in this timeframe.</p>}
+                {(progressPhotos ?? []).length === 0 ? (
+                  <EmptyState
+                    icon={<Camera className="w-5 h-5" />}
+                    title="No progress photos yet"
+                    description="Your client can upload photos from their app. They'll appear here once logged."
+                  />
+                ) : filtered.length === 0 ? (
+                  <p className="text-muted-foreground text-sm">No photos in this timeframe. Try a wider range.</p>
+                ) : null}
 
                 {/* Compare panels */}
                 {compareMode && compareSelected.length === 2 && leftPhoto && rightPhoto && (
@@ -3265,6 +3274,18 @@ export function ClientProfile() {
 
           {/* History */}
           {(() => {
+            // Show a designed empty state when there is absolutely no history
+            const hasAnyHistory = (coachNotes ?? []).length > 0 || (callLogs ?? []).length > 0;
+            if (!hasAnyHistory) {
+              return (
+                <EmptyState
+                  icon={<StickyNote className="w-5 h-5" />}
+                  title="No notes yet"
+                  description="Use the private note form above to add your first note, or log a call."
+                />
+              );
+            }
+
             const days = notesTimeframe === "7d" ? 7 : notesTimeframe === "1m" ? 30 : notesTimeframe === "6m" ? 180 : notesTimeframe === "1y" ? 365 : null;
             const cutoff = days ? new Date(Date.now() - days * 86400000) : null;
 

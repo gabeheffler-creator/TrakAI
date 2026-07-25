@@ -3,7 +3,9 @@ import { Measurement } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Ruler, MessageSquare } from "lucide-react";
+import { EmptyState } from "@/components/empty-state";
+import { Link } from "wouter";
 import {
   LineChart, Line, BarChart, Bar, Cell,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine,
@@ -121,9 +123,10 @@ function barFill(current: number, prev: number | undefined, lowerIsBetter: boole
 
 interface ClientMeasurementsTabProps {
   measurements: Measurement[];
+  clientId?: number;
 }
 
-export function ClientMeasurementsTab({ measurements }: ClientMeasurementsTabProps) {
+export function ClientMeasurementsTab({ measurements, clientId }: ClientMeasurementsTabProps) {
   const [timeframe, setTimeframe] = useState<TimeframeKey>("6m");
   const [historyOpen, setHistoryOpen] = useState(false);
   const metricRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -151,7 +154,24 @@ export function ClientMeasurementsTab({ measurements }: ClientMeasurementsTabPro
   }
 
   if (measurements.length === 0) {
-    return <p className="text-muted-foreground text-sm">No measurements logged.</p>;
+    return (
+      <EmptyState
+        icon={<Ruler className="w-5 h-5" />}
+        title="No measurements logged yet"
+        description="Ask your client to log their first measurement from their app."
+        action={
+          clientId != null ? (
+            <Link
+              href={`/messages/${clientId}`}
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+            >
+              <MessageSquare className="w-3.5 h-3.5" />
+              Send a reminder message
+            </Link>
+          ) : undefined
+        }
+      />
+    );
   }
 
   function scrollToMetric(key: string) {
