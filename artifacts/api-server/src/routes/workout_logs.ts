@@ -19,9 +19,19 @@ const router = Router();
 router.get("/clients/:clientId/workout-logs", requireClientOwnership(), async (req, res) => {
   try {
     const { clientId } = ListWorkoutLogsParams.parse({ clientId: Number(req.params.clientId) });
-    const logs = await db.select().from(workoutLogsTable)
-      .where(eq(workoutLogsTable.clientId, clientId))
-      .orderBy(workoutLogsTable.date);
+    const limitParam = req.query.limit ? parseInt(String(req.query.limit), 10) : undefined;
+    const useLimit = limitParam != null && limitParam > 0;
+    let logs;
+    if (useLimit) {
+      logs = await db.select().from(workoutLogsTable)
+        .where(eq(workoutLogsTable.clientId, clientId))
+        .orderBy(desc(workoutLogsTable.date))
+        .limit(limitParam!);
+    } else {
+      logs = await db.select().from(workoutLogsTable)
+        .where(eq(workoutLogsTable.clientId, clientId))
+        .orderBy(asc(workoutLogsTable.date));
+    }
 
     const logIds = logs.map(l => l.id);
     const allSets = logIds.length > 0
