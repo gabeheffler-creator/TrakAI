@@ -1590,7 +1590,7 @@ export function ClientProfile() {
       </Dialog>
 
       <Tabs defaultValue={initialTab}>
-        <div className="overflow-x-auto -mx-4 px-4 scrollbar-none border-b border-border">
+        <div className="overflow-x-auto overflow-y-hidden -mx-4 px-4 scrollbar-none border-b border-border">
           <TabsList className="flex w-max h-auto bg-transparent p-0 gap-0">
             {[
               { value: "overview", label: "Overview" },
@@ -1704,7 +1704,7 @@ export function ClientProfile() {
             <>
               <Card>
                 <CardContent className="pt-4 pb-4">
-                  <div className="flex items-start justify-between gap-4">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
                       <p className="font-bold text-lg">{fullProgram?.name ?? programAssignment.programName}</p>
                       {fullProgram?.description && <p className="text-sm text-muted-foreground mt-0.5">{fullProgram.description}</p>}
