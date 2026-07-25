@@ -11,6 +11,7 @@ import {
   useListExercises,
   useGetLatestSleepLog,
   useGetLastWorkoutPerformance,
+  useGetUploadUrl,
   getGetLatestSleepLogQueryKey,
   getGetLastWorkoutPerformanceQueryKey,
   getListExercisesQueryKey,
@@ -24,7 +25,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle, ChevronRight, Dumbbell, X, Trophy, ArrowRight, RefreshCw, Upload, FolderOpen, ImageIcon, Pencil, RotateCcw, Check, Moon } from "lucide-react";
+import { CheckCircle, ChevronRight, Dumbbell, X, Trophy, ArrowRight, RefreshCw, Upload, FolderOpen, ImageIcon, Pencil, RotateCcw, Check, Moon, Download } from "lucide-react";
 import { useLocation, Link } from "wouter";
 import { cn } from "@/lib/utils";
 import type { Exercise } from "@workspace/api-client-react";
@@ -315,33 +316,159 @@ function SwapModal({
 
 function VideoUploadSheet({ onSkip }: { onSkip: () => void }) {
   const [showOptions, setShowOptions] = useState(false);
+  const [uploadState, setUploadState] = useState<"idle" | "uploading" | "success" | "error">("idle");
+  const [errorMsg, setErrorMsg] = useState("");
+  const galleryRef = useRef<HTMLInputElement>(null);
+  const driveRef = useRef<HTMLInputElement>(null);
+  const downloadsRef = useRef<HTMLInputElement>(null);
+  const getUploadUrl = useGetUploadUrl();
+  const { toast } = useToast();
+
+  const handleFile = (file: File) => {
+    setUploadState("uploading");
+    setErrorMsg("");
+    getUploadUrl.mutate(
+      { data: { filename: file.name, contentType: file.type } },
+      {
+        onSuccess: async (data) => {
+          try {
+            const r = await fetch(data.uploadUrl, {
+              method: "PUT",
+              body: file,
+              headers: { "Content-Type": file.type },
+            });
+            if (!r.ok) throw new Error(`Upload failed: ${r.status}`);
+            setUploadState("success");
+          } catch {
+            setUploadState("error");
+            setErrorMsg("Upload failed. Check your connection and try again.");
+          }
+        },
+        onError: () => {
+          setUploadState("error");
+          setErrorMsg("Couldn't start the upload. Please try again.");
+        },
+      }
+    );
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleFile(file);
+    e.target.value = "";
+  };
+
+  if (uploadState === "uploading") {
+    return (
+      <div className="fixed inset-0 bg-background flex flex-col items-center justify-center p-8 text-center z-[60]">
+        <div className="w-16 h-16 rounded-full border-4 border-primary border-t-transparent animate-spin mb-6" />
+        <h1 className="text-xl font-bold mb-2">Uploading…</h1>
+        <p className="text-muted-foreground text-sm">Please keep this screen open.</p>
+      </div>
+    );
+  }
+
+  if (uploadState === "success") {
+    return (
+      <div className="fixed inset-0 bg-background flex flex-col items-center justify-center p-8 text-center z-[60]">
+        <CheckCircle className="w-16 h-16 text-green-500 mb-6" />
+        <h1 className="text-2xl font-bold mb-2">Video Uploaded!</h1>
+        <p className="text-muted-foreground text-sm mb-10 max-w-xs">
+          Your coach will review your form and give you feedback.
+        </p>
+        <div className="w-full max-w-xs space-y-3">
+          <Button
+            size="lg"
+            variant="outline"
+            className="w-full h-14 text-base font-semibold"
+            onClick={() => { setUploadState("idle"); setShowOptions(true); }}
+          >
+            Upload Another
+          </Button>
+          <Button
+            size="lg"
+            className="w-full h-14 text-base font-semibold"
+            onClick={onSkip}
+          >
+            Done
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-background flex flex-col items-center justify-center p-8 text-center z-[60]">
+      {/* Hidden file inputs */}
+      <input
+        ref={galleryRef}
+        type="file"
+        accept="video/*"
+        capture="environment"
+        className="hidden"
+        onChange={handleInputChange}
+      />
+      <input
+        ref={driveRef}
+        type="file"
+        accept="video/*"
+        className="hidden"
+        onChange={handleInputChange}
+      />
+      <input
+        ref={downloadsRef}
+        type="file"
+        accept="video/*"
+        className="hidden"
+        onChange={handleInputChange}
+      />
+
       <Upload className="w-16 h-16 text-primary mb-6 opacity-80" strokeWidth={1.5} />
       <h1 className="text-2xl font-bold mb-2">Upload Form Videos</h1>
       <p className="text-muted-foreground text-sm mb-10 max-w-xs">
         Share your form videos with your coach so they can give you feedback.
       </p>
 
+      {uploadState === "error" && (
+        <div className="mb-6 text-sm text-destructive bg-destructive/10 rounded-xl px-4 py-3 max-w-xs w-full text-left">
+          {errorMsg}
+        </div>
+      )}
+
       {showOptions ? (
         <div className="w-full max-w-xs space-y-3">
-          <button className="w-full flex items-center gap-3 p-4 rounded-2xl border border-border bg-card hover:border-primary/50 hover:bg-accent transition-colors">
-            <ImageIcon className="w-5 h-5 text-primary" />
+          <button
+            onClick={() => galleryRef.current?.click()}
+            className="w-full flex items-center gap-3 p-4 rounded-2xl border border-border bg-card hover:border-primary/50 hover:bg-accent transition-colors"
+          >
+            <ImageIcon className="w-5 h-5 text-primary flex-shrink-0" />
             <div className="text-left">
               <p className="text-sm font-semibold">Photo Gallery</p>
               <p className="text-xs text-muted-foreground">Choose from your device</p>
             </div>
           </button>
-          <button className="w-full flex items-center gap-3 p-4 rounded-2xl border border-border bg-card hover:border-primary/50 hover:bg-accent transition-colors">
-            <FolderOpen className="w-5 h-5 text-primary" />
+          <button
+            onClick={() => driveRef.current?.click()}
+            className="w-full flex items-center gap-3 p-4 rounded-2xl border border-border bg-card hover:border-primary/50 hover:bg-accent transition-colors"
+          >
+            <FolderOpen className="w-5 h-5 text-primary flex-shrink-0" />
             <div className="text-left">
               <p className="text-sm font-semibold">Google Drive</p>
-              <p className="text-xs text-muted-foreground">Upload from Drive or Docs</p>
+              <p className="text-xs text-muted-foreground">Upload from Drive or cloud storage</p>
             </div>
           </button>
           <button
-            onClick={() => setShowOptions(false)}
+            onClick={() => downloadsRef.current?.click()}
+            className="w-full flex items-center gap-3 p-4 rounded-2xl border border-border bg-card hover:border-primary/50 hover:bg-accent transition-colors"
+          >
+            <Download className="w-5 h-5 text-primary flex-shrink-0" />
+            <div className="text-left">
+              <p className="text-sm font-semibold">Downloads</p>
+              <p className="text-xs text-muted-foreground">Browse files on your device</p>
+            </div>
+          </button>
+          <button
+            onClick={() => { setShowOptions(false); setUploadState("idle"); setErrorMsg(""); }}
             className="text-sm text-muted-foreground mt-2"
           >
             ← Back
