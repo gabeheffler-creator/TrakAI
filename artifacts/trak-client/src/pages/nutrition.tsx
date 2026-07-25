@@ -601,14 +601,6 @@ export function NutritionPage() {
 
       {/* ── Day Summary ───────────────────── */}
       <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
-        {/* Day type badge — shown when coach has set different training/rest goals */}
-        {isToday && goalDayType && goalDayType !== "any" && isTrainingDay !== null && (
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-              {isTrainingDay ? "🏋️ Training day" : "🌙 Rest day"}
-            </span>
-          </div>
-        )}
         {/* Calories row — always visible */}
         <div className="flex items-end justify-between">
           <div className="flex items-end gap-1.5">

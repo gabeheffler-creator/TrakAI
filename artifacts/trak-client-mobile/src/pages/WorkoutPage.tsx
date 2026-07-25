@@ -175,31 +175,19 @@ const S = {
     color: color === "green" ? "#86efac" : color === "purple" ? "#c4b5fd" : "#94a3b8",
     border: `1px solid ${color === "green" ? "#16a34a" : color === "purple" ? "#6d28d9" : "#334155"}`,
   }),
-  restDayCard: {
+  dayCard: (selected: boolean) => ({
     display: "flex",
     alignItems: "center",
-    gap: 14,
-    background: "#1e293b",
-    border: "1px solid #334155",
-    borderRadius: 14,
-    padding: "16px 18px",
-  },
-  recentLogCard: {
-    display: "flex",
-    alignItems: "center",
-    gap: 12,
-    background: "#1e293b",
-    border: "1px solid #334155",
+    justifyContent: "space-between",
+    background: selected ? "#2e1065" : "#1e293b",
+    border: `1px solid ${selected ? "#6d28d9" : "#334155"}`,
     borderRadius: 14,
     padding: "14px 18px",
-  },
-  sectionLabel: {
-    fontSize: 11,
-    fontWeight: 700,
-    color: "#475569",
-    textTransform: "uppercase" as const,
-    letterSpacing: 1,
-  },
+    cursor: "pointer",
+    textAlign: "left" as const,
+    width: "100%",
+    outline: "none",
+  }),
 };
 
 // ─── WorkoutPage component ────────────────────────────────────────────────────
@@ -213,7 +201,7 @@ export default function WorkoutPage({ clientId, clientName }: WorkoutPageProps) 
   const [workoutLogId, setWorkoutLogId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
-  const [recentLogs, setRecentLogs] = useState<{ id: number; programDayId: number | null; date: string }[]>([]);
+  const [allDays, setAllDays] = useState<ProgramDay[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -227,7 +215,6 @@ export default function WorkoutPage({ clientId, clientName }: WorkoutPageProps) 
       ]);
 
       setCues(cuesData);
-      setRecentLogs(logsData);
 
       // Fetch full program detail
       const program = await apiFetch<{
@@ -235,6 +222,7 @@ export default function WorkoutPage({ clientId, clientName }: WorkoutPageProps) 
       }>(`/api/clients/${clientId}/program`);
 
       const allDays = program.phases.flatMap(p => p.days);
+      setAllDays(allDays);
 
       // Calculate today's program day
       const start = new Date(assignment.startDate);
@@ -352,7 +340,7 @@ export default function WorkoutPage({ clientId, clientName }: WorkoutPageProps) 
       <div style={S.header}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div>
-            <p style={S.title}>{today ? today.name : "Rest Day"}</p>
+            <p style={S.title}>{today ? today.name : "Workout"}</p>
             <p style={S.subtitle}>
               {new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
               {today && ` · ${today.exercises.length} exercises`}
@@ -367,30 +355,34 @@ export default function WorkoutPage({ clientId, clientName }: WorkoutPageProps) 
         {error && <p style={{ fontSize: 12, color: "#f87171", marginTop: 6 }}>{error}</p>}
       </div>
 
-      {/* Rest day — compact card, not full screen */}
+      {/* Day selector — shown when no workout auto-scheduled today */}
       {!today && !loading && (
         <div style={S.scroll}>
-          <div style={S.restDayCard}>
-            <span style={{ fontSize: 28, lineHeight: 1 }}>🌙</span>
-            <div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: "#f1f5f9" }}>Rest day</div>
-              <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>No workout scheduled today</div>
+          {allDays.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "32px 0", color: "#64748b" }}>
+              <div style={{ fontSize: 32, marginBottom: 12 }}>🏋️</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#94a3b8" }}>No program assigned yet</div>
+              <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>Your coach hasn't set up a program yet.</div>
             </div>
-          </div>
-
-          {recentLogs.length > 0 && (
+          ) : (
             <>
-              <div style={S.sectionLabel}>Recent workouts</div>
-              {recentLogs.map(log => (
-                <div key={log.id} style={S.recentLogCard}>
-                  <span style={{ fontSize: 22, lineHeight: 1 }}>🏋️</span>
+              <div style={{ fontSize: 12, color: "#64748b", fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: 1 }}>
+                Choose a day to train
+              </div>
+              {allDays.map(day => (
+                <button
+                  key={day.id}
+                  style={S.dayCard(false)}
+                  onClick={() => { setToday(day); setSets(buildSets(day.exercises)); }}
+                >
                   <div>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: "#f1f5f9" }}>
-                      {log.programDayId ? "Workout" : "Free workout"}
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#f1f5f9" }}>{day.name}</div>
+                    <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
+                      {day.exercises.length} exercise{day.exercises.length !== 1 ? "s" : ""}
                     </div>
-                    <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>{log.date}</div>
                   </div>
-                </div>
+                  <span style={{ color: "#6d28d9", fontSize: 18 }}>›</span>
+                </button>
               ))}
             </>
           )}
