@@ -100,7 +100,7 @@ function SectionHeader({ title }: { title: string }) {
 export function SettingsPage() {
   const { dark, toggle } = useDarkMode();
   const { units, setUnits } = useUnitSystem();
-  const { autoCallLog, autoCallNotes, reviewCallNotes, setAutoCallLog, setAutoCallNotes, setReviewCallNotes } = useCallPrefs();
+  const { autoCallLog, autoCallNotes, setAutoCallLog, setAutoCallNotes } = useCallPrefs();
   const { toast } = useToast();
 
   const [brand, setBrand] = useState<BrandSettings>(() => readBrand());
@@ -355,19 +355,6 @@ export function SettingsPage() {
             description="Automatically generate notes from each call"
           >
             <Switch checked={autoCallNotes} onCheckedChange={setAutoCallNotes} />
-          </SettingRow>
-        </div>
-        <div className={["px-4", !autoCallNotes && "opacity-50 pointer-events-none"].filter(Boolean).join(" ")}>
-          <SettingRow
-            icon={<FileText className="w-4 h-4" />}
-            label="Review notes before saving"
-            description={autoCallNotes ? "Show a review dialog after each call so you can approve, edit, or delete the note" : "Requires Auto call notes"}
-          >
-            <Switch
-              checked={reviewCallNotes && autoCallNotes}
-              onCheckedChange={setReviewCallNotes}
-              disabled={!autoCallNotes}
-            />
           </SettingRow>
         </div>
       </div>

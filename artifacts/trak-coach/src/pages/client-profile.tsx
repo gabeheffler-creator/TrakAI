@@ -81,9 +81,7 @@ import { Link as WLink } from "wouter";
 import { format, parseISO } from "date-fns";
 import { QueryErrorState } from "@/components/query-error-state";
 import { VideoCall } from "@/components/video-call";
-import { CallNoteReviewSheet } from "@/components/call-note-review-sheet";
 import { ClientMeasurementsTab } from "@/components/client-measurements-tab";
-import { useCallPrefs } from "@/hooks/use-call-prefs";
 
 // ── Vertical drum / scroll picker ────────────────────────────
 const ITEM_H = 44;
@@ -1093,8 +1091,6 @@ export function ClientProfile() {
 
   // Video call state
   const [videoCallOpen, setVideoCallOpen] = useState(false);
-  const [noteReview, setNoteReview] = useState<{ callLogId: number; date: string } | null>(null);
-  const { autoCallNotes, reviewCallNotes } = useCallPrefs();
 
   const handleStartVideoCall = async () => {
     try { await fetch(`/api/clients/${clientId}/video-call/start`, { method: "POST" }); } catch { /* ignore */ }
@@ -1102,39 +1098,8 @@ export function ClientProfile() {
   };
 
   const handleEndVideoCall = async () => {
-    let callLogId: number | null = null;
-    let callDate: string = new Date().toISOString().split("T")[0];
-    try {
-      const resp = await fetch(`/api/clients/${clientId}/video-call/end`, { method: "POST" });
-      if (resp.ok) {
-        const data = await resp.json();
-        callLogId = data.callLogId ?? null;
-        // Use today's date as the call date
-      }
-    } catch { /* ignore */ }
+    try { await fetch(`/api/clients/${clientId}/video-call/end`, { method: "POST" }); } catch { /* ignore */ }
     setVideoCallOpen(false);
-    if (autoCallNotes && reviewCallNotes && callLogId !== null) {
-      setNoteReview({ callLogId, date: callDate });
-    } else {
-      refetchCallLogs();
-    }
-  };
-
-  const handleNoteReviewApprove = async (note: string) => {
-    if (!noteReview) return;
-    await fetch(`/api/clients/${clientId}/call-logs/${noteReview.callLogId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ notes: note || null }),
-    });
-    setNoteReview(null);
-    refetchCallLogs();
-  };
-
-  const handleNoteReviewDelete = async () => {
-    if (!noteReview) return;
-    await fetch(`/api/clients/${clientId}/call-logs/${noteReview.callLogId}`, { method: "DELETE" });
-    setNoteReview(null);
     refetchCallLogs();
   };
 
@@ -1389,18 +1354,6 @@ export function ClientProfile() {
         />
       )}
 
-      {noteReview && (
-        <CallNoteReviewSheet
-          open={!!noteReview}
-          clientName={client.name}
-          date={noteReview.date}
-          callLogId={noteReview.callLogId}
-          onApprove={handleNoteReviewApprove}
-          onDelete={handleNoteReviewDelete}
-          onClose={() => { setNoteReview(null); refetchCallLogs(); }}
-        />
-      )}
-
       <div className="flex items-center gap-4">
         <WLink href="/clients" className="text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="w-5 h-5" />
@@ -1438,7 +1391,7 @@ export function ClientProfile() {
               <p className="text-sm"><span className="font-medium">Goal: </span>{client.goal}</p>
               {client.goalTargetDate && (
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Due {format(new Date(client.goalTargetDate + "T12:00:00"), "MMM d, yyyy")}
+                  Due {format(new Date(client.goalTargetDate), "MMM d, yyyy")}
                 </p>
               )}
             </div>
@@ -1590,7 +1543,7 @@ export function ClientProfile() {
       </Dialog>
 
       <Tabs defaultValue={initialTab}>
-        <div className="overflow-x-auto overflow-y-hidden -mx-4 px-4 scrollbar-none border-b border-border">
+        <div className="overflow-x-auto -mx-4 px-4 scrollbar-none border-b border-border">
           <TabsList className="flex w-max h-auto bg-transparent p-0 gap-0">
             {[
               { value: "overview", label: "Overview" },
@@ -1704,7 +1657,7 @@ export function ClientProfile() {
             <>
               <Card>
                 <CardContent className="pt-4 pb-4">
-                  <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="flex items-start justify-between gap-4">
                     <div>
                       <p className="font-bold text-lg">{fullProgram?.name ?? programAssignment.programName}</p>
                       {fullProgram?.description && <p className="text-sm text-muted-foreground mt-0.5">{fullProgram.description}</p>}
