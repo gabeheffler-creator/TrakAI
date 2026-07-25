@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { useClientId } from "@/hooks/use-client-id";
 import {
   useListSleepLogs,
@@ -9,7 +10,7 @@ import {
   useUpdateClient,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -148,6 +149,27 @@ const ALARM_APPS: AlarmApp[] = [
 ];
 
 const ALARM_STORAGE_KEY = "trak_connected_alarm_app"; // fallback cache only
+
+// ─── Sleep quality helpers ────────────────────────────────────────────────────
+
+const qualityNumMap: Record<string, number> = { poor: 1, fair: 2, good: 3, great: 4 };
+const qualityTickLabel: Record<number, string> = { 1: "Poor", 2: "Fair", 3: "Good", 4: "Great" };
+
+type DotProps = { cx?: number; cy?: number; payload?: Record<string, unknown> };
+
+function QualityDot({ cx, cy, payload }: DotProps) {
+  const q = payload?.quality as number | null | undefined;
+  if (!cx || !cy || q == null) return null;
+  const fill = q >= 3 ? "#22c55e" : q === 2 ? "#eab308" : "#ef4444";
+  return <circle cx={cx} cy={cy} r={4} fill={fill} stroke="white" strokeWidth={1.5} />;
+}
+
+function EnergyDot({ cx, cy, payload }: DotProps) {
+  const e = payload?.energy as number | null | undefined;
+  if (!cx || !cy || e == null) return null;
+  const fill = e >= 7 ? "#22c55e" : e >= 4 ? "#eab308" : "#ef4444";
+  return <circle cx={cx} cy={cy} r={4} fill={fill} stroke="white" strokeWidth={1.5} />;
+}
 
 // ─── Alarm sheet ─────────────────────────────────────────────────────────────
 
@@ -477,6 +499,18 @@ export function SleepPage() {
   const filtered = useMemo(() => filterByTimeframe(logs ?? [], timeframe), [logs, timeframe]);
   const sortedFiltered = filtered.slice().sort((a, b) => b.date.localeCompare(a.date));
 
+  // Chart data (ascending by date for left-to-right trend lines)
+  const chartData = useMemo(() =>
+    filtered.slice().sort((a, b) => a.date.localeCompare(b.date)).map(s => ({
+      date: s.date,
+      quality: s.quality ? (qualityNumMap[s.quality] ?? null) : null,
+      energy: s.energyRating ?? null,
+    })),
+    [filtered]
+  );
+  const qualityPoints = chartData.filter(d => d.quality != null);
+  const energyPoints  = chartData.filter(d => d.energy  != null);
+
   const avgSleep = filtered.length
     ? (filtered.reduce((acc, l) => acc + Number(l.hoursSlept), 0) / filtered.length).toFixed(1)
     : null;
@@ -602,6 +636,93 @@ export function SleepPage() {
               <p className="text-3xl font-bold">{avgSleep}h</p>
               <p className="text-xs text-muted-foreground">average sleep · {filtered.length} entries</p>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Quality trend ───────────────────── */}
+      {!isLoading && !isError && (
+        <Card>
+          <CardHeader className="pb-1 pt-4">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <span>😴</span> Sleep Quality Trend
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pb-4">
+            {qualityPoints.length >= 2 ? (
+              <ResponsiveContainer width="100%" height={130}>
+                <LineChart data={qualityPoints}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={d => d.slice(5)} />
+                  <YAxis
+                    domain={[1, 4]}
+                    ticks={[1, 2, 3, 4]}
+                    tickFormatter={v => qualityTickLabel[v as number] ?? ""}
+                    tick={{ fontSize: 9 }}
+                    width={34}
+                  />
+                  <Tooltip
+                    formatter={(v: unknown) => [qualityTickLabel[v as number] ?? v, "Quality"]}
+                    labelFormatter={d => String(d)}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="quality"
+                    stroke="hsl(var(--primary))"
+                    strokeWidth={2}
+                    dot={<QualityDot />}
+                    activeDot={{ r: 5 }}
+                    connectNulls={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-xs text-muted-foreground text-center py-4">
+                Log more nights with quality ratings to see trends
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Energy trend ───────────────────── */}
+      {!isLoading && !isError && (
+        <Card>
+          <CardHeader className="pb-1 pt-4">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <span>⚡</span> Morning Energy Trend
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pb-4">
+            {energyPoints.length >= 2 ? (
+              <ResponsiveContainer width="100%" height={130}>
+                <LineChart data={energyPoints}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={d => d.slice(5)} />
+                  <YAxis domain={[1, 10]} ticks={[1, 3, 5, 7, 10]} tick={{ fontSize: 10 }} width={20} />
+                  <Tooltip
+                    formatter={(v: unknown) => [
+                      `${v}/10 — ${Number(v) <= 3 ? "Exhausted" : Number(v) <= 5 ? "Tired" : Number(v) <= 7 ? "OK" : Number(v) <= 9 ? "Good" : "Excellent"}`,
+                      "Energy",
+                    ]}
+                    labelFormatter={d => String(d)}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="energy"
+                    stroke="#f59e0b"
+                    strokeWidth={2}
+                    dot={<EnergyDot />}
+                    activeDot={{ r: 5 }}
+                    connectNulls={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-xs text-muted-foreground text-center py-4">
+                Log more nights with energy ratings to see trends
+              </p>
+            )}
           </CardContent>
         </Card>
       )}
