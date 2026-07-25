@@ -18,9 +18,35 @@ import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import {
   Plus, Search, LayoutGrid, List, X, ChevronRight,
-  Dumbbell, Pencil, Upload, Video, Loader2,
+  Dumbbell, Pencil, Upload, Video, Loader2, Link2, Trash2,
 } from "lucide-react";
 import { QueryErrorState } from "@/components/query-error-state";
+
+// ─── YouTube helpers ─────────────────────────────────────────────────────────
+
+function getYouTubeVideoId(url: string): string | null {
+  try {
+    const u = new URL(url);
+    if (u.hostname === "youtu.be") return u.pathname.slice(1).split("?")[0] || null;
+    if (u.hostname.includes("youtube.com")) {
+      if (u.pathname === "/watch") return u.searchParams.get("v");
+      if (u.pathname.startsWith("/embed/")) return u.pathname.split("/embed/")[1]?.split("?")[0] || null;
+      if (u.pathname.startsWith("/shorts/")) return u.pathname.split("/shorts/")[1]?.split("?")[0] || null;
+    }
+  } catch { /* not a URL */ }
+  return null;
+}
+
+function isYouTubeUrl(url: string): boolean {
+  return getYouTubeVideoId(url) !== null;
+}
+
+function getYouTubeEmbedUrl(url: string): string | null {
+  const id = getYouTubeVideoId(url);
+  return id ? `https://www.youtube.com/embed/${id}?rel=0` : null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 type SortMode = "target" | "compound" | "movement" | "cardio" | "mobility" | "strength";
 type ViewMode = "grid" | "list";
@@ -253,9 +279,55 @@ function ExerciseDetailPanel({
   const [editEquipment, setEditEquipment] = useState<Equipment>(exercise.equipment ?? "Other");
   const [editDifficulty, setEditDifficulty] = useState<Difficulty>(exercise.difficulty ?? "Intermediate");
 
+  const [ytInput, setYtInput] = useState("");
+  const [savingYt, setSavingYt] = useState(false);
+
   const updateExercise = useUpdateExercise();
   const { toast } = useToast();
   const qc = useQueryClient();
+
+  function handleSaveYouTubeUrl() {
+    const videoId = getYouTubeVideoId(ytInput.trim());
+    if (!videoId) {
+      toast({ title: "Not a valid YouTube URL", variant: "destructive" });
+      return;
+    }
+    setSavingYt(true);
+    updateExercise.mutate(
+      { exerciseId: exercise.id, data: { videoUrl: ytInput.trim() } },
+      {
+        onSuccess: (updated) => {
+          const refreshed = { ...exercise, ...updated };
+          setExercise(refreshed);
+          onUpdate(refreshed);
+          setYtInput("");
+          qc.invalidateQueries({ queryKey: getListExercisesQueryKey() });
+          toast({ title: "YouTube video linked" });
+          setSavingYt(false);
+        },
+        onError: () => {
+          toast({ title: "Failed to save URL", variant: "destructive" });
+          setSavingYt(false);
+        },
+      }
+    );
+  }
+
+  function handleRemoveVideo() {
+    updateExercise.mutate(
+      { exerciseId: exercise.id, data: { videoUrl: null } },
+      {
+        onSuccess: (updated) => {
+          const refreshed = { ...exercise, ...updated };
+          setExercise(refreshed);
+          onUpdate(refreshed);
+          qc.invalidateQueries({ queryKey: getListExercisesQueryKey() });
+          toast({ title: "Video removed" });
+        },
+        onError: () => toast({ title: "Failed to remove video", variant: "destructive" }),
+      }
+    );
+  }
 
   function startEdit() {
     setEditName(exercise.name);
@@ -552,12 +624,55 @@ function ExerciseDetailPanel({
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
               <Video className="w-3.5 h-3.5" /> Video
             </p>
-            <VideoUploadButton
-              exerciseId={exercise.id}
-              onUploadComplete={handleVideoUploaded}
-            />
+            <div className="flex items-center gap-2">
+              <VideoUploadButton exerciseId={exercise.id} onUploadComplete={handleVideoUploaded} />
+              {exercise.videoUrl && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive hover:text-destructive h-8 px-2"
+                  onClick={handleRemoveVideo}
+                  title="Remove video"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </Button>
+              )}
+            </div>
           </div>
-          {videoSrc ? (
+
+          {/* YouTube URL paste row */}
+          <div className="flex gap-2 mb-3">
+            <div className="relative flex-1">
+              <Link2 className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+              <Input
+                placeholder="Or paste a YouTube URL…"
+                value={ytInput}
+                onChange={e => setYtInput(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") handleSaveYouTubeUrl(); }}
+                className="pl-8 text-sm h-9"
+              />
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSaveYouTubeUrl}
+              disabled={!ytInput.trim() || savingYt}
+              className="h-9 shrink-0"
+            >
+              {savingYt ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Link"}
+            </Button>
+          </div>
+
+          {/* Video player */}
+          {exercise.videoUrl && isYouTubeUrl(exercise.videoUrl) ? (
+            <iframe
+              src={getYouTubeEmbedUrl(exercise.videoUrl)!}
+              className="w-full rounded-lg aspect-video border-0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              data-testid="exercise-video-player"
+            />
+          ) : videoSrc ? (
             <video
               key={videoSrc}
               src={videoSrc}
@@ -566,7 +681,7 @@ function ExerciseDetailPanel({
               data-testid="exercise-video-player"
             />
           ) : (
-            <p className="text-sm text-muted-foreground italic">No video yet — upload one using the button above.</p>
+            <p className="text-sm text-muted-foreground italic">No video yet — upload a file or paste a YouTube URL above.</p>
           )}
         </div>
 
