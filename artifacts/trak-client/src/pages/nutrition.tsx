@@ -368,6 +368,7 @@ export function NutritionPage() {
   const [editEntrySaving, setEditEntrySaving] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
+  const [copying, setCopying] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [quickAddName, setQuickAddName] = useState("");
   const [quickAddCals, setQuickAddCals] = useState("");
@@ -588,6 +589,30 @@ export function NutritionPage() {
     });
   };
 
+  const handleCopyFromYesterday = async (yesterdayMeals: typeof selectedLogs) => {
+    if (!clientId || !yesterdayMeals.length) return;
+    setCopying(true);
+    for (const entry of yesterdayMeals) {
+      await new Promise<void>(resolve => {
+        createNutritionLog.mutate({
+          clientId,
+          data: {
+            date: selectedDate,
+            imageUrl: entry.imageUrl ?? "manual_entry",
+            notes: entry.notes ?? undefined,
+            calories: entry.calories ?? undefined,
+            protein: entry.protein != null ? Number(entry.protein) : undefined,
+            carbs: entry.carbs != null ? Number(entry.carbs) : undefined,
+            fat: entry.fat != null ? Number(entry.fat) : undefined,
+          },
+        }, { onSuccess: () => resolve(), onError: () => resolve() });
+      });
+    }
+    qc.invalidateQueries({ queryKey: getListNutritionLogsQueryKey(clientId) });
+    setCopying(false);
+    toast({ title: `${yesterdayMeals.length} meal${yesterdayMeals.length !== 1 ? "s" : ""} copied!` });
+  };
+
   const handleQuickAdd = async () => {
     if (!clientId) return;
     const cals = parseInt(quickAddCals, 10);
@@ -625,6 +650,12 @@ export function NutritionPage() {
 
   const selectedLogs = logs?.filter(n => n.date === selectedDate && n.imageUrl !== "water_only") ?? [];
   const selectedWater = logs?.find(n => n.date === selectedDate && n.imageUrl === "water_only");
+
+  const yesterdayDate = stepDate(selectedDate, -1);
+  const yesterdayMeals = (logs ?? []).filter(
+    n => n.date === yesterdayDate && n.imageUrl !== "water_only" && n.imageUrl !== "cant_track"
+  );
+  const showCopyFromYesterday = yesterdayMeals.length > 0 && selectedLogs.length < yesterdayMeals.length;
 
   const totalCal  = selectedLogs.reduce((s, n) => s + (n.calories ?? 0), 0);
   const totalPro  = selectedLogs.reduce((s, n) => s + Number(n.protein ?? 0), 0);
@@ -773,6 +804,31 @@ export function NutritionPage() {
           </p>
         ) : null}
       </div>
+
+      {/* ── Copy from yesterday ───────────────────── */}
+      {showCopyFromYesterday && (
+        <button
+          onClick={() => handleCopyFromYesterday(yesterdayMeals)}
+          disabled={copying}
+          className="w-full flex items-center justify-between px-4 py-3 rounded-2xl border border-dashed border-muted-foreground/30 hover:border-primary/50 hover:bg-primary/5 transition-colors text-left disabled:opacity-60 group"
+        >
+          <div className="flex items-center gap-3">
+            {copying
+              ? <Loader2 className="w-4 h-4 text-muted-foreground animate-spin flex-shrink-0" />
+              : <span className="text-base flex-shrink-0">📋</span>
+            }
+            <div>
+              <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
+                {copying ? "Copying…" : "Copy from yesterday"}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {yesterdayMeals.length} meal{yesterdayMeals.length !== 1 ? "s" : ""} logged {formatDateLabel(yesterdayDate)}
+              </p>
+            </div>
+          </div>
+          <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />
+        </button>
+      )}
 
       {/* ── Logged entries (all days with data) ───────────────────── */}
       {hasSelectedData && (
