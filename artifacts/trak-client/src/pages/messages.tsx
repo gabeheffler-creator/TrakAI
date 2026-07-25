@@ -9,6 +9,8 @@ import {
   useRejectTask,
   useGetClientDashboard,
   getGetClientDashboardQueryKey,
+  useListActiveTasks,
+  getListActiveTasksQueryKey,
   type ClientTask,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -20,7 +22,7 @@ import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Send, MessageCircle, Smile } from "lucide-react";
+import { Send, MessageCircle, Smile, ChevronDown, ChevronUp, ClipboardList } from "lucide-react";
 import { format, parseISO, isToday, isYesterday } from "date-fns";
 import Picker from "@emoji-mart/react";
 import data from "@emoji-mart/data";
@@ -155,10 +157,104 @@ function ClientTaskCard({
   );
 }
 
+// ── Active tasks banner ───────────────────────────────────────────────────────
+
+function ActiveTasksBanner({
+  clientId,
+  onScrollToTask,
+}: {
+  clientId: number;
+  onScrollToTask: (taskId: number) => void;
+}) {
+  const [collapsed, setCollapsed] = useState(false);
+  const { data: activeTasks } = useListActiveTasks(clientId, {
+    query: {
+      enabled: !!clientId,
+      queryKey: getListActiveTasksQueryKey(clientId),
+      refetchInterval: 8000,
+    },
+  });
+
+  const tasks = activeTasks ?? [];
+  if (tasks.length === 0) return null;
+
+  const pendingCount = tasks.filter(t => t.status === "pending").length;
+  const acceptedCount = tasks.filter(t => t.status === "accepted").length;
+
+  return (
+    <div className="border-b border-border bg-violet-50 dark:bg-violet-950/20 flex-shrink-0">
+      {/* Header row */}
+      <button
+        className="w-full flex items-center gap-2 px-4 py-2.5 text-left"
+        onClick={() => setCollapsed(c => !c)}
+        data-testid="active-tasks-toggle"
+        aria-expanded={!collapsed}
+      >
+        <ClipboardList className="w-4 h-4 text-violet-500 flex-shrink-0" />
+        <span className="text-xs font-semibold text-violet-700 dark:text-violet-300 flex-1">
+          Active tasks
+          <span className="ml-1.5 text-violet-500 font-normal">
+            {pendingCount > 0 && `${pendingCount} pending`}
+            {pendingCount > 0 && acceptedCount > 0 && " · "}
+            {acceptedCount > 0 && `${acceptedCount} accepted`}
+          </span>
+        </span>
+        {collapsed
+          ? <ChevronDown className="w-3.5 h-3.5 text-violet-400" />
+          : <ChevronUp className="w-3.5 h-3.5 text-violet-400" />}
+      </button>
+
+      {/* Task list */}
+      {!collapsed && (
+        <div className="px-4 pb-3 space-y-1.5" data-testid="active-tasks-list">
+          {tasks.map(task => {
+            const isPending = task.status === "pending";
+            const isAccepted = task.status === "accepted";
+            const displayText = task.alternativeText && task.altStatus === "pending"
+              ? task.alternativeText
+              : task.text;
+
+            return (
+              <button
+                key={task.id}
+                className={cn(
+                  "w-full text-left rounded-lg border px-3 py-2 flex items-start gap-2 transition-colors",
+                  isPending
+                    ? "border-violet-200 bg-white dark:bg-violet-950/40 hover:bg-violet-100 dark:hover:bg-violet-900/40"
+                    : "border-emerald-200 bg-white dark:bg-emerald-950/40 hover:bg-emerald-50 dark:hover:bg-emerald-900/40"
+                )}
+                onClick={() => onScrollToTask(task.id)}
+                data-testid={`active-task-${task.id}`}
+              >
+                <span className={cn(
+                  "inline-block mt-0.5 w-2 h-2 rounded-full flex-shrink-0",
+                  isPending ? "bg-violet-400" : "bg-emerald-400"
+                )} />
+                <span className="flex-1 min-w-0">
+                  <span className="block text-xs text-foreground line-clamp-1">{displayText}</span>
+                  <span className={cn(
+                    "text-[10px] font-medium",
+                    isPending ? "text-violet-500" : "text-emerald-600"
+                  )}>
+                    {isPending ? "Awaiting response" : "Accepted"}
+                    {task.alternativeText && task.altStatus === "pending" ? " · Alternative" : ""}
+                  </span>
+                </span>
+                <span className="text-[10px] text-muted-foreground flex-shrink-0 mt-0.5">↓ Jump</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function MessagesPage() {
   const { clientId } = useClientId();
   const qc = useQueryClient();
   const bottomRef = useRef<HTMLDivElement>(null);
+  const threadRef = useRef<HTMLDivElement>(null);
   const [showPicker, setShowPicker] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
 
@@ -185,7 +281,17 @@ export function MessagesPage() {
     defaultValues: { content: "" },
   });
 
-  const invalidate = () => qc.invalidateQueries({ queryKey: getListMessagesQueryKey(clientId!) });
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: getListMessagesQueryKey(clientId!) });
+    qc.invalidateQueries({ queryKey: getListActiveTasksQueryKey(clientId!) });
+  };
+
+  const scrollToTask = (taskId: number) => {
+    const el = threadRef.current?.querySelector(`[data-task-id="${taskId}"]`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  };
 
   useEffect(() => {
     if (!clientId) return;
@@ -249,8 +355,13 @@ export function MessagesPage() {
         </div>
       </div>
 
+      {/* Active tasks banner */}
+      {clientId && (
+        <ActiveTasksBanner clientId={clientId} onScrollToTask={scrollToTask} />
+      )}
+
       {/* Message list */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-1.5">
+      <div ref={threadRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-1.5">
         {isLoading && (
           <p className="text-muted-foreground text-sm text-center py-8">Loading…</p>
         )}
@@ -286,7 +397,7 @@ export function MessagesPage() {
           // Task / alternative cards — rendered as cards from coach
           if ((mt === "task_assigned" || mt === "task_alternative") && task) {
             return (
-              <div key={m.id} data-testid={`msg-${m.id}`}>
+              <div key={m.id} data-testid={`msg-${m.id}`} data-task-id={task.id}>
                 {showTime && (
                   <p className="text-center text-xs text-muted-foreground my-3">{formatTime(m.createdAt)}</p>
                 )}
