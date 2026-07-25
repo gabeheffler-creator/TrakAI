@@ -37,6 +37,7 @@ router.get("/clients/:clientId/workout-logs", requireClientOwnership(), async (r
 
     res.json(logs.map(l => ({
       ...l,
+      formVideoUrl: l.formVideoUrl ?? null,
       createdAt: l.createdAt.toISOString(),
       sets: (setsByLog[l.id] ?? []).map(s => ({
         ...s,
@@ -159,6 +160,7 @@ router.patch("/clients/:clientId/workout-logs/:logId", requireClientOwnership(),
     const updates: Record<string, string | null> = {};
     if (body.notes !== undefined) updates.notes = body.notes;
     if (body.status !== undefined) updates.status = body.status;
+    if (body.formVideoUrl !== undefined) updates.formVideoUrl = body.formVideoUrl;
     const [updated] = await db.update(workoutLogsTable)
       .set(updates)
       .where(and(eq(workoutLogsTable.id, logId), eq(workoutLogsTable.clientId, clientId)))

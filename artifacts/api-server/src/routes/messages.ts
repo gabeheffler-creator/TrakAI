@@ -179,8 +179,8 @@ router.post("/push-subscriptions", async (req, res) => {
       role: body.role,
       clientId: body.clientId ?? null,
     }).onConflictDoUpdate({
-      target: pushSubscriptionsTable.endpoint,
-      set: { p256dh: body.p256dh, auth: body.auth, role: body.role, clientId: body.clientId ?? null },
+      target: [pushSubscriptionsTable.endpoint, pushSubscriptionsTable.clientId],
+      set: { p256dh: body.p256dh, auth: body.auth, role: body.role },
     });
     res.status(201).json({ ok: true });
   } catch (err) {

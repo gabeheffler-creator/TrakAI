@@ -1392,6 +1392,7 @@ export const ListWorkoutLogsResponseItem = zod.object({
   "date": zod.coerce.date(),
   "durationMinutes": zod.number().nullish(),
   "notes": zod.string().nullish(),
+  "formVideoUrl": zod.string().nullish(),
   "status": zod.enum(['in_progress', 'completed', 'early_exit', 'cancelled']),
   "createdAt": zod.coerce.date()
 })
@@ -1484,7 +1485,8 @@ export const UpdateWorkoutLogParams = zod.object({
 
 export const UpdateWorkoutLogBody = zod.object({
   "notes": zod.string().optional(),
-  "status": zod.enum(['in_progress', 'completed', 'early_exit', 'cancelled']).optional()
+  "status": zod.enum(['in_progress', 'completed', 'early_exit', 'cancelled']).optional(),
+  "formVideoUrl": zod.string().optional()
 })
 
 export const UpdateWorkoutLogResponse = zod.object({
@@ -1495,6 +1497,7 @@ export const UpdateWorkoutLogResponse = zod.object({
   "date": zod.coerce.date(),
   "durationMinutes": zod.number().nullish(),
   "notes": zod.string().nullish(),
+  "formVideoUrl": zod.string().nullish(),
   "status": zod.enum(['in_progress', 'completed', 'early_exit', 'cancelled']),
   "createdAt": zod.coerce.date()
 })

@@ -18,7 +18,7 @@ router.post("/nutrition/extract", async (req, res) => {
       : imageUrl!;
 
     const response = await openai.chat.completions.create({
-      model: "gpt-5-mini",
+      model: "gpt-5.4-mini",
       max_completion_tokens: 512,
       messages: [
         {

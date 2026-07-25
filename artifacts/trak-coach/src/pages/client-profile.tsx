@@ -335,7 +335,7 @@ const assignProgramSchema = z.object({
 type DayExercise = { id: number; exerciseName: string; muscleGroup: string; sets: number; reps: string; restSeconds?: number | null; weight?: string | null };
 type ProgramDay = { id: number; name: string; notes?: string | null; exercises: DayExercise[] };
 
-function ExpandableWorkoutCard({ log, clientId }: { log: { id: number; date: string; programDayName?: string | null; durationMinutes?: number | null; status: string; notes?: string | null }; clientId: number }) {
+function ExpandableWorkoutCard({ log, clientId }: { log: { id: number; date: string; programDayName?: string | null; durationMinutes?: number | null; status: string; notes?: string | null; formVideoUrl?: string | null }; clientId: number }) {
   const [open, setOpen] = useState(false);
   const { data: detail, isLoading } = useGetWorkoutLog(clientId, log.id, {
     query: { enabled: open, queryKey: getGetWorkoutLogQueryKey(clientId, log.id) }
@@ -388,6 +388,16 @@ function ExpandableWorkoutCard({ log, clientId }: { log: { id: number; date: str
                   <span className="line-through text-muted-foreground">{m[1]}</span>{" → "}{m[2]}
                 </p>
               ))}
+            </div>
+          )}
+          {log.formVideoUrl && (
+            <div className="mb-3 rounded-md bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-800 px-3 py-2">
+              <p className="text-xs font-medium text-violet-700 dark:text-violet-300 mb-2">📹 Form video</p>
+              <video
+                src={`/api/storage${log.formVideoUrl}`}
+                controls
+                className="w-full rounded-md max-h-64 bg-black"
+              />
             </div>
           )}
           {isLoading && <p className="text-xs text-muted-foreground">Loading sets…</p>}

@@ -314,6 +314,8 @@ export interface WorkoutLog {
   durationMinutes?: number | null;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  formVideoUrl?: string | null;
   status: WorkoutLogStatus;
   createdAt: string;
 }
@@ -638,6 +640,7 @@ export const WorkoutLogUpdateStatus = {
 export interface WorkoutLogUpdate {
   notes?: string;
   status?: WorkoutLogUpdateStatus;
+  formVideoUrl?: string;
 }
 
 export type WorkoutLogDetailStatus = typeof WorkoutLogDetailStatus[keyof typeof WorkoutLogDetailStatus];
