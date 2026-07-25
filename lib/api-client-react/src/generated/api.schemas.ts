@@ -731,6 +731,22 @@ export interface CoachNoteInput {
   content: string;
 }
 
+export interface ExerciseCue {
+  id: number;
+  clientId: number;
+  exerciseId: number;
+  /** @nullable */
+  callLogId?: number | null;
+  note: string;
+  createdAt: string;
+}
+
+export interface ExerciseCueInput {
+  exerciseId: number;
+  note: string;
+  callLogId?: number;
+}
+
 export type CallLogSource = typeof CallLogSource[keyof typeof CallLogSource];
 
 

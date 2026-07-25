@@ -44,6 +44,8 @@ export * from './coachDashboard';
 export * from './coachNote';
 export * from './coachNoteInput';
 export * from './exercise';
+export * from './exerciseCue';
+export * from './exerciseCueInput';
 export * from './exerciseDifficulty';
 export * from './exerciseEquipment';
 export * from './exerciseInput';

@@ -11,12 +11,15 @@ import {
   useGetLatestSleepLog,
   useGetLastWorkoutPerformance,
   useGetUploadUrl,
+  useListExerciseCues,
   getGetLatestSleepLogQueryKey,
   getGetLastWorkoutPerformanceQueryKey,
   getGetClientProgramAssignmentQueryKey,
   getGetClientProgramQueryKey,
   getListWorkoutLogsQueryKey,
+  getListExerciseCuesQueryKey,
 } from "@workspace/api-client-react";
+import type { ExerciseCue } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -582,6 +585,16 @@ export function WorkoutPage() {
   const { data: lastPerformanceData } = useGetLastWorkoutPerformance(clientId!, selectedDay?.id ?? 0, {
     query: { enabled: !!clientId && !!selectedDay?.id, queryKey: getGetLastWorkoutPerformanceQueryKey(clientId!, selectedDay?.id ?? 0) }
   });
+
+  const { data: exerciseCuesData } = useListExerciseCues(clientId!, {
+    query: { enabled: !!clientId, queryKey: getListExerciseCuesQueryKey(clientId!) }
+  });
+
+  const cuesByExId = useMemo(() => {
+    const m: Record<number, ExerciseCue[]> = {};
+    (exerciseCuesData ?? []).forEach(c => { (m[c.exerciseId] ??= []).push(c); });
+    return m;
+  }, [exerciseCuesData]);
   const prevPerfMap = useMemo(() => {
     const m: Record<number, { weight: string; reps: string }> = {};
     for (const p of lastPerformanceData ?? []) {
@@ -1692,6 +1705,18 @@ export function WorkoutPage() {
                 </p>
               )}
             </div>
+
+            {/* Coach cues */}
+            {(cuesByExId[currentEx.exerciseId] ?? []).length > 0 && (
+              <div className="mb-5 space-y-2">
+                {(cuesByExId[currentEx.exerciseId] ?? []).map(cue => (
+                  <div key={cue.id} className="flex items-start gap-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3.5 py-2.5">
+                    <span className="text-amber-500 mt-0.5 flex-shrink-0 text-sm">📋</span>
+                    <p className="text-xs text-amber-800 dark:text-amber-200 leading-relaxed">{cue.note}</p>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* Set rows */}
             <div className="space-y-3 mb-6">

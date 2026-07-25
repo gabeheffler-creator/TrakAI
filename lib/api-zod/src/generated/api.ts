@@ -2472,3 +2472,55 @@ export const GetUploadUrlResponse = zod.object({
 })
 
 
+/**
+ * @summary List exercise cues for a client
+ */
+export const ListExerciseCuesParams = zod.object({
+  "clientId": zod.coerce.number()
+})
+
+export const ListExerciseCuesResponseItem = zod.object({
+  "id": zod.number(),
+  "clientId": zod.number(),
+  "exerciseId": zod.number(),
+  "callLogId": zod.number().nullish(),
+  "note": zod.string(),
+  "createdAt": zod.coerce.date()
+})
+export const ListExerciseCuesResponse = zod.array(ListExerciseCuesResponseItem)
+
+
+/**
+ * @summary Create an exercise cue for a client
+ */
+export const CreateExerciseCueParams = zod.object({
+  "clientId": zod.coerce.number()
+})
+
+export const CreateExerciseCueBody = zod.object({
+  "exerciseId": zod.number(),
+  "note": zod.string(),
+  "callLogId": zod.number().optional()
+})
+
+export const CreateExerciseCueResponse = zod.object({
+  "id": zod.number(),
+  "clientId": zod.number(),
+  "exerciseId": zod.number(),
+  "callLogId": zod.number().nullish(),
+  "note": zod.string(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Delete an exercise cue
+ */
+export const DeleteExerciseCueParams = zod.object({
+  "clientId": zod.coerce.number(),
+  "cueId": zod.coerce.number()
+})
+
+export const DeleteExerciseCueResponse = zod.void()
+
+

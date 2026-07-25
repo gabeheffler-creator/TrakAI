@@ -35,6 +35,9 @@ import {
   useCreateCallLog,
   useUpdateCallLog,
   useDeleteCallLog,
+  useListExerciseCues,
+  useCreateExerciseCue,
+  useDeleteExerciseCue,
   useGenerateInviteLink,
   useCreateClientGoal,
   useListClientGoalHistory,
@@ -52,6 +55,7 @@ import {
   getListExercisesQueryKey,
   getListCoachNotesQueryKey,
   getListCallLogsQueryKey,
+  getListExerciseCuesQueryKey,
   getListClientGoalHistoryQueryKey,
   getListClientProgramAssignmentHistoryQueryKey,
   getListClientTasksQueryKey,
@@ -497,6 +501,149 @@ function EditableExerciseRow({
   );
 }
 
+function CallExerciseCues({
+  callId,
+  clientId,
+  cues,
+  exercises,
+}: {
+  callId: number;
+  clientId: number;
+  cues: { id: number; exerciseId: number; note: string }[];
+  exercises: { id: number; name: string; muscleGroup: string }[];
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [exSearch, setExSearch] = useState("");
+  const [selectedExId, setSelectedExId] = useState<number | null>(null);
+  const [cueNote, setCueNote] = useState("");
+  const createCue = useCreateExerciseCue();
+  const deleteCue = useDeleteExerciseCue();
+  const qc = useQueryClient();
+  const { toast } = useToast();
+
+  const filteredExercises = exercises
+    .filter(e => e.name.toLowerCase().includes(exSearch.toLowerCase()))
+    .slice(0, 8);
+  const selectedEx = exercises.find(e => e.id === selectedExId);
+
+  const handleAdd = () => {
+    if (!selectedExId || !cueNote.trim()) return;
+    createCue.mutate(
+      { clientId, data: { exerciseId: selectedExId, note: cueNote.trim(), callLogId: callId } },
+      {
+        onSuccess: () => {
+          qc.invalidateQueries({ queryKey: getListExerciseCuesQueryKey(clientId) });
+          setSelectedExId(null);
+          setExSearch("");
+          setCueNote("");
+        },
+        onError: () => toast({ title: "Failed to add cue", variant: "destructive" }),
+      }
+    );
+  };
+
+  const handleDelete = (cueId: number) => {
+    deleteCue.mutate(
+      { clientId, cueId },
+      {
+        onSuccess: () => qc.invalidateQueries({ queryKey: getListExerciseCuesQueryKey(clientId) }),
+        onError: () => toast({ title: "Failed to remove cue", variant: "destructive" }),
+      }
+    );
+  };
+
+  return (
+    <div className="mt-3 border-t border-border/50 pt-2.5">
+      <button
+        onClick={() => setExpanded(e => !e)}
+        className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors w-full"
+      >
+        <Dumbbell className="w-3.5 h-3.5" />
+        Exercise Cues
+        {cues.length > 0 && (
+          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 ml-1">{cues.length}</Badge>
+        )}
+        {expanded ? <ChevronDown className="w-3 h-3 ml-auto" /> : <ChevronRight className="w-3 h-3 ml-auto" />}
+      </button>
+      {expanded && (
+        <div className="mt-2 space-y-2">
+          {cues.map(cue => {
+            const ex = exercises.find(e => e.id === cue.exerciseId);
+            return (
+              <div key={cue.id} className="flex items-start gap-2 bg-muted/40 rounded-lg px-3 py-2">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-foreground">{ex?.name ?? `Exercise #${cue.exerciseId}`}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{cue.note}</p>
+                </div>
+                <button
+                  onClick={() => handleDelete(cue.id)}
+                  disabled={deleteCue.isPending}
+                  className="p-1 text-muted-foreground hover:text-destructive transition-colors flex-shrink-0 mt-0.5"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            );
+          })}
+          <div className="space-y-2 pt-1">
+            {selectedEx ? (
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium bg-primary/10 text-primary px-2 py-1 rounded-full flex-1 truncate">
+                  {selectedEx.name}
+                </span>
+                <button
+                  onClick={() => { setSelectedExId(null); setExSearch(""); }}
+                  className="text-muted-foreground hover:text-foreground flex-shrink-0"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <div className="relative">
+                <Input
+                  placeholder="Search exercise…"
+                  value={exSearch}
+                  onChange={e => setExSearch(e.target.value)}
+                  className="h-8 text-xs"
+                />
+                {exSearch && filteredExercises.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 z-50 bg-popover border border-border rounded-md shadow-md mt-1 max-h-40 overflow-y-auto">
+                    {filteredExercises.map(ex => (
+                      <button
+                        key={ex.id}
+                        className="w-full text-left px-3 py-2 text-xs hover:bg-muted transition-colors"
+                        onClick={() => { setSelectedExId(ex.id); setExSearch(""); }}
+                      >
+                        <span className="font-medium">{ex.name}</span>
+                        <span className="text-muted-foreground ml-1.5">{ex.muscleGroup}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            <Textarea
+              placeholder="Coaching cue (e.g. keep arms at 45°)…"
+              value={cueNote}
+              onChange={e => setCueNote(e.target.value)}
+              className="resize-none min-h-[56px] text-xs"
+            />
+            <Button
+              size="sm"
+              onClick={handleAdd}
+              disabled={!selectedExId || !cueNote.trim() || createCue.isPending}
+              className="h-7 text-xs"
+            >
+              <Plus className="w-3 h-3 mr-1" />
+              {createCue.isPending ? "Adding…" : "Add Cue"}
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AddExerciseRow({
   programId,
   dayId,
@@ -777,6 +924,8 @@ export function ClientProfile() {
   const { data: programAssignment } = useGetClientProgramAssignment(clientId, { query: { enabled: !!clientId, queryKey: getGetClientProgramAssignmentQueryKey(clientId) } });
   const { data: coachNotes, refetch: refetchNotes } = useListCoachNotes(clientId, { query: { enabled: !!clientId, queryKey: getListCoachNotesQueryKey(clientId) } });
   const { data: callLogs, refetch: refetchCallLogs } = useListCallLogs(clientId, { query: { enabled: !!clientId, queryKey: getListCallLogsQueryKey(clientId) } });
+  const { data: exerciseCues } = useListExerciseCues(clientId, { query: { enabled: !!clientId, queryKey: getListExerciseCuesQueryKey(clientId) } });
+  const { data: allExercisesForCues } = useListExercises({ query: { queryKey: getListExercisesQueryKey() } });
   const { data: fullProgram } = useGetProgram(programAssignment?.programId ?? 0, { query: { enabled: !!programAssignment?.programId, queryKey: getGetProgramQueryKey(programAssignment?.programId ?? 0) } });
   const { data: programs } = useListPrograms();
   const { data: programHistory } = useListClientProgramAssignmentHistory(clientId, { query: { enabled: !!clientId, queryKey: getListClientProgramAssignmentHistoryQueryKey(clientId) } });
@@ -2277,6 +2426,12 @@ export function ClientProfile() {
                         </div>
                       </div>
                     )}
+                    <CallExerciseCues
+                      callId={entry.id}
+                      clientId={clientId}
+                      cues={(exerciseCues ?? []).filter(c => c.callLogId === entry.id)}
+                      exercises={allExercisesForCues ?? []}
+                    />
                   </CardContent>
                 </Card>
               );

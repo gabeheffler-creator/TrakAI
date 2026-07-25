@@ -44,6 +44,8 @@ import type {
   CoachNote,
   CoachNoteInput,
   Exercise,
+  ExerciseCue,
+  ExerciseCueInput,
   ExerciseInput,
   ExercisePatch,
   HealthStatus,
@@ -7480,5 +7482,145 @@ export const useGetUploadUrl = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getGetUploadUrlMutationOptions(options));
+    }
+
+
+export const getListExerciseCuesUrl = (clientId: number,) => {
+  return `/api/clients/${clientId}/exercise-cues`
+}
+
+/**
+ * @summary List exercise cues for a client
+ */
+export const listExerciseCues = async (clientId: number, options?: RequestInit): Promise<ExerciseCue[]> => {
+  return customFetch<ExerciseCue[]>(getListExerciseCuesUrl(clientId), {
+    ...options,
+    method: 'GET',
+  });
+}
+
+export const getListExerciseCuesQueryKey = (clientId: number,) => {
+  return [`/api/clients/${clientId}/exercise-cues`] as const;
+}
+
+export const getListExerciseCuesQueryOptions = <TData = Awaited<ReturnType<typeof listExerciseCues>>, TError = ErrorType<unknown>>(clientId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listExerciseCues>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+  const {query: queryOptions, request: requestOptions} = options ?? {};
+  const queryKey = queryOptions?.queryKey ?? getListExerciseCuesQueryKey(clientId);
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listExerciseCues>>> = ({ signal }) => listExerciseCues(clientId, { signal, ...requestOptions });
+  return { queryKey, queryFn, enabled: clientId !== null && clientId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listExerciseCues>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListExerciseCuesQueryResult = NonNullable<Awaited<ReturnType<typeof listExerciseCues>>>
+export type ListExerciseCuesQueryError = ErrorType<unknown>
+
+/**
+ * @summary List exercise cues for a client
+ */
+export function useListExerciseCues<TData = Awaited<ReturnType<typeof listExerciseCues>>, TError = ErrorType<unknown>>(
+ clientId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listExerciseCues>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListExerciseCuesQueryOptions(clientId, options)
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+export const getCreateExerciseCueUrl = (clientId: number,) => {
+  return `/api/clients/${clientId}/exercise-cues`
+}
+
+/**
+ * @summary Create an exercise cue for a client
+ */
+export const createExerciseCue = async (clientId: number, exerciseCueInput: ExerciseCueInput, options?: RequestInit): Promise<ExerciseCue> => {
+  return customFetch<ExerciseCue>(getCreateExerciseCueUrl(clientId), {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(exerciseCueInput),
+  });
+}
+
+export const getCreateExerciseCueMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createExerciseCue>>, TError,{clientId: number;data: BodyType<ExerciseCueInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createExerciseCue>>, TError,{clientId: number;data: BodyType<ExerciseCueInput>}, TContext> => {
+  const mutationKey = ['createExerciseCue'];
+  const {mutation: mutationOptions, request: requestOptions} = options ?
+        options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+        options
+        : {...options, mutation: {...options.mutation, mutationKey}}
+        : {mutation: { mutationKey, }, request: undefined};
+  const mutationFn: MutationFunction<Awaited<ReturnType<typeof createExerciseCue>>, {clientId: number;data: BodyType<ExerciseCueInput>}> = (props) => {
+    const {clientId, data} = props ?? {};
+    return createExerciseCue(clientId, data, requestOptions)
+  }
+  return { mutationFn, ...mutationOptions }
+}
+
+export type CreateExerciseCueMutationResult = NonNullable<Awaited<ReturnType<typeof createExerciseCue>>>
+export type CreateExerciseCueMutationBody = BodyType<ExerciseCueInput>
+export type CreateExerciseCueMutationError = ErrorType<unknown>
+
+/**
+ * @summary Create an exercise cue for a client
+ */
+export const useCreateExerciseCue = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createExerciseCue>>, TError,{clientId: number;data: BodyType<ExerciseCueInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createExerciseCue>>,
+        TError,
+        {clientId: number;data: BodyType<ExerciseCueInput>},
+        TContext
+      > => {
+      return useMutation(getCreateExerciseCueMutationOptions(options));
+    }
+
+
+export const getDeleteExerciseCueUrl = (clientId: number, cueId: number,) => {
+  return `/api/clients/${clientId}/exercise-cues/${cueId}`
+}
+
+/**
+ * @summary Delete an exercise cue
+ */
+export const deleteExerciseCue = async (clientId: number, cueId: number, options?: RequestInit): Promise<void> => {
+  return customFetch<void>(getDeleteExerciseCueUrl(clientId, cueId), {
+    ...options,
+    method: 'DELETE',
+  });
+}
+
+export const getDeleteExerciseCueMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteExerciseCue>>, TError,{clientId: number;cueId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteExerciseCue>>, TError,{clientId: number;cueId: number}, TContext> => {
+  const mutationKey = ['deleteExerciseCue'];
+  const {mutation: mutationOptions, request: requestOptions} = options ?
+        options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+        options
+        : {...options, mutation: {...options.mutation, mutationKey}}
+        : {mutation: { mutationKey, }, request: undefined};
+  const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteExerciseCue>>, {clientId: number;cueId: number}> = (props) => {
+    const {clientId, cueId} = props ?? {};
+    return deleteExerciseCue(clientId, cueId, requestOptions)
+  }
+  return { mutationFn, ...mutationOptions }
+}
+
+export type DeleteExerciseCueMutationResult = NonNullable<Awaited<ReturnType<typeof deleteExerciseCue>>>
+export type DeleteExerciseCueMutationError = ErrorType<unknown>
+
+/**
+ * @summary Delete an exercise cue
+ */
+export const useDeleteExerciseCue = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteExerciseCue>>, TError,{clientId: number;cueId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteExerciseCue>>,
+        TError,
+        {clientId: number;cueId: number},
+        TContext
+      > => {
+      return useMutation(getDeleteExerciseCueMutationOptions(options));
     }
 

@@ -2150,6 +2150,74 @@ paths:
           description: Deleted
 
   # ── Call Logs ─────────────────────────────────────────────────────────────
+  /clients/{clientId}/exercise-cues:
+    get:
+      operationId: listExerciseCues
+      tags: [clients]
+      summary: List exercise cues for a client (coach and client)
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Exercise cues ordered newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ExerciseCue"
+    post:
+      operationId: createExerciseCue
+      tags: [clients]
+      summary: Create an exercise cue for a client (coach only)
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExerciseCueInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExerciseCue"
+        "403":
+          description: Coach only
+
+  /clients/{clientId}/exercise-cues/{cueId}:
+    delete:
+      operationId: deleteExerciseCue
+      tags: [clients]
+      summary: Delete an exercise cue (coach only)
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: cueId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "403":
+          description: Coach only
+
   /clients/{clientId}/call-logs:
     get:
       operationId: listCallLogs
@@ -3733,6 +3801,36 @@ components:
           minLength: 1
 
     # ── Upload ──────────────────────────────────────────────────────────────
+    ExerciseCue:
+      type: object
+      required: [id, clientId, exerciseId, note, createdAt]
+      properties:
+        id:
+          type: integer
+        clientId:
+          type: integer
+        exerciseId:
+          type: integer
+        callLogId:
+          type: integer
+          nullable: true
+        note:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    ExerciseCueInput:
+      type: object
+      required: [exerciseId, note]
+      properties:
+        exerciseId:
+          type: integer
+        note:
+          type: string
+        callLogId:
+          type: integer
+
     UploadUrlRequest:
       type: object
       required: [filename, contentType]
