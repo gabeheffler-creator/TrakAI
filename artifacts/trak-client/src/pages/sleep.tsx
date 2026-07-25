@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
@@ -396,6 +397,7 @@ export function SleepPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [timeframe, setTimeframe] = useState<Timeframe>("1m");
   const [alarmSheetOpen, setAlarmSheetOpen] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [editingLog, setEditingLog] = useState<{ id: number; date: string; hoursSlept: number; quality?: string | null; energyRating?: number | null; notes?: string | null } | null>(null);
 
   // Fetch client profile to read server-persisted alarm app preference.
@@ -768,7 +770,7 @@ export function SleepPage() {
                 >
                   <Pencil className="w-4 h-4" />
                 </button>
-                <button onClick={() => handleDelete(s.id)} className="text-muted-foreground hover:text-destructive transition-colors" data-testid={`button-delete-sleep-${s.id}`}>
+                <button onClick={() => setConfirmDeleteId(s.id)} className="text-muted-foreground hover:text-destructive transition-colors" data-testid={`button-delete-sleep-${s.id}`}>
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
@@ -776,6 +778,25 @@ export function SleepPage() {
           </Card>
         ))}
       </div>
+      {/* Delete confirmation */}
+      <AlertDialog open={confirmDeleteId !== null} onOpenChange={open => { if (!open) setConfirmDeleteId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this sleep log?</AlertDialogTitle>
+            <AlertDialogDescription>This can't be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => { if (confirmDeleteId !== null) { handleDelete(confirmDeleteId); setConfirmDeleteId(null); } }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Edit Sleep Log Dialog */}
       <Dialog open={editingLog !== null} onOpenChange={open => { if (!open) setEditingLog(null); }}>
         <DialogContent>
