@@ -378,18 +378,27 @@ router.patch("/clients/:clientId/tasks/:taskId/resubmit", requireClientOwnership
       taskId,
     });
 
-    // Notify the coach via push
+    // Notify the coach via push (subject to their notification preferences)
     if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
-      const coachSubs = await db.select().from(pushSubscriptionsTable).where(
-        and(eq(pushSubscriptionsTable.role, "coach"), eq(pushSubscriptionsTable.clientId, clientId))
-      );
-      const payload = JSON.stringify({
-        title: "Client is resubmitting a task",
-        body: messageContent.slice(0, 80),
-        tag: `task-resubmit-${clientId}`,
-        url: `/messages/${clientId}`,
-      });
-      void sendPushToSubs(coachSubs, payload, req.log).catch(() => {});
+      const [clientRow] = await db.select({ coachId: clientsTable.coachId }).from(clientsTable).where(eq(clientsTable.id, clientId));
+      const coachId = clientRow?.coachId;
+      let pushAllowed = true;
+      if (coachId) {
+        const { isCoachPushAllowed } = await import("../lib/push-prefs");
+        pushAllowed = await isCoachPushAllowed(coachId, "tasks").catch(() => true);
+      }
+      if (pushAllowed) {
+        const coachSubs = await db.select().from(pushSubscriptionsTable).where(
+          and(eq(pushSubscriptionsTable.role, "coach"), eq(pushSubscriptionsTable.clientId, clientId))
+        );
+        const payload = JSON.stringify({
+          title: "Client is resubmitting a task",
+          body: messageContent.slice(0, 80),
+          tag: `task-resubmit-${clientId}`,
+          url: `/messages/${clientId}`,
+        });
+        void sendPushToSubs(coachSubs, payload, req.log).catch(() => {});
+      }
     }
 
     res.json(serializeTask(updated));
