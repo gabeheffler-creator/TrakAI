@@ -6,8 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface InviteAcceptResult {
+export interface StaleTaskClient {
   clientId: number;
-  clientName: string;
-  alreadyJoined: boolean;
+  name: string;
 }

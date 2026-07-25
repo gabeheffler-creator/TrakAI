@@ -76,7 +76,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import { Copy, Send, Plus, CheckCircle, Circle, Trash2, ArrowLeft, ChevronDown, ChevronRight, Dumbbell, Pencil, X, Check, Phone, StickyNote, Clock, Video, Target, Sparkles, Loader2, ImageOff, Moon, Columns2 } from "lucide-react";
+import { Copy, Send, Plus, CheckCircle, Circle, Trash2, ArrowLeft, ChevronDown, ChevronRight, Dumbbell, Pencil, X, Check, Phone, StickyNote, Clock, Video, Target, Sparkles, Loader2, ImageOff, Moon, Columns2, Search } from "lucide-react";
 import { Link as WLink } from "wouter";
 import { format, parseISO } from "date-fns";
 import { QueryErrorState } from "@/components/query-error-state";
@@ -316,6 +316,21 @@ function DrumDial({
       <p className="text-xs font-semibold" style={{ color }}>{label}</p>
       <p className="text-xs text-muted-foreground tabular-nums">{grams !== null ? `${grams}g` : "—"}</p>
     </div>
+  );
+}
+
+// ── Message search highlight ──────────────────────────────────
+function HighlightText({ text, query }: { text: string; query: string }) {
+  if (!query.trim()) return <>{text}</>;
+  const parts = text.split(new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi"));
+  return (
+    <>
+      {parts.map((part, i) =>
+        part.toLowerCase() === query.toLowerCase()
+          ? <mark key={i} className="bg-yellow-200 dark:bg-yellow-700/60 text-inherit rounded-sm px-0.5">{part}</mark>
+          : part
+      )}
+    </>
   );
 }
 
@@ -992,6 +1007,8 @@ export function ClientProfile() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [msgInput, setMsgInput] = useState("");
+  const [msgSearch, setMsgSearch] = useState("");
+  const [msgSearchActive, setMsgSearchActive] = useState(false);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [programDialogOpen, setProgramDialogOpen] = useState(false);
   const [programHistoryOpen, setProgramHistoryOpen] = useState(true);
@@ -2619,34 +2636,98 @@ export function ClientProfile() {
         {/* Messages */}
         <TabsContent value="messages" className="mt-4">
           <Card>
-            <CardContent className="p-4 flex flex-col gap-4" style={{ height: "500px" }}>
-              <div className="flex-1 overflow-y-auto space-y-3 pr-1">
-                {(messages?.length ?? 0) === 0 && <p className="text-muted-foreground text-sm text-center mt-8">No messages yet. Start the conversation.</p>}
-                {messages?.map(m => (
-                  <div key={m.id} data-testid={`msg-${m.id}`} className={`flex ${m.sender === "coach" ? "justify-end" : "justify-start"}`}>
-                    <div className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm ${m.sender === "coach" ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
-                      <p>{m.content}</p>
-                      <p className={`text-xs mt-1 ${m.sender === "coach" ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
-                        {format(parseISO(m.createdAt), "MMM d, h:mm a")}
-                      </p>
+            <CardContent className="p-4 flex flex-col gap-3" style={{ height: "500px" }}>
+              {/* Search bar */}
+              <div className="flex items-center gap-2 shrink-0">
+                {msgSearchActive ? (
+                  <>
+                    <div className="relative flex-1">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                      <Input
+                        autoFocus
+                        placeholder="Search messages…"
+                        value={msgSearch}
+                        onChange={e => setMsgSearch(e.target.value)}
+                        className="pl-8 h-8 text-sm"
+                        data-testid="input-message-search"
+                      />
                     </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 shrink-0"
+                      onClick={() => { setMsgSearchActive(false); setMsgSearch(""); }}
+                      aria-label="Close search"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </>
+                ) : (
+                  <div className="flex justify-end w-full">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => setMsgSearchActive(true)}
+                      aria-label="Search messages"
+                      data-testid="button-search-messages"
+                    >
+                      <Search className="w-4 h-4" />
+                    </Button>
                   </div>
-                ))}
+                )}
               </div>
-              <Form {...msgForm}>
-                <form onSubmit={msgForm.handleSubmit(handleSend)} className="flex gap-2">
-                  <FormField control={msgForm.control} name="content" render={({ field }) => (
-                    <FormItem className="flex-1 mb-0">
-                      <FormControl>
-                        <Input placeholder="Write a message..." {...field} data-testid="input-message" />
-                      </FormControl>
-                    </FormItem>
-                  )} />
-                  <Button type="submit" size="icon" disabled={sendMsg.isPending} data-testid="button-send-message">
-                    <Send className="w-4 h-4" />
-                  </Button>
-                </form>
-              </Form>
+
+              {/* Message list */}
+              {(() => {
+                const q = msgSearch.trim().toLowerCase();
+                const filtered = q
+                  ? (messages ?? []).filter(m => m.content.toLowerCase().includes(q))
+                  : (messages ?? []);
+                return (
+                  <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+                    {(messages?.length ?? 0) === 0 && (
+                      <p className="text-muted-foreground text-sm text-center mt-8">No messages yet. Start the conversation.</p>
+                    )}
+                    {q && filtered.length === 0 && (
+                      <p className="text-muted-foreground text-sm text-center mt-8">No messages match "{msgSearch}".</p>
+                    )}
+                    {q && filtered.length > 0 && (
+                      <p className="text-xs text-muted-foreground text-center pb-1">
+                        {filtered.length} {filtered.length === 1 ? "result" : "results"} for "{msgSearch}"
+                      </p>
+                    )}
+                    {filtered.map(m => (
+                      <div key={m.id} data-testid={`msg-${m.id}`} className={`flex ${m.sender === "coach" ? "justify-end" : "justify-start"}`}>
+                        <div className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm ${m.sender === "coach" ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
+                          <p><HighlightText text={m.content} query={msgSearch.trim()} /></p>
+                          <p className={`text-xs mt-1 ${m.sender === "coach" ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+                            {format(parseISO(m.createdAt), "MMM d, h:mm a")}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+
+              {/* Compose — hidden during search */}
+              {!msgSearchActive && (
+                <Form {...msgForm}>
+                  <form onSubmit={msgForm.handleSubmit(handleSend)} className="flex gap-2 shrink-0">
+                    <FormField control={msgForm.control} name="content" render={({ field }) => (
+                      <FormItem className="flex-1 mb-0">
+                        <FormControl>
+                          <Input placeholder="Write a message..." {...field} data-testid="input-message" />
+                        </FormControl>
+                      </FormItem>
+                    )} />
+                    <Button type="submit" size="icon" disabled={sendMsg.isPending} data-testid="button-send-message">
+                      <Send className="w-4 h-4" />
+                    </Button>
+                  </form>
+                </Form>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

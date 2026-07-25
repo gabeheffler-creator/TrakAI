@@ -132,10 +132,16 @@ router.get("/dashboard/coach", requireCoachAuth, async (req, res) => {
           ))
       : [];
 
+    const staleClientIdSet = new Set(staleRows.map(r => r.clientId));
+    const staleTaskClients = clients
+      .filter(c => staleClientIdSet.has(c.id))
+      .map(c => ({ clientId: c.id, name: c.name }));
+
     res.json({
       totalClients: clients.length,
       activePrograms: Number(activePrograms),
       staleTaskClientCount: staleRows.length,
+      staleTaskClients,
       recentActivity: activity,
       clientSummaries,
       completedTasks,

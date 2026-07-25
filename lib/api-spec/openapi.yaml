@@ -2518,6 +2518,15 @@ components:
           type: boolean
 
     # ── Dashboard ───────────────────────────────────────────────────────────
+    StaleTaskClient:
+      type: object
+      required: [clientId, name]
+      properties:
+        clientId:
+          type: integer
+        name:
+          type: string
+
     CoachDashboard:
       type: object
       required: [totalClients, activePrograms, recentActivity]
@@ -2528,6 +2537,10 @@ components:
           type: integer
         staleTaskClientCount:
           type: integer
+        staleTaskClients:
+          type: array
+          items:
+            $ref: "#/components/schemas/StaleTaskClient"
         recentActivity:
           type: array
           items:
@@ -3213,6 +3226,8 @@ components:
         status:
           type: string
           enum: [in_progress, completed, early_exit, cancelled]
+        formVideoUrl:
+          type: ["string", "null"]
 
     WorkoutLogDetail:
       type: object
