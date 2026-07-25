@@ -335,6 +335,49 @@ const assignProgramSchema = z.object({
 type DayExercise = { id: number; exerciseName: string; muscleGroup: string; sets: number; reps: string; restSeconds?: number | null; weight?: string | null };
 type ProgramDay = { id: number; name: string; notes?: string | null; exercises: DayExercise[] };
 
+// ── Program diff helpers ──────────────────────────────────────
+type ExDiff = { name: string; kind: "added" | "removed" | "changed"; detail?: string };
+type DayDiff = { dayName: string; kind: "added" | "removed" | "same"; exercises: ExDiff[] };
+
+function computeProgramDiff(currentDays: ProgramDay[], templateDays: ProgramDay[]): DayDiff[] {
+  const result: DayDiff[] = [];
+  const currentByName = new Map(currentDays.map(d => [d.name, d]));
+  const templateByName = new Map(templateDays.map(d => [d.name, d]));
+
+  for (const td of templateDays) {
+    const cd = currentByName.get(td.name);
+    if (!cd) {
+      result.push({ dayName: td.name, kind: "added", exercises: td.exercises.map(e => ({ name: e.exerciseName, kind: "added" as const })) });
+    } else {
+      const exDiffs: ExDiff[] = [];
+      const currentExByName = new Map(cd.exercises.map(e => [e.exerciseName, e]));
+      const templateExByName = new Map(td.exercises.map(e => [e.exerciseName, e]));
+      for (const te of td.exercises) {
+        const ce = currentExByName.get(te.exerciseName);
+        if (!ce) {
+          exDiffs.push({ name: te.exerciseName, kind: "added" });
+        } else {
+          const changes: string[] = [];
+          if (ce.sets !== te.sets) changes.push(`sets ${ce.sets}→${te.sets}`);
+          if (ce.reps !== te.reps) changes.push(`reps ${ce.reps}→${te.reps}`);
+          if ((ce.restSeconds ?? null) !== (te.restSeconds ?? null))
+            changes.push(`rest ${ce.restSeconds ?? "–"}→${te.restSeconds ?? "–"}s`);
+          if (changes.length) exDiffs.push({ name: te.exerciseName, kind: "changed", detail: changes.join(", ") });
+        }
+      }
+      for (const ce of cd.exercises) {
+        if (!templateExByName.has(ce.exerciseName)) exDiffs.push({ name: ce.exerciseName, kind: "removed" });
+      }
+      result.push({ dayName: td.name, kind: "same", exercises: exDiffs });
+    }
+  }
+  for (const cd of currentDays) {
+    if (!templateByName.has(cd.name))
+      result.push({ dayName: cd.name, kind: "removed", exercises: cd.exercises.map(e => ({ name: e.exerciseName, kind: "removed" as const })) });
+  }
+  return result;
+}
+
 function ExpandableWorkoutCard({ log, clientId }: { log: { id: number; date: string; programDayName?: string | null; durationMinutes?: number | null; status: string; notes?: string | null; formVideoUrl?: string | null }; clientId: number }) {
   const [open, setOpen] = useState(false);
   const { data: detail, isLoading } = useGetWorkoutLog(clientId, log.id, {
@@ -1069,7 +1112,12 @@ export function ClientProfile() {
   const { data: callLogs, refetch: refetchCallLogs } = useListCallLogs(clientId, { query: { enabled: !!clientId, queryKey: getListCallLogsQueryKey(clientId) } });
   const { data: exerciseCues } = useListExerciseCues(clientId, { query: { enabled: !!clientId, queryKey: getListExerciseCuesQueryKey(clientId) } });
   const { data: allExercisesForCues } = useListExercises({ query: { queryKey: getListExercisesQueryKey() } });
+  const [showSyncPreview, setShowSyncPreview] = useState(false);
   const { data: fullProgram } = useGetProgram(programAssignment?.programId ?? 0, { query: { enabled: !!programAssignment?.programId, queryKey: getGetProgramQueryKey(programAssignment?.programId ?? 0) } });
+  const { data: templateProgram, isLoading: templateLoading } = useGetProgram(
+    fullProgram?.sourceTemplateId ?? 0,
+    { query: { enabled: showSyncPreview && !!fullProgram?.sourceTemplateId, queryKey: getGetProgramQueryKey(fullProgram?.sourceTemplateId ?? 0) } }
+  );
   const { data: programs } = useListPrograms();
   const { data: programHistory } = useListClientProgramAssignmentHistory(clientId, { query: { enabled: !!clientId, queryKey: getListClientProgramAssignmentHistoryQueryKey(clientId) } });
 
@@ -1729,25 +1777,98 @@ export function ClientProfile() {
                     <div className="flex gap-2 shrink-0">
                       <Button variant="outline" size="sm" onClick={() => setLocation(`/programs/${programAssignment!.programId}`)}>Edit Program</Button>
                       {fullProgram?.sourceTemplateId && (
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="outline" size="sm" disabled={syncFromTemplate.isPending}>
-                              {syncFromTemplate.isPending ? "Syncing…" : "Sync from template"}
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Sync from template?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                This will replace the client's current program with a fresh copy of the original template. Any edits made to the client's copy will be lost. Completed workout logs are preserved.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction onClick={handleSyncFromTemplate}>Sync</AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={syncFromTemplate.isPending}
+                            onClick={() => setShowSyncPreview(true)}
+                          >
+                            {syncFromTemplate.isPending ? "Syncing…" : "Sync from template"}
+                          </Button>
+                          <Dialog open={showSyncPreview} onOpenChange={setShowSyncPreview}>
+                            <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+                              <DialogHeader>
+                                <DialogTitle>Preview sync from template</DialogTitle>
+                              </DialogHeader>
+                              {templateLoading ? (
+                                <div className="flex items-center justify-center py-8">
+                                  <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                                </div>
+                              ) : (() => {
+                                const currentDays = fullProgram?.days ?? [];
+                                const templateDays = templateProgram?.days ?? [];
+                                const diffs = computeProgramDiff(currentDays, templateDays);
+                                const hasChanges = diffs.some(d => d.kind !== "same" || d.exercises.length > 0);
+
+                                if (!hasChanges) {
+                                  return (
+                                    <div className="text-center py-8">
+                                      <Check className="w-8 h-8 text-emerald-500 mx-auto mb-3" />
+                                      <p className="text-sm font-medium">Program is already up to date</p>
+                                      <p className="text-xs text-muted-foreground mt-1">No differences found between this program and its template.</p>
+                                      <Button className="mt-4" onClick={() => setShowSyncPreview(false)}>Close</Button>
+                                    </div>
+                                  );
+                                }
+
+                                return (
+                                  <div className="space-y-4">
+                                    <p className="text-sm text-muted-foreground">
+                                      The following changes will be applied. Any customizations to the client's copy will be replaced. Workout logs are preserved.
+                                    </p>
+                                    <div className="space-y-3">
+                                      {diffs.map(day => {
+                                        if (day.kind === "same" && day.exercises.length === 0) return null;
+                                        return (
+                                          <div key={day.dayName} className={`rounded-lg border px-3 py-2.5 text-sm ${
+                                            day.kind === "added" ? "border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 dark:border-emerald-800" :
+                                            day.kind === "removed" ? "border-rose-200 bg-rose-50 dark:bg-rose-950/20 dark:border-rose-800" :
+                                            "border-border bg-muted/30"
+                                          }`}>
+                                            <p className={`font-semibold text-xs mb-1.5 ${
+                                              day.kind === "added" ? "text-emerald-700 dark:text-emerald-300" :
+                                              day.kind === "removed" ? "text-rose-700 dark:text-rose-300" :
+                                              "text-foreground"
+                                            }`}>
+                                              {day.kind === "added" ? "＋ " : day.kind === "removed" ? "－ " : ""}{day.dayName}
+                                              {day.kind === "added" && <span className="ml-1 font-normal text-emerald-600 dark:text-emerald-400">(new day)</span>}
+                                              {day.kind === "removed" && <span className="ml-1 font-normal text-rose-600 dark:text-rose-400">(removed)</span>}
+                                            </p>
+                                            {day.exercises.map(ex => (
+                                              <div key={ex.name} className={`flex items-baseline gap-2 text-xs py-0.5 ${
+                                                ex.kind === "added" ? "text-emerald-700 dark:text-emerald-300" :
+                                                ex.kind === "removed" ? "text-rose-600 dark:text-rose-300 line-through" :
+                                                "text-amber-700 dark:text-amber-300"
+                                              }`}>
+                                                <span className="shrink-0">
+                                                  {ex.kind === "added" ? "＋" : ex.kind === "removed" ? "－" : "~"}
+                                                </span>
+                                                <span>{ex.name}{ex.detail ? <span className="ml-1 opacity-70">({ex.detail})</span> : null}</span>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                    <div className="flex gap-2 pt-2">
+                                      <Button variant="outline" className="flex-1" onClick={() => setShowSyncPreview(false)}>
+                                        Cancel
+                                      </Button>
+                                      <Button
+                                        className="flex-1"
+                                        disabled={syncFromTemplate.isPending}
+                                        onClick={() => { handleSyncFromTemplate(); setShowSyncPreview(false); }}
+                                      >
+                                        {syncFromTemplate.isPending ? "Syncing…" : "Apply sync"}
+                                      </Button>
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+                            </DialogContent>
+                          </Dialog>
+                        </>
                       )}
                       <Dialog open={programDialogOpen} onOpenChange={setProgramDialogOpen}>
                       <DialogTrigger asChild>
