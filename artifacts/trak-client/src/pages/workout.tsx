@@ -546,6 +546,7 @@ export function WorkoutPage() {
   const [restSecondsLeft, setRestSecondsLeft] = useState(0);
   const [restTotalSeconds, setRestTotalSeconds] = useState(0);
   const restIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const restEndTimeRef = useRef<number | null>(null);
 
   const { data: assignment, isError: assignmentError, refetch: refetchAssignment, isFetching: assignmentFetching } = useGetClientProgramAssignment(clientId!, {
     query: { enabled: !!clientId, queryKey: getGetClientProgramAssignmentQueryKey(clientId!) }
@@ -622,6 +623,7 @@ export function WorkoutPage() {
       clearInterval(restIntervalRef.current);
       restIntervalRef.current = null;
     }
+    restEndTimeRef.current = null;
     setShowRestTimer(false);
     setRestSecondsLeft(0);
   }, []);
@@ -635,11 +637,13 @@ export function WorkoutPage() {
     setRestTotalSeconds(secs);
     setRestSecondsLeft(secs);
     setShowRestTimer(true);
+    restEndTimeRef.current = Date.now() + secs * 1000;
     restIntervalRef.current = setInterval(() => {
       setRestSecondsLeft(prev => {
         if (prev <= 1) {
           clearInterval(restIntervalRef.current!);
           restIntervalRef.current = null;
+          restEndTimeRef.current = null;
           playRing();
           setShowRestTimer(false);
           return 0;
@@ -653,6 +657,26 @@ export function WorkoutPage() {
     return () => {
       if (restIntervalRef.current) clearInterval(restIntervalRef.current);
     };
+  }, []);
+
+  // Resync rest timer after screen lock / tab switch
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (!document.hidden && restEndTimeRef.current != null) {
+        const remaining = Math.max(0, Math.round((restEndTimeRef.current - Date.now()) / 1000));
+        if (remaining <= 0) {
+          if (restIntervalRef.current) { clearInterval(restIntervalRef.current); restIntervalRef.current = null; }
+          restEndTimeRef.current = null;
+          setShowRestTimer(false);
+          setRestSecondsLeft(0);
+          playRing();
+        } else {
+          setRestSecondsLeft(remaining);
+        }
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
   }, []);
 
   const initSets = useCallback((dayExercises: typeof exercises, applyAdjust: boolean, adjustPct: number, prevPerf: Record<number, { weight: string; reps: string }> = {}) => {
@@ -689,7 +713,9 @@ export function WorkoutPage() {
   const handleBeginWorkout = () => {
     if (!clientId || !selectedDay) return;
 
-    const poorSleep = latestSleepLog?.quality === "poor" || latestSleepLog?.quality === "fair";
+    const yesterday = (() => { const d = new Date(today + "T12:00:00"); d.setDate(d.getDate() - 1); return d.toISOString().split("T")[0]; })();
+    const sleepIsFresh = latestSleepLog != null && (latestSleepLog.date === today || latestSleepLog.date === yesterday);
+    const poorSleep = sleepIsFresh && (latestSleepLog!.quality === "poor" || latestSleepLog!.quality === "fair");
     const lowEnergy = (energy ?? 10) <= 5;
     const pct = program?.sleepAdjustPercent ?? 20;
     const shouldAdjust = (program?.sleepAdjustEnabled !== false) && poorSleep && lowEnergy;
@@ -698,7 +724,7 @@ export function WorkoutPage() {
 
     createWorkoutLog.mutate({
       clientId,
-      data: { programDayId: selectedDay.id, date: today }
+      data: { programDayId: selectedDay.id, date: today, ...(shouldAdjust ? { notes: "[sleep-adjusted]" } : {}) }
     }, {
       onSuccess: (log) => {
         setWorkoutLogId(log.id);
@@ -953,10 +979,20 @@ export function WorkoutPage() {
   };
 
   const handleSwap = (ex: Exercise) => {
+    const originalEx = exercises[currentExIdx];
     setSwappedExercises(prev => ({
       ...prev,
       [currentExIdx]: { exerciseName: ex.name, muscleGroup: ex.muscleGroup, exerciseId: ex.id },
     }));
+    // Persist swap to workout log notes so coaches can see it
+    if (clientId && workoutLogId && originalEx) {
+      const swapMarker = `[swap:${currentExIdx}:${originalEx.exerciseName}->${ex.name}]`;
+      updateWorkoutLog.mutate({
+        clientId,
+        logId: workoutLogId,
+        data: { notes: swapMarker },
+      });
+    }
     setSwapModal(false);
   };
 
@@ -1282,7 +1318,13 @@ export function WorkoutPage() {
               {isAdjusted && (
                 <div className="mt-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3 py-2 flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300">
                   <Moon className="w-3.5 h-3.5 flex-shrink-0" />
-                  Volume reduced {adjustPercent}% — sleep & energy recovery mode
+                  <span className="flex-1">Volume reduced {adjustPercent}% — sleep & energy recovery mode</span>
+                  <button
+                    onClick={() => { setIsAdjusted(false); initSets(exercises, false, adjustPercent, prevPerfMap); }}
+                    className="shrink-0 underline underline-offset-2 hover:no-underline whitespace-nowrap"
+                  >
+                    Train hard anyway
+                  </button>
                 </div>
               )}
             </div>
@@ -1688,7 +1730,13 @@ export function WorkoutPage() {
             {isAdjusted && (
               <div className="mt-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3 py-2 flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300">
                 <Moon className="w-3.5 h-3.5 flex-shrink-0" />
-                Volume reduced {adjustPercent}% — sleep & energy recovery mode
+                <span className="flex-1">Volume reduced {adjustPercent}% — sleep & energy recovery mode</span>
+                <button
+                  onClick={() => { setIsAdjusted(false); initSets(exercises, false, adjustPercent, prevPerfMap); }}
+                  className="shrink-0 underline underline-offset-2 hover:no-underline whitespace-nowrap"
+                >
+                  Train hard anyway
+                </button>
               </div>
             )}
           </div>

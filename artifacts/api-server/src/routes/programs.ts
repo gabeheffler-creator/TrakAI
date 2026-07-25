@@ -281,7 +281,7 @@ Guidelines:
 - dayNumber starts at 1`;
 
     const aiResponse = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-5.4-mini",
       max_completion_tokens: 4096,
       response_format: { type: "json_object" },
       messages: [

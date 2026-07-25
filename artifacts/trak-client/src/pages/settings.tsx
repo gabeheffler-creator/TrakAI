@@ -74,7 +74,7 @@ async function submitFeedback(type: "bug" | "feedback", content: string, from: "
 export function SettingsPage() {
   const { dark, toggle } = useDarkMode();
   const { units, setUnits } = useUnitSystem();
-  const { workoutView, setWorkoutView, showProgressBar, setShowProgressBar } = useWorkoutPrefs();
+  const { workoutView, setWorkoutView, showProgressBar, setShowProgressBar, progressMode, setProgressMode } = useWorkoutPrefs();
   const { toast } = useToast();
 
   const [bugSheetOpen, setBugSheetOpen] = useState(false);
@@ -193,6 +193,23 @@ export function SettingsPage() {
             description="Show workout progress bar at the top"
           >
             <Switch checked={showProgressBar} onCheckedChange={setShowProgressBar} />
+          </SettingRow>
+        </div>
+        <div className="px-4">
+          <SettingRow
+            icon={<BarChart2 className="w-4 h-4" />}
+            label="Set progress style"
+            description="How completed sets are shown per exercise"
+          >
+            <Select value={progressMode} onValueChange={v => setProgressMode(v as "bar" | "ratio")}>
+              <SelectTrigger className="w-[120px] text-xs h-8">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="bar">Progress bar</SelectItem>
+                <SelectItem value="ratio">Ratio (2/4)</SelectItem>
+              </SelectContent>
+            </Select>
           </SettingRow>
         </div>
       </div>

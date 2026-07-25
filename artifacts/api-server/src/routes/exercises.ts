@@ -205,6 +205,11 @@ router.patch("/exercises/:exerciseId", requireCoachAuth, async (req, res) => {
     if (body.equipment !== undefined) updates.equipment = body.equipment;
     if (body.difficulty !== undefined) updates.difficulty = body.difficulty;
 
+    if (Object.keys(updates).length === 0) {
+      res.status(400).json({ error: "No fields to update" });
+      return;
+    }
+
     const [exercise] = await db.update(exercisesTable)
       .set(updates)
       .where(eq(exercisesTable.id, exerciseId))

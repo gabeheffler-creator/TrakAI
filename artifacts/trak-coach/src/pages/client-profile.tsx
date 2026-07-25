@@ -76,7 +76,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import { Copy, Send, Plus, CheckCircle, Circle, Trash2, ArrowLeft, ChevronDown, ChevronRight, Dumbbell, Pencil, X, Check, Phone, StickyNote, Clock, Video, Target, Sparkles, Loader2, ImageOff } from "lucide-react";
+import { Copy, Send, Plus, CheckCircle, Circle, Trash2, ArrowLeft, ChevronDown, ChevronRight, Dumbbell, Pencil, X, Check, Phone, StickyNote, Clock, Video, Target, Sparkles, Loader2, ImageOff, Moon } from "lucide-react";
 import { Link as WLink } from "wouter";
 import { format, parseISO } from "date-fns";
 import { QueryErrorState } from "@/components/query-error-state";
@@ -358,6 +358,11 @@ function ExpandableWorkoutCard({ log, clientId }: { log: { id: number; date: str
                 >
                   {log.status === "early_exit" ? "Finished early" : log.status}
                 </Badge>
+                {log.notes?.includes("[sleep-adjusted]") && (
+                  <Badge variant="outline" className="text-xs border-amber-400 text-amber-700 dark:text-amber-300 gap-1">
+                    <Moon className="w-3 h-3" /> Sleep-adjusted
+                  </Badge>
+                )}
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">{log.date}{log.durationMinutes ? ` · ${log.durationMinutes} min` : ""}</p>
             </div>
@@ -370,7 +375,17 @@ function ExpandableWorkoutCard({ log, clientId }: { log: { id: number; date: str
           {log.status === "early_exit" && log.notes && (
             <div className="mb-3 rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2">
               <p className="text-xs font-medium text-destructive mb-0.5">Reason for finishing early</p>
-              <p className="text-xs text-foreground">{log.notes}</p>
+              <p className="text-xs text-foreground">{log.notes.replace(/\[swap:[^\]]*\]/g, "").replace(/\[sleep-adjusted\]/g, "").trim()}</p>
+            </div>
+          )}
+          {log.notes && /\[swap:\d+:[^\]]+\]/.test(log.notes) && (
+            <div className="mb-3 rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 px-3 py-2">
+              <p className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-1">Exercise swaps</p>
+              {Array.from(log.notes.matchAll(/\[swap:\d+:([^\]]+)->([^\]]+)\]/g)).map((m, i) => (
+                <p key={i} className="text-xs text-foreground">
+                  <span className="line-through text-muted-foreground">{m[1]}</span>{" → "}{m[2]}
+                </p>
+              ))}
             </div>
           )}
           {isLoading && <p className="text-xs text-muted-foreground">Loading sets…</p>}

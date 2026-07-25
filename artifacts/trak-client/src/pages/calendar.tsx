@@ -17,6 +17,8 @@ import {
   getListAssignmentsQueryKey,
   useListActiveTasks,
   getListActiveTasksQueryKey,
+  useListMeasurements,
+  getListMeasurementsQueryKey,
 } from "@workspace/api-client-react";
 import type {
   ProgramDetail,
@@ -27,6 +29,7 @@ import type {
   SleepLog,
   Assignment,
   ClientTask,
+  Measurement,
 } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
 import {
@@ -200,7 +203,7 @@ interface DayBlock {
   pulse?: boolean;
   isRestDay?: boolean;
   isCallBlock?: boolean;
-  blockType?: "workout" | "nutrition" | "sleep" | "assignment" | "task" | "call";
+  blockType?: "workout" | "nutrition" | "sleep" | "assignment" | "task" | "call" | "measurement";
 }
 
 // ─── DayCard ──────────────────────────────────────────────────────────────────
@@ -630,7 +633,7 @@ export function CalendarPage() {
   }, [today]);
 
   // Fetch everything in parallel
-  const { data: assignment } = useGetClientProgramAssignment(clientId!, {
+  const { data: assignment, isLoading: assignmentLoading } = useGetClientProgramAssignment(clientId!, {
     query: { enabled: !!clientId, queryKey: getGetClientProgramAssignmentQueryKey(clientId!) },
   });
 
@@ -656,6 +659,10 @@ export function CalendarPage() {
 
   const { data: activeTasks } = useListActiveTasks(clientId!, {
     query: { enabled: !!clientId, queryKey: getListActiveTasksQueryKey(clientId!) },
+  });
+
+  const { data: measurements } = useListMeasurements(clientId!, {
+    query: { enabled: !!clientId, queryKey: getListMeasurementsQueryKey(clientId!) },
   });
 
   // Lookup maps
@@ -698,6 +705,14 @@ export function CalendarPage() {
     }
     return map;
   }, [assignments]);
+
+  const measurementsByDate = useMemo(() => {
+    const map = new Map<string, Measurement>();
+    for (const m of measurements ?? []) {
+      if (!map.has(m.date)) map.set(m.date, m);
+    }
+    return map;
+  }, [measurements]);
 
   // Build blocks for a given date
   const buildBlocks = useCallback((date: string): DayBlock[] => {
@@ -787,6 +802,22 @@ export function CalendarPage() {
       }
     }
 
+    // Measurements
+    const measurement = measurementsByDate.get(date);
+    if (measurement) {
+      const parts: string[] = [];
+      if (measurement.weight != null) parts.push(`${measurement.weight} ${measurement.unit === "metric" ? "kg" : "lbs"}`);
+      if (measurement.bodyFat != null) parts.push(`${measurement.bodyFat}% BF`);
+      blocks.push({
+        id: "measurement",
+        blockType: "measurement",
+        done: true,
+        label: "Measurements",
+        sublabel: parts.length > 0 ? parts.join(" · ") : "Logged",
+        href: "/",
+      });
+    }
+
     // Coaching call (today only)
     if (isToday && callActive) {
       blocks.push({
@@ -804,7 +835,7 @@ export function CalendarPage() {
     return blocks;
   }, [
     today, program, assignment, workoutLogsByDate, nutritionLogsByDate,
-    sleepLogsByDate, assignmentsByDate, activeTasks, callActive,
+    sleepLogsByDate, assignmentsByDate, activeTasks, callActive, measurementsByDate,
   ]);
 
   // Tap a full-calendar cell → close overlay, scroll to list card
@@ -867,6 +898,13 @@ export function CalendarPage() {
             </Select>
           </div>
         </div>
+
+        {/* No program banner */}
+        {!assignmentLoading && !assignment && (
+          <div className="mb-4 rounded-xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+            No training program assigned yet — your coach will set one up for you.
+          </div>
+        )}
 
         {/* Day cards */}
         <div

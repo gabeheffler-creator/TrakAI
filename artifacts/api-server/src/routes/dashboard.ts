@@ -48,6 +48,11 @@ router.get("/dashboard/coach", requireCoachAuth, async (req, res) => {
         .from(messagesTable)
         .where(and(eq(messagesTable.clientId, c.id), eq(messagesTable.sender, "client")));
 
+      const [{ rejCount }] = await db
+        .select({ rejCount: count() })
+        .from(clientTasksTable)
+        .where(and(eq(clientTasksTable.clientId, c.id), eq(clientTasksTable.status, "rejected")));
+
       return {
         clientId: c.id,
         name: c.name,
@@ -55,6 +60,7 @@ router.get("/dashboard/coach", requireCoachAuth, async (req, res) => {
         lastCheckin: null,
         assignmentsDue: Number(dueCount),
         unreadMessages: Number(msgCount),
+        hasUnreviewedRejection: Number(rejCount) > 0,
       };
     }));
 

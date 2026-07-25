@@ -148,6 +148,11 @@ export function Dashboard() {
                     </button>
                   </div>
                   <div className="flex space-x-3">
+                    {(client as any).hasUnreviewedRejection && (
+                      <div className="flex items-center text-rose-500 text-sm" title="Has a rejected task">
+                        <AlertCircle className="w-4 h-4 mr-1" /> rejected
+                      </div>
+                    )}
                     {client.assignmentsDue > 0 && (
                       <div className="flex items-center text-orange-500 text-sm">
                         <ActivitySquare className="w-4 h-4 mr-1" /> {client.assignmentsDue}

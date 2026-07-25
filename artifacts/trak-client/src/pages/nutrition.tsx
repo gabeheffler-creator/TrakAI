@@ -261,7 +261,8 @@ export function NutritionPage() {
 
   useEffect(() => {
     if (!clientId) return;
-    fetch(`/api/clients/${clientId}/nutrition-goal`)
+    const date = new URLSearchParams(window.location.search).get("date") ?? new Date().toISOString().split("T")[0];
+    fetch(`/api/clients/${clientId}/nutrition-goal?date=${date}`)
       .then(r => r.ok ? r.json() : null)
       .then(g => {
         if (g) {
@@ -288,14 +289,71 @@ export function NutritionPage() {
   const goToPrev = () => setSelectedDate(d => stepDate(d, -1));
   const goToNext = () => setSelectedDate(d => stepDate(d, 1));
 
-  const [diarySlot, setDiarySlot] = useState<MealSlot>(makeSlot("MFP Diary Overview"));
-  const [mealSlots, setMealSlots] = useState<MealSlot[]>([
-    makeSlot("Meal 1"),
-    makeSlot("Meal 2"),
-    makeSlot("Meal 3"),
-  ]);
-  const [aiResults, setAiResults] = useState<Record<string, AiResult>>({});
-  const [waterGlasses, setWaterGlasses] = useState(0);
+  const DRAFT_KEY = (date: string) => `trak_nutrition_draft_${date}`;
+
+  const [diarySlot, setDiarySlot] = useState<MealSlot>(() => {
+    try {
+      const raw = sessionStorage.getItem(DRAFT_KEY(selectedDate));
+      if (raw) { const s = JSON.parse(raw); if (s.diarySlot) return s.diarySlot; }
+    } catch {}
+    return makeSlot("MFP Diary Overview");
+  });
+  const [mealSlots, setMealSlots] = useState<MealSlot[]>(() => {
+    try {
+      const raw = sessionStorage.getItem(DRAFT_KEY(selectedDate));
+      if (raw) { const s = JSON.parse(raw); if (s.mealSlots?.length > 0) return s.mealSlots; }
+    } catch {}
+    return [makeSlot("Meal 1"), makeSlot("Meal 2"), makeSlot("Meal 3")];
+  });
+  const [aiResults, setAiResults] = useState<Record<string, AiResult>>(() => {
+    try {
+      const raw = sessionStorage.getItem(DRAFT_KEY(selectedDate));
+      if (raw) { const s = JSON.parse(raw); if (s.aiResults) return s.aiResults; }
+    } catch {}
+    return {};
+  });
+  const [waterGlasses, setWaterGlasses] = useState<number>(() => {
+    try {
+      const raw = sessionStorage.getItem(DRAFT_KEY(selectedDate));
+      if (raw) { const s = JSON.parse(raw); if (s.waterGlasses != null) return s.waterGlasses; }
+    } catch {}
+    return 0;
+  });
+
+  // Track the current date via ref so the save effect doesn't re-run on date change
+  const selectedDateRef = useRef(selectedDate);
+  useEffect(() => { selectedDateRef.current = selectedDate; }, [selectedDate]);
+
+  // Restore draft when switching dates
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(DRAFT_KEY(selectedDate));
+      if (raw) {
+        const s = JSON.parse(raw);
+        if (s.mealSlots?.length > 0) setMealSlots(s.mealSlots);
+        if (s.diarySlot) setDiarySlot(s.diarySlot);
+        if (s.waterGlasses != null) setWaterGlasses(s.waterGlasses);
+        if (s.aiResults) setAiResults(s.aiResults);
+      } else {
+        setMealSlots([makeSlot("Meal 1"), makeSlot("Meal 2"), makeSlot("Meal 3")]);
+        setDiarySlot(makeSlot("MFP Diary Overview"));
+        setWaterGlasses(0);
+        setAiResults({});
+      }
+    } catch {}
+  }, [selectedDate]);
+
+  // Persist draft whenever form content changes (File/previewUrl excluded — not serialisable)
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(DRAFT_KEY(selectedDateRef.current), JSON.stringify({
+        mealSlots: mealSlots.map(s => ({ ...s, file: null, previewUrl: null })),
+        diarySlot: { ...diarySlot, file: null, previewUrl: null },
+        waterGlasses,
+        aiResults,
+      }));
+    } catch {}
+  }, [mealSlots, diarySlot, waterGlasses, aiResults]);
   const [submitting, setSubmitting] = useState(false);
 
   const { data: logs, isLoading, isError, refetch, isFetching } = useListNutritionLogs(clientId!, {
@@ -457,6 +515,7 @@ export function NutritionPage() {
     qc.invalidateQueries({ queryKey: getListNutritionLogsQueryKey(clientId) });
     setSubmitting(false);
     toast({ title: isToday ? "Nutrition logged for today!" : `Nutrition logged for ${formatDateLabel(selectedDate)}!` });
+    try { sessionStorage.removeItem(DRAFT_KEY(selectedDate)); } catch {}
     setDiarySlot(makeSlot("MFP Diary Overview"));
     setMealSlots([makeSlot("Meal 1"), makeSlot("Meal 2"), makeSlot("Meal 3")]);
     setAiResults({});

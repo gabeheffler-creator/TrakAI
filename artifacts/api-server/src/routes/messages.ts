@@ -204,7 +204,9 @@ async function sendPushForMessage(clientId: number, sender: string, content: str
     ? await db.select().from(pushSubscriptionsTable).where(
         and(eq(pushSubscriptionsTable.role, "client"), eq(pushSubscriptionsTable.clientId, clientId))
       )
-    : await db.select().from(pushSubscriptionsTable).where(eq(pushSubscriptionsTable.role, "coach"));
+    : await db.select().from(pushSubscriptionsTable).where(
+        and(eq(pushSubscriptionsTable.role, "coach"), eq(pushSubscriptionsTable.clientId, clientId))
+      );
 
   const payload = JSON.stringify({
     title: sender === "coach" ? "Message from your coach" : `Message from ${clientName}`,
