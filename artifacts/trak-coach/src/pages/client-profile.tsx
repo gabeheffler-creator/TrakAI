@@ -1438,7 +1438,7 @@ export function ClientProfile() {
               <p className="text-sm"><span className="font-medium">Goal: </span>{client.goal}</p>
               {client.goalTargetDate && (
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Due {format(new Date(client.goalTargetDate), "MMM d, yyyy")}
+                  Due {format(new Date(client.goalTargetDate + "T12:00:00"), "MMM d, yyyy")}
                 </p>
               )}
             </div>
