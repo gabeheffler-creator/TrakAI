@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Camera, Plus, Minus, Loader2, Pencil, Check, ChevronLeft, ChevronRight, UtensilsCrossed, Trash2, Target, X, PenLine } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from "@/components/ui/sheet";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { QueryErrorState } from "@/components/query-error-state";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -356,6 +357,17 @@ export function NutritionPage() {
     } catch {}
   }, [mealSlots, diarySlot, waterGlasses, aiResults]);
   const [submitting, setSubmitting] = useState(false);
+
+  // Entry edit/delete state
+  const [editingEntry, setEditingEntry] = useState<{ id: number; imageUrl: string; notes: string | null; calories: number | null; protein: number | null; carbs: number | null; fat: number | null } | null>(null);
+  const [editEntryName, setEditEntryName] = useState("");
+  const [editEntryCals, setEditEntryCals] = useState("");
+  const [editEntryProtein, setEditEntryProtein] = useState("");
+  const [editEntryCarbs, setEditEntryCarbs] = useState("");
+  const [editEntryFat, setEditEntryFat] = useState("");
+  const [editEntrySaving, setEditEntrySaving] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [quickAddName, setQuickAddName] = useState("");
   const [quickAddCals, setQuickAddCals] = useState("");
@@ -528,6 +540,52 @@ export function NutritionPage() {
     setMealSlots([makeSlot("Meal 1"), makeSlot("Meal 2"), makeSlot("Meal 3")]);
     setAiResults({});
     setWaterGlasses(0);
+  };
+
+  const handleOpenEditEntry = (entry: { id: number; imageUrl: string; notes: string | null; calories: number | null; protein: number | null; carbs: number | null; fat: number | null }) => {
+    setEditingEntry(entry);
+    setEditEntryName(entry.notes ?? "");
+    setEditEntryCals(entry.calories != null ? String(entry.calories) : "");
+    setEditEntryProtein(entry.protein != null ? String(Math.round(entry.protein)) : "");
+    setEditEntryCarbs(entry.carbs != null ? String(Math.round(entry.carbs)) : "");
+    setEditEntryFat(entry.fat != null ? String(Math.round(entry.fat)) : "");
+  };
+
+  const handleSaveEditEntry = async () => {
+    if (!editingEntry || !clientId) return;
+    setEditEntrySaving(true);
+    try {
+      const res = await fetch(`/api/clients/${clientId}/nutrition/${editingEntry.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          notes: editEntryName.trim() || null,
+          calories: editEntryCals ? parseInt(editEntryCals, 10) : null,
+          protein: editEntryProtein ? parseFloat(editEntryProtein) : null,
+          carbs: editEntryCarbs ? parseFloat(editEntryCarbs) : null,
+          fat: editEntryFat ? parseFloat(editEntryFat) : null,
+        }),
+      });
+      if (!res.ok) throw new Error("Update failed");
+      qc.invalidateQueries({ queryKey: getListNutritionLogsQueryKey(clientId) });
+      setEditingEntry(null);
+      toast({ title: "Entry updated!" });
+    } catch {
+      toast({ title: "Failed to update entry", variant: "destructive" });
+    } finally {
+      setEditEntrySaving(false);
+    }
+  };
+
+  const handleDeleteEntry = (id: number) => {
+    deleteNutritionLog.mutate({ clientId: clientId!, nutritionId: id }, {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: getListNutritionLogsQueryKey(clientId!) });
+        setConfirmDeleteId(null);
+        toast({ title: "Entry removed" });
+      },
+    });
   };
 
   const handleQuickAdd = async () => {
@@ -716,10 +774,12 @@ export function NutritionPage() {
         ) : null}
       </div>
 
-      {/* ── Read-only past day view ───────────────────── */}
-      {isPast && hasSelectedData && (
+      {/* ── Logged entries (all days with data) ───────────────────── */}
+      {hasSelectedData && (
         <div className="space-y-2">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-1">Logged entries</p>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-1">
+            {isPast ? "Logged entries" : "Today's entries"}
+          </p>
           {selectedLogs.map(entry => (
             <div key={entry.id} className="rounded-xl border border-border bg-card p-3 flex items-center gap-3">
               {entry.imageUrl && entry.imageUrl !== "cant_track" && entry.imageUrl !== "manual_entry" ? (
@@ -753,6 +813,22 @@ export function NutritionPage() {
                     <span className="text-xs text-yellow-600 dark:text-yellow-400 tabular-nums">F {Math.round(Number(entry.fat))}g</span>
                   )}
                 </div>
+              </div>
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <button
+                  onClick={() => handleOpenEditEntry({ id: entry.id, imageUrl: entry.imageUrl ?? "", notes: entry.notes ?? null, calories: entry.calories ?? null, protein: entry.protein != null ? Number(entry.protein) : null, carbs: entry.carbs != null ? Number(entry.carbs) : null, fat: entry.fat != null ? Number(entry.fat) : null })}
+                  className="w-8 h-8 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+                  title="Edit entry"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => setConfirmDeleteId(entry.id)}
+                  className="w-8 h-8 flex items-center justify-center rounded-full text-muted-foreground hover:text-destructive hover:bg-muted/60 transition-colors"
+                  title="Delete entry"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
           ))}
@@ -874,6 +950,95 @@ export function NutritionPage() {
           </Button>
         </>
       )}
+
+      {/* Edit Entry Sheet */}
+      <Sheet open={editingEntry !== null} onOpenChange={open => { if (!open) setEditingEntry(null); }}>
+        <SheetContent side="bottom" className="rounded-t-2xl max-h-[90vh] overflow-y-auto">
+          <SheetHeader className="mb-4">
+            <SheetTitle>Edit Entry</SheetTitle>
+          </SheetHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Name / description</label>
+              <Input
+                placeholder="e.g. Chicken & rice"
+                value={editEntryName}
+                onChange={e => setEditEntryName(e.target.value)}
+                className="mt-1.5"
+                autoFocus
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Calories <span className="normal-case font-normal text-muted-foreground/70">({calLabel})</span>
+              </label>
+              <Input
+                type="number"
+                inputMode="numeric"
+                placeholder="e.g. 520"
+                value={editEntryCals}
+                onChange={e => setEditEntryCals(e.target.value)}
+                className="mt-1.5"
+                min={0}
+              />
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+                Macros <span className="normal-case font-normal">(optional)</span>
+              </p>
+              <div className="grid grid-cols-3 gap-2">
+                {([
+                  { label: "Protein (g)", value: editEntryProtein, setter: setEditEntryProtein },
+                  { label: "Carbs (g)",   value: editEntryCarbs,   setter: setEditEntryCarbs   },
+                  { label: "Fat (g)",     value: editEntryFat,     setter: setEditEntryFat     },
+                ] as const).map(m => (
+                  <div key={m.label}>
+                    <label className="text-[11px] text-muted-foreground">{m.label}</label>
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      placeholder="0"
+                      value={m.value}
+                      onChange={e => m.setter(e.target.value)}
+                      className="mt-0.5 h-9 text-sm"
+                      min={0}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <SheetFooter className="mt-6 flex-row gap-3">
+            <Button variant="outline" className="flex-1" onClick={() => setEditingEntry(null)} disabled={editEntrySaving}>
+              Cancel
+            </Button>
+            <Button className="flex-1" onClick={handleSaveEditEntry} disabled={editEntrySaving}>
+              {editEntrySaving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving…</> : "Save changes"}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      {/* Delete confirmation */}
+      <AlertDialog open={confirmDeleteId !== null} onOpenChange={open => { if (!open) setConfirmDeleteId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove this entry?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the entry and update your day totals.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep it</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => confirmDeleteId !== null && handleDeleteEntry(confirmDeleteId)}
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Quick Add Sheet */}
       <Sheet open={quickAddOpen} onOpenChange={setQuickAddOpen}>
