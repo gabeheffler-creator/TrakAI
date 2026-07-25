@@ -63,4 +63,20 @@ router.get("/client/coach-brand", requireClientAuth, async (req, res) => {
   }
 });
 
+// Client-visible coach settings (only fields the client needs)
+router.get("/client/coach-settings", requireClientAuth, async (req, res) => {
+  try {
+    const actor = req.actor;
+    const clientId = actor?.type === "client" ? actor.client.id : -1;
+    const [client] = await db.select().from(clientsTable).where(eq(clientsTable.id, clientId)).limit(1);
+    if (!client) { res.json({ defaultRestSeconds: null }); return; }
+    const [row] = await db.select().from(coachSettingsTable).where(eq(coachSettingsTable.coachId, client.coachId)).limit(1);
+    const settings = row ? JSON.parse(row.settingsJson) : {};
+    res.json({ defaultRestSeconds: settings.defaultRestSeconds ?? null });
+  } catch (err) {
+    req.log.error(err);
+    res.status(500).json({ error: "Failed to fetch coach settings" });
+  }
+});
+
 export default router;

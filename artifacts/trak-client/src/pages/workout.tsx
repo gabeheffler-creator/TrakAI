@@ -532,6 +532,17 @@ export function WorkoutPage() {
   const [adjustPercent, setAdjustPercent] = useState(20);
   const [effectiveRestSeconds, setEffectiveRestSeconds] = useState<(number | null)[]>([]);
   const [showRestTimer, setShowRestTimer] = useState(false);
+  const defaultRestSecondsRef = useRef<number | null>(null);
+
+  // Fetch coach's default rest time once on mount
+  useEffect(() => {
+    fetch("/api/client/coach-settings", { credentials: "include" })
+      .then(r => r.ok ? r.json() : {})
+      .then((d: { defaultRestSeconds?: number | null }) => {
+        if (d.defaultRestSeconds != null) defaultRestSecondsRef.current = d.defaultRestSeconds;
+      })
+      .catch(() => {});
+  }, []);
   const [restSecondsLeft, setRestSecondsLeft] = useState(0);
   const [restTotalSeconds, setRestTotalSeconds] = useState(0);
   const restIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -667,10 +678,11 @@ export function WorkoutPage() {
     });
     setSets(initial);
     setEffectiveRestSeconds(dayExercises.map(ex => {
-      if (!ex.restSeconds) return null;
+      const base = ex.restSeconds ?? defaultRestSecondsRef.current;
+      if (!base) return null;
       return applyAdjust
-        ? Math.round(ex.restSeconds * (1 + adjustPct / 100))
-        : ex.restSeconds;
+        ? Math.round(base * (1 + adjustPct / 100))
+        : base;
     }));
   }, []);
 
