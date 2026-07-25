@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { Home, Dumbbell, Ruler, Moon, UtensilsCrossed, ClipboardList, MessageCircle, TrendingUp, BookOpen, Settings, Menu, X, ShieldOff, CalendarDays } from "lucide-react";
+import { Home, Dumbbell, Moon, UtensilsCrossed, MessageCircle, TrendingUp, BookOpen, Settings, Menu, X, ShieldOff, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClientId } from "@/hooks/use-client-id";
 import { TrakLogo } from "@/components/trak-logo";
@@ -15,7 +15,6 @@ const navigation = [
   { name: "Nutrition", href: "/nutrition", icon: UtensilsCrossed },
   { name: "Stats", href: "/stats", icon: TrendingUp },
   { name: "Sleep", href: "/sleep", icon: Moon },
-  { name: "Tasks", href: "/assignments", icon: ClipboardList },
   { name: "Messages", href: "/messages", icon: MessageCircle },
   { name: "Settings", href: "/settings", icon: Settings },
 ];

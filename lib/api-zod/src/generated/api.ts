@@ -370,6 +370,7 @@ export const GetClientDashboardResponse = zod.object({
   "hasStalePendingTask": zod.boolean().optional(),
   "connectedAlarmAppId": zod.string().nullish()
 }),
+  "coachName": zod.string().optional(),
   "currentProgram": zod.object({
   "id": zod.number(),
   "name": zod.string(),

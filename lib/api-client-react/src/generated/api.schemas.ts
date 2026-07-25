@@ -325,6 +325,7 @@ export interface WeightPoint {
 
 export interface ClientDashboard {
   client: Client;
+  coachName?: string;
   currentProgram?: ProgramDetail;
   latestMeasurement?: Measurement;
   workoutsThisWeek?: number;

@@ -19,7 +19,6 @@ import { ExercisesPage } from "@/pages/exercises";
 import { SettingsPage } from "@/pages/settings";
 import { DataImportPage } from "@/pages/data-import";
 import { GoalHistoryPage } from "@/pages/goal-history";
-import { TasksPage } from "@/pages/tasks";
 import { CalendarPage } from "@/pages/calendar";
 import NotFound from "@/pages/not-found";
 import { LoginPage } from "@/pages/login";
@@ -92,7 +91,6 @@ function AppRouter() {
       <Route path="/settings"><Protected><SettingsPage /></Protected></Route>
       <Route path="/data-import"><Protected><DataImportPage /></Protected></Route>
       <Route path="/goal-history"><Protected><GoalHistoryPage /></Protected></Route>
-      <Route path="/tasks"><Protected><TasksPage /></Protected></Route>
       <Route path="/calendar"><Protected><CalendarPage /></Protected></Route>
       <Route><Protected><NotFound /></Protected></Route>
     </Switch>

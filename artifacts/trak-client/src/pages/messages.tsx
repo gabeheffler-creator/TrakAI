@@ -7,6 +7,8 @@ import {
   getListMessagesQueryKey,
   useAcceptTask,
   useRejectTask,
+  useGetClientDashboard,
+  getGetClientDashboardQueryKey,
   type ClientTask,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -160,6 +162,12 @@ export function MessagesPage() {
   const [showPicker, setShowPicker] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
 
+  const { data: dashboard } = useGetClientDashboard(clientId!, {
+    query: { enabled: !!clientId, queryKey: getGetClientDashboardQueryKey(clientId!) },
+  });
+  const coachName = dashboard?.coachName ?? "Your Coach";
+  const coachInitial = coachName.charAt(0).toUpperCase();
+
   const { data: messages, isLoading, isError, refetch, isFetching } = useListMessages(clientId!, {
     query: {
       enabled: !!clientId,
@@ -230,10 +238,10 @@ export function MessagesPage() {
       {/* Coach header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-background flex-shrink-0">
         <div className="w-9 h-9 rounded-full bg-violet-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-          C
+          {coachInitial}
         </div>
         <div>
-          <p className="font-semibold text-sm">Your Coach</p>
+          <p className="font-semibold text-sm">{coachName}</p>
           <p className="text-xs text-muted-foreground flex items-center gap-1">
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500" />
             Active
@@ -284,7 +292,7 @@ export function MessagesPage() {
                 )}
                 <div className="flex justify-start items-end gap-2">
                   <div className="w-7 h-7 rounded-full bg-violet-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 mb-0.5">
-                    C
+                    {coachInitial}
                   </div>
                   <ClientTaskCard
                     task={task}
@@ -339,7 +347,7 @@ export function MessagesPage() {
               >
                 {!isClient && (
                   <div className="w-7 h-7 rounded-full bg-violet-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 mb-0.5">
-                    C
+                    {coachInitial}
                   </div>
                 )}
                 {emojiOnly ? (

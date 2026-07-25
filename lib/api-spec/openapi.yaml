@@ -2510,6 +2510,8 @@ components:
       properties:
         client:
           $ref: "#/components/schemas/Client"
+        coachName:
+          type: string
         currentProgram:
           $ref: "#/components/schemas/ProgramDetail"
         latestMeasurement:
