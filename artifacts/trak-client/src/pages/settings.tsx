@@ -2,13 +2,14 @@ import { useState } from "react";
 import { useDarkMode } from "@/hooks/use-dark-mode";
 import { useUnitSystem } from "@/hooks/use-unit-system";
 import { useWorkoutPrefs } from "@/hooks/use-workout-prefs";
+import { useNotificationPrefs } from "@/hooks/use-notification-prefs";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Moon, Sun, Ruler, Dumbbell, BarChart2, Bug, MessageSquare, ChevronRight, CheckCircle, FileDown } from "lucide-react";
+import { Moon, Sun, Ruler, Dumbbell, BarChart2, Bug, MessageSquare, ChevronRight, CheckCircle, FileDown, Bell, ClipboardList } from "lucide-react";
 import { Link } from "wouter";
 
 
@@ -75,6 +76,7 @@ export function SettingsPage() {
   const { dark, toggle } = useDarkMode();
   const { units, setUnits } = useUnitSystem();
   const { workoutView, setWorkoutView, showProgressBar, setShowProgressBar, progressMode, setProgressMode } = useWorkoutPrefs();
+  const { prefs: notifPrefs, setPref: setNotifPref } = useNotificationPrefs();
   const { toast } = useToast();
 
   const [bugSheetOpen, setBugSheetOpen] = useState(false);
@@ -159,6 +161,47 @@ export function SettingsPage() {
                 <SelectItem value="metric">Metric</SelectItem>
               </SelectContent>
             </Select>
+          </SettingRow>
+        </div>
+      </div>
+
+      {/* ── Notifications ──────────────────────── */}
+      <SectionHeader title="Notifications" />
+      <div className="rounded-2xl border border-border bg-card divide-y divide-border">
+        <div className="px-4">
+          <SettingRow
+            icon={<Dumbbell className="w-4 h-4" />}
+            label="Workout reminders"
+            description="Alerts when a scheduled workout is due"
+          >
+            <Switch
+              checked={notifPrefs.workoutReminders}
+              onCheckedChange={v => setNotifPref("workoutReminders", v)}
+            />
+          </SettingRow>
+        </div>
+        <div className="px-4">
+          <SettingRow
+            icon={<ClipboardList className="w-4 h-4" />}
+            label="Task alerts"
+            description="Reminders when a coach task is due"
+          >
+            <Switch
+              checked={notifPrefs.taskAlerts}
+              onCheckedChange={v => setNotifPref("taskAlerts", v)}
+            />
+          </SettingRow>
+        </div>
+        <div className="px-4">
+          <SettingRow
+            icon={<Bell className="w-4 h-4" />}
+            label="Message notifications"
+            description="Alerts when your coach sends a message"
+          >
+            <Switch
+              checked={notifPrefs.messageNotifications}
+              onCheckedChange={v => setNotifPref("messageNotifications", v)}
+            />
           </SettingRow>
         </div>
       </div>
