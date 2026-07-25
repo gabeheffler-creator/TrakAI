@@ -13,7 +13,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Camera, Plus, Minus, Loader2, Pencil, Check, ChevronLeft, ChevronRight, UtensilsCrossed, Trash2, Target, X } from "lucide-react";
+import { Camera, Plus, Minus, Loader2, Pencil, Check, ChevronLeft, ChevronRight, UtensilsCrossed, Trash2, Target, X, PenLine } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { QueryErrorState } from "@/components/query-error-state";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -355,6 +356,13 @@ export function NutritionPage() {
     } catch {}
   }, [mealSlots, diarySlot, waterGlasses, aiResults]);
   const [submitting, setSubmitting] = useState(false);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [quickAddName, setQuickAddName] = useState("");
+  const [quickAddCals, setQuickAddCals] = useState("");
+  const [quickAddProtein, setQuickAddProtein] = useState("");
+  const [quickAddCarbs, setQuickAddCarbs] = useState("");
+  const [quickAddFat, setQuickAddFat] = useState("");
+  const [quickAddSaving, setQuickAddSaving] = useState(false);
 
   const { data: logs, isLoading, isError, refetch, isFetching } = useListNutritionLogs(clientId!, {
     query: { enabled: !!clientId, queryKey: getListNutritionLogsQueryKey(clientId!) }
@@ -522,6 +530,36 @@ export function NutritionPage() {
     setWaterGlasses(0);
   };
 
+  const handleQuickAdd = async () => {
+    if (!clientId) return;
+    const cals = parseInt(quickAddCals, 10);
+    if (!quickAddName.trim() || isNaN(cals) || cals <= 0) return;
+    setQuickAddSaving(true);
+    await new Promise<void>(resolve => {
+      createNutritionLog.mutate({
+        clientId,
+        data: {
+          date: selectedDate,
+          imageUrl: "manual_entry",
+          notes: quickAddName.trim(),
+          calories: cals,
+          protein: quickAddProtein ? parseFloat(quickAddProtein) : undefined,
+          carbs: quickAddCarbs ? parseFloat(quickAddCarbs) : undefined,
+          fat: quickAddFat ? parseFloat(quickAddFat) : undefined,
+        },
+      }, { onSuccess: () => resolve(), onError: () => resolve() });
+    });
+    qc.invalidateQueries({ queryKey: getListNutritionLogsQueryKey(clientId) });
+    setQuickAddSaving(false);
+    setQuickAddOpen(false);
+    setQuickAddName("");
+    setQuickAddCals("");
+    setQuickAddProtein("");
+    setQuickAddCarbs("");
+    setQuickAddFat("");
+    toast({ title: "Meal added!" });
+  };
+
   const { units } = useUnitSystem();
   const calLabel = units === "imperial" ? "cal" : "kcal";
 
@@ -684,12 +722,16 @@ export function NutritionPage() {
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-1">Logged entries</p>
           {selectedLogs.map(entry => (
             <div key={entry.id} className="rounded-xl border border-border bg-card p-3 flex items-center gap-3">
-              {entry.imageUrl && entry.imageUrl !== "cant_track" ? (
+              {entry.imageUrl && entry.imageUrl !== "cant_track" && entry.imageUrl !== "manual_entry" ? (
                 <img
                   src={entry.imageUrl}
                   alt="log"
                   className="w-12 h-12 rounded-lg object-cover flex-shrink-0 bg-muted"
                 />
+              ) : entry.imageUrl === "manual_entry" ? (
+                <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <PenLine className="w-5 h-5 text-primary/60" />
+                </div>
               ) : (
                 <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
                   <UtensilsCrossed className="w-5 h-5 text-muted-foreground/40" />
@@ -720,6 +762,18 @@ export function NutritionPage() {
       {/* ── Submission form (today + future, or past with no entries) ───────────────────── */}
       {showForm && (
         <>
+          {/* Quick Add — type a meal directly without a photo */}
+          <button
+            onClick={() => setQuickAddOpen(true)}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl border border-dashed border-primary/40 bg-primary/5 text-primary hover:bg-primary/10 transition-colors text-left"
+          >
+            <PenLine className="w-5 h-5 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-semibold">Quick Add</p>
+              <p className="text-xs text-muted-foreground">Type in a meal name and macros — no photo needed</p>
+            </div>
+          </button>
+
           {/* Diary Overview slot */}
           <PhotoBox
             slot={diarySlot}
@@ -820,6 +874,80 @@ export function NutritionPage() {
           </Button>
         </>
       )}
+
+      {/* Quick Add Sheet */}
+      <Sheet open={quickAddOpen} onOpenChange={setQuickAddOpen}>
+        <SheetContent side="bottom" className="rounded-t-2xl max-h-[90vh] overflow-y-auto">
+          <SheetHeader className="mb-4">
+            <SheetTitle>Quick Add Meal</SheetTitle>
+          </SheetHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Meal name *</label>
+              <Input
+                placeholder="e.g. Chicken & rice, Oats with banana"
+                value={quickAddName}
+                onChange={e => setQuickAddName(e.target.value)}
+                className="mt-1.5"
+                autoFocus
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Calories * <span className="normal-case font-normal text-muted-foreground/70">({calLabel})</span>
+              </label>
+              <Input
+                type="number"
+                inputMode="numeric"
+                placeholder="e.g. 520"
+                value={quickAddCals}
+                onChange={e => setQuickAddCals(e.target.value)}
+                className="mt-1.5"
+                min={1}
+              />
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+                Macros <span className="normal-case font-normal">(optional)</span>
+              </p>
+              <div className="grid grid-cols-3 gap-2">
+                {([
+                  { label: "Protein (g)", value: quickAddProtein, setter: setQuickAddProtein },
+                  { label: "Carbs (g)",   value: quickAddCarbs,   setter: setQuickAddCarbs   },
+                  { label: "Fat (g)",     value: quickAddFat,     setter: setQuickAddFat     },
+                ] as const).map(m => (
+                  <div key={m.label}>
+                    <label className="text-[11px] text-muted-foreground">{m.label}</label>
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      placeholder="0"
+                      value={m.value}
+                      onChange={e => m.setter(e.target.value)}
+                      className="mt-0.5 h-9 text-sm"
+                      min={0}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <SheetFooter className="mt-6 flex-row gap-3">
+            <Button variant="outline" className="flex-1" onClick={() => setQuickAddOpen(false)} disabled={quickAddSaving}>
+              Cancel
+            </Button>
+            <Button
+              className="flex-1"
+              onClick={handleQuickAdd}
+              disabled={quickAddSaving || !quickAddName.trim() || !quickAddCals || parseInt(quickAddCals, 10) <= 0}
+            >
+              {quickAddSaving
+                ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving…</>
+                : "Add Meal"}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
