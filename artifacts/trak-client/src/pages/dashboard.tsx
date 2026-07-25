@@ -9,13 +9,17 @@ import {
   useListActiveTasks,
   getListActiveTasksQueryKey,
   useCompleteTask,
+  useListNutritionLogs,
+  getListNutritionLogsQueryKey,
+  useListSleepLogs,
+  getListSleepLogsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { Link } from "wouter";
-import { Dumbbell, ClipboardList, TrendingUp, ChevronRight, Video, CheckCircle2 } from "lucide-react";
+import { Dumbbell, ClipboardList, TrendingUp, ChevronRight, Video, CheckCircle2, Moon, Utensils } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { QueryErrorState } from "@/components/query-error-state";
 
@@ -32,6 +36,25 @@ export function Dashboard() {
     query: { enabled: !!clientId, queryKey: getListActiveTasksQueryKey(clientId!), refetchInterval: 10000 }
   });
   const completeTask = useCompleteTask();
+
+  const { data: nutritionLogs } = useListNutritionLogs(clientId!, {
+    query: { enabled: !!clientId, queryKey: getListNutritionLogsQueryKey(clientId!) }
+  });
+  const { data: sleepLogs } = useListSleepLogs(clientId!, {
+    query: { enabled: !!clientId, queryKey: getListSleepLogsQueryKey(clientId!) }
+  });
+
+  const todayISO = new Date().toISOString().split("T")[0];
+  const yesterdayISO = (() => { const d = new Date(); d.setDate(d.getDate() - 1); return d.toISOString().split("T")[0]; })();
+
+  const todayMeals = (nutritionLogs ?? []).filter(n => n.date === todayISO && n.imageUrl !== "water_only");
+  const hasTodayNutrition = todayMeals.length > 0;
+  const todayCalories = todayMeals.reduce((sum, n) => sum + (n.calories ?? 0), 0);
+
+  // Consider sleep logged if there's an entry for today or yesterday
+  const recentSleep = (sleepLogs ?? [])
+    .filter(s => s.date === todayISO || s.date === yesterdayISO)
+    .sort((a, b) => b.date.localeCompare(a.date))[0] ?? null;
 
   if (!clientId) {
     return (
@@ -114,21 +137,70 @@ export function Dashboard() {
             <p className="text-xs text-muted-foreground mt-1">Tasks Due</p>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="pt-4 pb-4 text-center">
-            <p className="text-3xl font-bold">
+        <Link href="/measurements" className="block">
+          <Card className="hover:bg-accent/30 transition-colors cursor-pointer h-full">
+            <CardContent className="pt-4 pb-4 text-center">
               {(() => {
                 const m = dashboard?.latestMeasurement;
-                if (!m?.weight) return "—";
+                if (!m?.weight) return (
+                  <>
+                    <p className="text-sm font-semibold text-primary leading-tight">Log weight</p>
+                    <ChevronRight className="w-4 h-4 text-primary mx-auto mt-0.5" />
+                    <p className="text-xs text-muted-foreground mt-0.5">Weight ({weightLabel})</p>
+                  </>
+                );
                 const stored = m.unit === "metric" ? "metric" : "imperial";
-                if (stored === units) return m.weight;
-                const converted = stored === "imperial" ? m.weight * 0.453592 : m.weight * 2.20462;
-                return Math.round(converted * 10) / 10;
+                const val = stored === units ? m.weight : Math.round((stored === "imperial" ? m.weight * 0.453592 : m.weight * 2.20462) * 10) / 10;
+                return (
+                  <>
+                    <p className="text-3xl font-bold">{val}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Weight ({weightLabel})</p>
+                  </>
+                );
               })()}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">Weight ({weightLabel})</p>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </Link>
+      </div>
+
+      {/* Nutrition & Sleep quick-status row */}
+      <div className="grid grid-cols-2 gap-3">
+        <Link href="/nutrition" className="block">
+          <Card className="hover:bg-accent/30 transition-colors cursor-pointer h-full">
+            <CardContent className="pt-4 pb-4 text-center">
+              {hasTodayNutrition ? (
+                <>
+                  <p className="text-3xl font-bold">{todayCalories.toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Cal today</p>
+                </>
+              ) : (
+                <>
+                  <Utensils className="w-6 h-6 text-muted-foreground/40 mx-auto" />
+                  <p className="text-xs font-semibold text-primary mt-1.5">Log today's meals</p>
+                  <p className="text-[10px] text-muted-foreground/70 mt-0.5">No entries yet</p>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/sleep" className="block">
+          <Card className="hover:bg-accent/30 transition-colors cursor-pointer h-full">
+            <CardContent className="pt-4 pb-4 text-center">
+              {recentSleep ? (
+                <>
+                  <p className="text-3xl font-bold">{Number(recentSleep.hoursSlept)}h</p>
+                  <p className="text-xs text-muted-foreground mt-1">Last sleep</p>
+                </>
+              ) : (
+                <>
+                  <Moon className="w-6 h-6 text-muted-foreground/40 mx-auto" />
+                  <p className="text-xs font-semibold text-primary mt-1.5">Log last night's sleep</p>
+                  <p className="text-[10px] text-muted-foreground/70 mt-0.5">No recent entry</p>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       {activeTasks && activeTasks.length > 0 && (
