@@ -501,6 +501,104 @@ function EditableExerciseRow({
   );
 }
 
+// ─── Shared add-cue form ─────────────────────────────────────────────────────
+
+function ExerciseCueForm({
+  clientId,
+  exercises,
+  callLogId,
+}: {
+  clientId: number;
+  exercises: { id: number; name: string; muscleGroup: string }[];
+  callLogId?: number;
+}) {
+  const [exSearch, setExSearch] = useState("");
+  const [selectedExId, setSelectedExId] = useState<number | null>(null);
+  const [cueNote, setCueNote] = useState("");
+  const createCue = useCreateExerciseCue();
+  const qc = useQueryClient();
+  const { toast } = useToast();
+
+  const filteredExercises = exercises
+    .filter(e => e.name.toLowerCase().includes(exSearch.toLowerCase()))
+    .slice(0, 8);
+  const selectedEx = exercises.find(e => e.id === selectedExId);
+
+  const handleAdd = () => {
+    if (!selectedExId || !cueNote.trim()) return;
+    createCue.mutate(
+      { clientId, data: { exerciseId: selectedExId, note: cueNote.trim(), ...(callLogId != null ? { callLogId } : {}) } },
+      {
+        onSuccess: () => {
+          qc.invalidateQueries({ queryKey: getListExerciseCuesQueryKey(clientId) });
+          setSelectedExId(null);
+          setExSearch("");
+          setCueNote("");
+        },
+        onError: () => toast({ title: "Failed to add cue", variant: "destructive" }),
+      }
+    );
+  };
+
+  return (
+    <div className="space-y-2">
+      {selectedEx ? (
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium bg-primary/10 text-primary px-2 py-1 rounded-full flex-1 truncate">
+            {selectedEx.name}
+          </span>
+          <button
+            onClick={() => { setSelectedExId(null); setExSearch(""); }}
+            className="text-muted-foreground hover:text-foreground flex-shrink-0"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      ) : (
+        <div className="relative">
+          <Input
+            placeholder="Search exercise…"
+            value={exSearch}
+            onChange={e => setExSearch(e.target.value)}
+            className="h-8 text-xs"
+          />
+          {exSearch && filteredExercises.length > 0 && (
+            <div className="absolute top-full left-0 right-0 z-50 bg-popover border border-border rounded-md shadow-md mt-1 max-h-40 overflow-y-auto">
+              {filteredExercises.map(ex => (
+                <button
+                  key={ex.id}
+                  className="w-full text-left px-3 py-2 text-xs hover:bg-muted transition-colors"
+                  onClick={() => { setSelectedExId(ex.id); setExSearch(""); }}
+                >
+                  <span className="font-medium">{ex.name}</span>
+                  <span className="text-muted-foreground ml-1.5">{ex.muscleGroup}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+      <Textarea
+        placeholder="Coaching cue (e.g. keep arms at 45°)…"
+        value={cueNote}
+        onChange={e => setCueNote(e.target.value)}
+        className="resize-none min-h-[56px] text-xs"
+      />
+      <Button
+        size="sm"
+        onClick={handleAdd}
+        disabled={!selectedExId || !cueNote.trim() || createCue.isPending}
+        className="h-7 text-xs"
+      >
+        <Plus className="w-3 h-3 mr-1" />
+        {createCue.isPending ? "Adding…" : "Add Cue"}
+      </Button>
+    </div>
+  );
+}
+
+// ─── Per-call cues panel (collapsible, inside call log card) ─────────────────
+
 function CallExerciseCues({
   callId,
   clientId,
@@ -513,34 +611,9 @@ function CallExerciseCues({
   exercises: { id: number; name: string; muscleGroup: string }[];
 }) {
   const [expanded, setExpanded] = useState(false);
-  const [exSearch, setExSearch] = useState("");
-  const [selectedExId, setSelectedExId] = useState<number | null>(null);
-  const [cueNote, setCueNote] = useState("");
-  const createCue = useCreateExerciseCue();
   const deleteCue = useDeleteExerciseCue();
   const qc = useQueryClient();
   const { toast } = useToast();
-
-  const filteredExercises = exercises
-    .filter(e => e.name.toLowerCase().includes(exSearch.toLowerCase()))
-    .slice(0, 8);
-  const selectedEx = exercises.find(e => e.id === selectedExId);
-
-  const handleAdd = () => {
-    if (!selectedExId || !cueNote.trim()) return;
-    createCue.mutate(
-      { clientId, data: { exerciseId: selectedExId, note: cueNote.trim(), callLogId: callId } },
-      {
-        onSuccess: () => {
-          qc.invalidateQueries({ queryKey: getListExerciseCuesQueryKey(clientId) });
-          setSelectedExId(null);
-          setExSearch("");
-          setCueNote("");
-        },
-        onError: () => toast({ title: "Failed to add cue", variant: "destructive" }),
-      }
-    );
-  };
 
   const handleDelete = (cueId: number) => {
     deleteCue.mutate(
@@ -585,62 +658,103 @@ function CallExerciseCues({
               </div>
             );
           })}
-          <div className="space-y-2 pt-1">
-            {selectedEx ? (
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium bg-primary/10 text-primary px-2 py-1 rounded-full flex-1 truncate">
-                  {selectedEx.name}
-                </span>
-                <button
-                  onClick={() => { setSelectedExId(null); setExSearch(""); }}
-                  className="text-muted-foreground hover:text-foreground flex-shrink-0"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ) : (
-              <div className="relative">
-                <Input
-                  placeholder="Search exercise…"
-                  value={exSearch}
-                  onChange={e => setExSearch(e.target.value)}
-                  className="h-8 text-xs"
-                />
-                {exSearch && filteredExercises.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 z-50 bg-popover border border-border rounded-md shadow-md mt-1 max-h-40 overflow-y-auto">
-                    {filteredExercises.map(ex => (
-                      <button
-                        key={ex.id}
-                        className="w-full text-left px-3 py-2 text-xs hover:bg-muted transition-colors"
-                        onClick={() => { setSelectedExId(ex.id); setExSearch(""); }}
-                      >
-                        <span className="font-medium">{ex.name}</span>
-                        <span className="text-muted-foreground ml-1.5">{ex.muscleGroup}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-            <Textarea
-              placeholder="Coaching cue (e.g. keep arms at 45°)…"
-              value={cueNote}
-              onChange={e => setCueNote(e.target.value)}
-              className="resize-none min-h-[56px] text-xs"
-            />
-            <Button
-              size="sm"
-              onClick={handleAdd}
-              disabled={!selectedExId || !cueNote.trim() || createCue.isPending}
-              className="h-7 text-xs"
-            >
-              <Plus className="w-3 h-3 mr-1" />
-              {createCue.isPending ? "Adding…" : "Add Cue"}
-            </Button>
+          <div className="pt-1">
+            <ExerciseCueForm clientId={clientId} exercises={exercises} callLogId={callId} />
           </div>
         </div>
       )}
     </div>
+  );
+}
+
+// ─── Standalone cues card (Notes tab, no call required) ──────────────────────
+
+function StandaloneExerciseCues({
+  clientId,
+  cues,
+  exercises,
+}: {
+  clientId: number;
+  cues: { id: number; exerciseId: number; note: string; callLogId?: number | null }[];
+  exercises: { id: number; name: string; muscleGroup: string }[];
+}) {
+  const deleteCue = useDeleteExerciseCue();
+  const qc = useQueryClient();
+  const { toast } = useToast();
+
+  const handleDelete = (cueId: number) => {
+    deleteCue.mutate(
+      { clientId, cueId },
+      {
+        onSuccess: () => qc.invalidateQueries({ queryKey: getListExerciseCuesQueryKey(clientId) }),
+        onError: () => toast({ title: "Failed to remove cue", variant: "destructive" }),
+      }
+    );
+  };
+
+  // Group by exercise
+  const grouped = new Map<number, typeof cues>();
+  cues.forEach(c => {
+    if (!grouped.has(c.exerciseId)) grouped.set(c.exerciseId, []);
+    grouped.get(c.exerciseId)!.push(c);
+  });
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-medium flex items-center gap-2">
+          <Dumbbell className="w-4 h-4" /> Exercise Cues
+          {cues.length > 0 && (
+            <Badge variant="secondary" className="text-xs font-normal">{cues.length} active</Badge>
+          )}
+        </CardTitle>
+        <p className="text-xs text-muted-foreground">
+          Shown to the client above each exercise during workouts. Not tied to a specific call.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Grouped cue list */}
+        {grouped.size > 0 && (
+          <div className="space-y-3">
+            {Array.from(grouped.entries()).map(([exId, exCues]) => {
+              const ex = exercises.find(e => e.id === exId);
+              return (
+                <div key={exId} className="space-y-1.5">
+                  <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary inline-block" />
+                    {ex?.name ?? `Exercise #${exId}`}
+                    <span className="text-muted-foreground font-normal">{ex?.muscleGroup}</span>
+                  </p>
+                  {exCues.map(cue => (
+                    <div key={cue.id} className="flex items-start gap-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2 ml-3">
+                      <p className="text-xs text-amber-800 dark:text-amber-200 leading-relaxed flex-1">{cue.note}</p>
+                      <button
+                        onClick={() => handleDelete(cue.id)}
+                        disabled={deleteCue.isPending}
+                        className="p-0.5 text-amber-600 hover:text-destructive transition-colors flex-shrink-0 mt-0.5"
+                        title="Remove cue"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {cues.length === 0 && (
+          <p className="text-xs text-muted-foreground italic">No cues yet — add one below.</p>
+        )}
+
+        {/* Add new cue (no call association) */}
+        <div className="border-t border-border/50 pt-3">
+          <p className="text-xs font-medium text-muted-foreground mb-2">Add a cue</p>
+          <ExerciseCueForm clientId={clientId} exercises={exercises} />
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -2261,6 +2375,13 @@ export function ClientProfile() {
 
         {/* Notes — private + auto-logged calls + manual calls */}
         <TabsContent value="notes" className="mt-4 space-y-4">
+
+          {/* Exercise cues — standalone, not tied to a call */}
+          <StandaloneExerciseCues
+            clientId={clientId}
+            cues={exerciseCues ?? []}
+            exercises={allExercisesForCues ?? []}
+          />
 
           {/* Add private note */}
           <Card>
