@@ -175,15 +175,30 @@ const S = {
     color: color === "green" ? "#86efac" : color === "purple" ? "#c4b5fd" : "#94a3b8",
     border: `1px solid ${color === "green" ? "#16a34a" : color === "purple" ? "#6d28d9" : "#334155"}`,
   }),
-  restDay: {
-    flex: 1,
+  restDayCard: {
     display: "flex",
-    flexDirection: "column" as const,
     alignItems: "center",
-    justifyContent: "center",
+    gap: 14,
+    background: "#1e293b",
+    border: "1px solid #334155",
+    borderRadius: 14,
+    padding: "16px 18px",
+  },
+  recentLogCard: {
+    display: "flex",
+    alignItems: "center",
     gap: 12,
-    padding: 32,
-    textAlign: "center" as const,
+    background: "#1e293b",
+    border: "1px solid #334155",
+    borderRadius: 14,
+    padding: "14px 18px",
+  },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: 700,
+    color: "#475569",
+    textTransform: "uppercase" as const,
+    letterSpacing: 1,
   },
 };
 
@@ -198,6 +213,7 @@ export default function WorkoutPage({ clientId, clientName }: WorkoutPageProps) 
   const [workoutLogId, setWorkoutLogId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
+  const [recentLogs, setRecentLogs] = useState<{ id: number; programDayId: number | null; date: string }[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -211,6 +227,7 @@ export default function WorkoutPage({ clientId, clientName }: WorkoutPageProps) 
       ]);
 
       setCues(cuesData);
+      setRecentLogs(logsData);
 
       // Fetch full program detail
       const program = await apiFetch<{
@@ -350,14 +367,33 @@ export default function WorkoutPage({ clientId, clientName }: WorkoutPageProps) 
         {error && <p style={{ fontSize: 12, color: "#f87171", marginTop: 6 }}>{error}</p>}
       </div>
 
-      {/* Rest day */}
+      {/* Rest day — compact card, not full screen */}
       {!today && !loading && (
-        <div style={S.restDay}>
-          <div style={{ fontSize: 48 }}>🌙</div>
-          <div style={{ fontSize: 20, fontWeight: 800 }}>Rest Day</div>
-          <div style={{ fontSize: 14, color: "#94a3b8", lineHeight: 1.5 }}>
-            No workout scheduled today. Recover well — your next session is coming up.
+        <div style={S.scroll}>
+          <div style={S.restDayCard}>
+            <span style={{ fontSize: 28, lineHeight: 1 }}>🌙</span>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#f1f5f9" }}>Rest day</div>
+              <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>No workout scheduled today</div>
+            </div>
           </div>
+
+          {recentLogs.length > 0 && (
+            <>
+              <div style={S.sectionLabel}>Recent workouts</div>
+              {recentLogs.map(log => (
+                <div key={log.id} style={S.recentLogCard}>
+                  <span style={{ fontSize: 22, lineHeight: 1 }}>🏋️</span>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: "#f1f5f9" }}>
+                      {log.programDayId ? "Workout" : "Free workout"}
+                    </div>
+                    <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>{log.date}</div>
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
         </div>
       )}
 
