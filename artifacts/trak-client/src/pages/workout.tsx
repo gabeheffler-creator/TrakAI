@@ -521,7 +521,7 @@ export function WorkoutPage() {
   const [listEditWeight, setListEditWeight] = useState("");
   const [listEditReps, setListEditReps] = useState("");
   const [listEditRpe, setListEditRpe] = useState<number | null>(null);
-  const { workoutView, showProgressBar } = useWorkoutPrefs();
+  const { workoutView, showProgressBar, progressMode, setProgressMode } = useWorkoutPrefs();
 
   // Pre-workout checkin
   const [energy, setEnergy] = useState<number | null>(null);
@@ -577,6 +577,7 @@ export function WorkoutPage() {
 
   const currentEx = exercises[currentExIdx];
   const currentSets = sets[currentExIdx] ?? [];
+  const completedExCount = sets.filter(sArr => sArr.some(s => s.logged)).length;
 
   const { data: lastPerformanceData } = useGetLastWorkoutPerformance(clientId!, selectedDay?.id ?? 0, {
     query: { enabled: !!clientId && !!selectedDay?.id, queryKey: getGetLastWorkoutPerformanceQueryKey(clientId!, selectedDay?.id ?? 0) }
@@ -1641,7 +1642,24 @@ export function WorkoutPage() {
               <span className="text-xs text-muted-foreground font-medium">{selectedDay?.name}</span>
               <div className="w-16" />
             </div>
-            {showProgressBar && <ProgressBar value={currentExIdx} total={exercises.length} />}
+            {showProgressBar && (
+              <div className="flex items-center gap-2 mt-1">
+                <div className="flex-1">
+                  {progressMode === "ratio" ? (
+                    <span className="text-sm font-bold tabular-nums">{completedExCount} / {exercises.length}</span>
+                  ) : (
+                    <ProgressBar value={completedExCount} total={exercises.length} />
+                  )}
+                </div>
+                <button
+                  onClick={() => setProgressMode(progressMode === "bar" ? "ratio" : "bar")}
+                  className="text-[11px] font-medium text-muted-foreground hover:text-foreground border border-border rounded-full px-2.5 py-1 shrink-0 transition-colors"
+                  title={progressMode === "bar" ? "Switch to ratio view" : "Switch to bar view"}
+                >
+                  {progressMode === "bar" ? `${completedExCount}/${exercises.length}` : "▬▬"}
+                </button>
+              </div>
+            )}
             {isAdjusted && (
               <div className="mt-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3 py-2 flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300">
                 <Moon className="w-3.5 h-3.5 flex-shrink-0" />
@@ -1794,7 +1812,7 @@ export function WorkoutPage() {
                               type="number"
                               value={s.weight}
                               onChange={e => updateWeight(i, e.target.value)}
-                              placeholder="lbs"
+                              placeholder={prevPerfMap[currentEx.exerciseId]?.weight || "lbs"}
                               className={cn("h-12 text-center text-base font-semibold rounded-xl", s.isPrevious && "text-muted-foreground italic")}
                             />
                           )}
@@ -1807,7 +1825,7 @@ export function WorkoutPage() {
                               {s.logged ? (
                                 <div className="h-12 rounded-xl bg-muted/40 flex items-center justify-center text-sm font-semibold text-muted-foreground">{s.leftReps || "—"}</div>
                               ) : (
-                                <Input type="number" value={s.leftReps} onChange={e => updateLeftReps(i, e.target.value)} placeholder={s.targetReps} className={cn("h-12 text-center text-base font-semibold rounded-xl", s.isPrevious && "text-muted-foreground italic")} />
+                                <Input type="number" value={s.leftReps} onChange={e => updateLeftReps(i, e.target.value)} placeholder={prevPerfMap[currentEx.exerciseId]?.reps || s.targetReps} className={cn("h-12 text-center text-base font-semibold rounded-xl", s.isPrevious && "text-muted-foreground italic")} />
                               )}
                             </div>
                             <div className="flex-1">
@@ -1815,7 +1833,7 @@ export function WorkoutPage() {
                               {s.logged ? (
                                 <div className="h-12 rounded-xl bg-muted/40 flex items-center justify-center text-sm font-semibold text-muted-foreground">{s.rightReps || "—"}</div>
                               ) : (
-                                <Input type="number" value={s.rightReps} onChange={e => updateRightReps(i, e.target.value)} placeholder={s.targetReps} className={cn("h-12 text-center text-base font-semibold rounded-xl", s.isPrevious && "text-muted-foreground italic")} />
+                                <Input type="number" value={s.rightReps} onChange={e => updateRightReps(i, e.target.value)} placeholder={prevPerfMap[currentEx.exerciseId]?.reps || s.targetReps} className={cn("h-12 text-center text-base font-semibold rounded-xl", s.isPrevious && "text-muted-foreground italic")} />
                               )}
                             </div>
                           </>
@@ -1831,7 +1849,7 @@ export function WorkoutPage() {
                                 type="number"
                                 value={s.reps}
                                 onChange={e => updateReps(i, e.target.value)}
-                                placeholder={s.targetReps}
+                                placeholder={prevPerfMap[currentEx.exerciseId]?.reps || s.targetReps}
                                 className={cn("h-12 text-center text-base font-semibold rounded-xl", s.isPrevious && "text-muted-foreground italic")}
                               />
                             )}
