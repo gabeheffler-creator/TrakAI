@@ -12,7 +12,6 @@ export const workoutLogsTable = pgTable("workout_logs", {
   date: text("date").notNull(),
   durationMinutes: integer("duration_minutes"),
   notes: text("notes"),
-  formVideoUrl: text("form_video_url"),
   status: text("status").notNull().default("completed"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

@@ -179,8 +179,8 @@ router.post("/push-subscriptions", async (req, res) => {
       role: body.role,
       clientId: body.clientId ?? null,
     }).onConflictDoUpdate({
-      target: [pushSubscriptionsTable.endpoint, pushSubscriptionsTable.clientId],
-      set: { p256dh: body.p256dh, auth: body.auth, role: body.role },
+      target: pushSubscriptionsTable.endpoint,
+      set: { p256dh: body.p256dh, auth: body.auth, role: body.role, clientId: body.clientId ?? null },
     });
     res.status(201).json({ ok: true });
   } catch (err) {
@@ -200,14 +200,6 @@ async function sendPushForMessage(clientId: number, sender: string, content: str
   if (recipientRole === "client" && client?.status === "inactive") {
     return;
   }
-
-  // Check coach notification preferences before sending a push to the coach
-  if (recipientRole === "coach" && client) {
-    const { isCoachPushAllowed } = await import("../lib/push-prefs");
-    const allowed = await isCoachPushAllowed(client.coachId, "messages").catch(() => true);
-    if (!allowed) return;
-  }
-
   const subs = recipientRole === "client"
     ? await db.select().from(pushSubscriptionsTable).where(
         and(eq(pushSubscriptionsTable.role, "client"), eq(pushSubscriptionsTable.clientId, clientId))

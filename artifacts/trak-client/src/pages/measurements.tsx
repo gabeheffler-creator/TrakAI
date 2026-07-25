@@ -14,7 +14,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -118,7 +117,6 @@ export function MeasurementsPage() {
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [timeframe, setTimeframe] = useState<TimeframeKey>("all");
-  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
   const { data: measurements, isLoading, isError, refetch, isFetching } = useListMeasurements(clientId!, {
     query: { enabled: !!clientId, queryKey: getListMeasurementsQueryKey(clientId!) }
@@ -313,7 +311,7 @@ export function MeasurementsPage() {
               <CardContent className="pt-4 pb-4">
                 <div className="flex items-center justify-between mb-2">
                   <p className="font-medium text-sm">{m.date}</p>
-                  <button onClick={() => setConfirmDeleteId(m.id)} className="text-muted-foreground hover:text-destructive transition-colors" data-testid={`button-delete-measurement-${m.id}`}>
+                  <button onClick={() => handleDelete(m.id)} className="text-muted-foreground hover:text-destructive transition-colors" data-testid={`button-delete-measurement-${m.id}`}>
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
@@ -331,24 +329,6 @@ export function MeasurementsPage() {
           );
         })}
       </div>
-
-      <AlertDialog open={confirmDeleteId !== null} onOpenChange={open => { if (!open) setConfirmDeleteId(null); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete this measurement?</AlertDialogTitle>
-            <AlertDialogDescription>This can't be undone.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => { if (confirmDeleteId !== null) { handleDelete(confirmDeleteId); setConfirmDeleteId(null); } }}
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

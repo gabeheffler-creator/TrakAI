@@ -1,116 +1,141 @@
-import { Switch, Route, Redirect, Router as WouterRouter } from "wouter";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Toaster } from "@/components/ui/toaster";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { Layout } from "@/components/layout";
-import { AuthProvider, useAuth } from "@/contexts/AuthContext";
-import { LoginPage } from "@/pages/login";
-import { Dashboard } from "@/pages/dashboard";
-import { WorkoutPage } from "@/pages/workout";
-import { CalendarPage } from "@/pages/calendar";
-import { ExercisesPage } from "@/pages/exercises";
-import { NutritionPage } from "@/pages/nutrition";
-import { StatsPage } from "@/pages/stats";
-import { SleepPage } from "@/pages/sleep";
-import { MessagesPage } from "@/pages/messages";
-import { SettingsPage } from "@/pages/settings";
-import { TasksPage } from "@/pages/tasks";
-import NotFound from "@/pages/not-found";
+import { useState, useEffect } from "react";
+import WorkoutPage from "./pages/WorkoutPage";
 
-const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-const queryClient = new QueryClient();
+type AuthState = "loading" | "unauthenticated" | "authenticated";
+interface ClientInfo { id: number; name: string; }
 
-function Protected({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
-  if (loading) return null;
-  if (!user) {
-    const returnTo = window.location.pathname.replace(basePath, "") + window.location.search;
-    const encoded = encodeURIComponent(returnTo);
-    return <Redirect to={`/login?returnTo=${encoded}`} />;
-  }
-  return <Layout>{children}</Layout>;
-}
+const DEMO_CLIENTS = [
+  { username: "alex", password: "alex", label: "Alex Johnson" },
+  { username: "sam", password: "sam", label: "Sam Williams" },
+  { username: "jordan", password: "jordan", label: "Jordan Rivera" },
+];
 
-function HomeGate() {
-  const { user, loading } = useAuth();
-  if (loading) return null;
-  if (!user) return <Redirect to="/login" />;
-  return <Layout><Dashboard /></Layout>;
-}
+function LoginScreen({ onLogin }: { onLogin: () => void }) {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-function LoginGate() {
-  const { user, loading } = useAuth();
-  if (loading) return null;
-  if (user) return <Redirect to="/" />;
-  return <LoginPage />;
-}
+  const fill = (u: string, p: string) => { setUsername(u); setPassword(p); setError(""); };
 
-function AppRouter() {
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/auth/client/login", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        setError(d.error ?? "Invalid credentials");
+      } else {
+        onLogin();
+      }
+    } catch {
+      setError("Network error. Try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <Switch>
-      <Route path="/login" component={LoginGate} />
-      <Route path="/" component={HomeGate} />
-      <Route path="/workout"><Protected><WorkoutPage /></Protected></Route>
-      <Route path="/calendar"><Protected><CalendarPage /></Protected></Route>
-      <Route path="/exercises"><Protected><ExercisesPage /></Protected></Route>
-      <Route path="/nutrition"><Protected><NutritionPage /></Protected></Route>
-      <Route path="/stats"><Protected><StatsPage /></Protected></Route>
-      <Route path="/sleep"><Protected><SleepPage /></Protected></Route>
-      <Route path="/messages"><Protected><MessagesPage /></Protected></Route>
-      <Route path="/settings"><Protected><SettingsPage /></Protected></Route>
-      <Route path="/tasks"><Protected><TasksPage /></Protected></Route>
-      <Route><Protected><NotFound /></Protected></Route>
-    </Switch>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", padding: "0 32px", gap: 24, background: "#fff", overflowY: "auto" }}>
+      <div style={{ textAlign: "center" }}>
+        <div style={{ fontSize: 28, fontWeight: 900, color: "#7c3aed", letterSpacing: "-0.5px", marginBottom: 4 }}>TrakClient</div>
+        <div style={{ fontSize: 20, fontWeight: 700, color: "#111", marginBottom: 2 }}>Client Login</div>
+        <div style={{ fontSize: 13, color: "#6b7280" }}>Sign in to track your training</div>
+      </div>
+      <form onSubmit={submit} style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
+        <input
+          type="text"
+          placeholder="Username"
+          value={username}
+          onChange={e => setUsername(e.target.value)}
+          required
+          style={{ padding: "10px 14px", borderRadius: 10, border: "1.5px solid #e5e7eb", fontSize: 15, outline: "none", width: "100%", boxSizing: "border-box" }}
+        />
+        <input
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={e => setPassword(e.target.value)}
+          required
+          style={{ padding: "10px 14px", borderRadius: 10, border: "1.5px solid #e5e7eb", fontSize: 15, outline: "none", width: "100%", boxSizing: "border-box" }}
+        />
+        {error && <div style={{ color: "#dc2626", fontSize: 13 }}>{error}</div>}
+        <button
+          type="submit"
+          disabled={loading}
+          style={{ padding: "12px", borderRadius: 10, background: "#7c3aed", color: "#fff", fontWeight: 700, fontSize: 15, border: "none", cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.7 : 1 }}
+        >
+          {loading ? "Signing in…" : "Sign in"}
+        </button>
+      </form>
+      <div style={{ width: "100%", background: "#f9fafb", borderRadius: 12, padding: "12px 16px", border: "1.5px solid #e5e7eb" }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Demo accounts — tap to fill</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {DEMO_CLIENTS.map(c => (
+            <button
+              key={c.username}
+              type="button"
+              onClick={() => fill(c.username, c.password)}
+              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#fff", border: "1.5px solid #e5e7eb", borderRadius: 8, padding: "8px 12px", cursor: "pointer" }}
+            >
+              <span style={{ fontSize: 12, color: "#6b7280" }}>{c.label}</span>
+              <span style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 14 }}>{c.username} / {c.password}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
-
-function AppInner() {
-  return (
-    <AuthProvider>
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <AppRouter />
-          <Toaster />
-        </TooltipProvider>
-      </QueryClientProvider>
-    </AuthProvider>
-  );
-}
-
-// ─── Phone shell wrapper ──────────────────────────────────────────────────────
 
 export default function App() {
+  const [auth, setAuth] = useState<AuthState>("loading");
+  const [client, setClient] = useState<ClientInfo | null>(null);
+
+  useEffect(() => {
+    fetch("/api/auth/me", { credentials: "include" })
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => {
+        if (d?.role === "client") {
+          setClient({ id: d.id, name: d.name ?? "Client" });
+          setAuth("authenticated");
+        } else {
+          setAuth("unauthenticated");
+        }
+      })
+      .catch(() => setAuth("unauthenticated"));
+  }, []);
+
+  const shellBg = auth === "authenticated" ? "#0f172a" : "#fff";
+
   return (
-    <div
-      style={{
-        minHeight: "100dvh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "#0a0a14",
-        padding: "16px",
-      }}
-    >
-      <div
-        style={{
-          width: 390,
-          height: "min(844px, 96dvh)",
-          borderRadius: 44,
-          overflow: "hidden",
-          boxShadow:
-            "0 0 0 1px rgba(255,255,255,0.06), 0 32px 64px rgba(0,0,0,0.7), inset 0 0 0 1px rgba(255,255,255,0.03)",
-          flexShrink: 0,
-          display: "flex",
-          flexDirection: "column",
-          fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-          background: "hsl(var(--background))",
-          position: "relative",
-        }}
-      >
-        <WouterRouter base={basePath}>
-          <AppInner />
-        </WouterRouter>
+    <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "#0f0e17" }}>
+      <div style={{ width: 390, height: "min(844px, 96dvh)", borderRadius: 44, overflow: "hidden", boxShadow: "0 0 0 1px rgba(255,255,255,0.08), 0 32px 64px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(255,255,255,0.04)", background: shellBg, flexShrink: 0 }}>
+        {auth === "loading" && (
+          <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: "#fff" }}>
+            <div style={{ width: 24, height: 24, border: "3px solid #e5e7eb", borderTopColor: "#7c3aed", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+          </div>
+        )}
+        {auth === "unauthenticated" && (
+          <LoginScreen onLogin={() => {
+            fetch("/api/auth/me", { credentials: "include" })
+              .then(r => r.ok ? r.json() : null)
+              .then(d => { if (d?.role === "client") { setClient({ id: d.id, name: d.name ?? "Client" }); setAuth("authenticated"); } })
+              .catch(() => {});
+          }} />
+        )}
+        {auth === "authenticated" && client && (
+          <WorkoutPage clientId={client.id} clientName={client.name} />
+        )}
       </div>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }

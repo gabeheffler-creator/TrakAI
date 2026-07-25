@@ -14,7 +14,14 @@ export function LoginPage() {
   const { setUser } = useAuth();
   const [, setLocation] = useLocation();
 
-  const login = async (u: string, p: string) => {
+  const fill = (u: string, p: string) => {
+    setUsername(u);
+    setPassword(p);
+    setError("");
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setLoading(true);
     setError("");
     try {
@@ -22,7 +29,7 @@ export function LoginPage() {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: u, password: p }),
+        body: JSON.stringify({ username, password }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -36,11 +43,6 @@ export function LoginPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    login(username, password);
   };
 
   return (
@@ -61,6 +63,7 @@ export function LoginPage() {
               id="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+              required
               autoComplete="username"
               placeholder="coach"
             />
@@ -72,6 +75,7 @@ export function LoginPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              required
               autoComplete="current-password"
               placeholder="••••••••"
             />
@@ -92,16 +96,15 @@ export function LoginPage() {
           </p>
           <button
             type="button"
-            onClick={() => login("coach", "coach")}
-            disabled={loading}
-            className="w-full flex items-center justify-between rounded-lg px-3 py-2 text-sm bg-background border border-border hover:border-violet-400 hover:bg-violet-50/50 transition-colors text-left disabled:opacity-50"
+            onClick={() => fill("coach", "coach")}
+            className="w-full flex items-center justify-between rounded-lg px-3 py-2 text-sm bg-background border border-border hover:border-violet-400 hover:bg-violet-50/50 transition-colors text-left"
           >
             <span>
               <span className="font-mono font-semibold text-foreground">coach</span>
               <span className="text-muted-foreground mx-1">/</span>
               <span className="font-mono font-semibold text-foreground">coach</span>
             </span>
-            <span className="text-xs text-muted-foreground">tap to sign in</span>
+            <span className="text-xs text-muted-foreground">tap to fill</span>
           </button>
         </div>
       </div>

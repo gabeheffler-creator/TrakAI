@@ -1,20 +1,14 @@
 import { useState } from "react";
-import { useGetCoachDashboard, useSendMessage } from "@workspace/api-client-react";
+import { useGetCoachDashboard } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, Dumbbell, ActivitySquare, AlertCircle, MessageSquare, Sparkles, X, CheckCircle2, CalendarDays, Clock, Send } from "lucide-react";
+import { Users, Dumbbell, ActivitySquare, AlertCircle, MessageSquare, Sparkles, X, CheckCircle2, CalendarDays, Clock } from "lucide-react";
 import { Link } from "wouter";
 import { formatDistanceToNow, parseISO } from "date-fns";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from "@/components/ui/sheet";
 import { ActivityHeatmap } from "@/components/activity-heatmap";
-import { useToast } from "@/hooks/use-toast";
 
 const AI_ALERT_KEY = "trak_ai_model_alert_v1_dismissed";
-const DEFAULT_NUDGE = "Hey — just checking in on your tasks! Let me know if you need any help. 💪";
 
 function AiModelAlert({ onDismiss }: { onDismiss: () => void }) {
   return (
@@ -46,71 +40,9 @@ export function Dashboard() {
   );
   const [heatmapClient, setHeatmapClient] = useState<{ id: number; name: string } | null>(null);
 
-  // Nudge state
-  const [nudgeSelected, setNudgeSelected] = useState<Set<number>>(new Set());
-  const [nudgeOpen, setNudgeOpen] = useState(false);
-  const [nudgeMessage, setNudgeMessage] = useState(DEFAULT_NUDGE);
-  const [nudgeSending, setNudgeSending] = useState(false);
-  const [staleExpanded, setStaleExpanded] = useState(true);
-
-  const sendMessage = useSendMessage();
-  const { toast } = useToast();
-
   const dismissAiAlert = () => {
     localStorage.setItem(AI_ALERT_KEY, "true");
     setAiAlertDismissed(true);
-  };
-
-  const staleClients = (dashboard as any)?.staleTaskClients ?? [];
-
-  const toggleClient = (id: number) => {
-    setNudgeSelected(prev => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  };
-
-  const toggleAll = () => {
-    if (nudgeSelected.size === staleClients.length) {
-      setNudgeSelected(new Set());
-    } else {
-      setNudgeSelected(new Set(staleClients.map((c: any) => c.clientId)));
-    }
-  };
-
-  const handleOpenNudge = () => {
-    setNudgeMessage(DEFAULT_NUDGE);
-    setNudgeOpen(true);
-  };
-
-  const handleSendNudge = async () => {
-    const recipients = staleClients.filter((c: any) => nudgeSelected.has(c.clientId));
-    if (recipients.length === 0) return;
-    setNudgeSending(true);
-    let failed = 0;
-    for (const client of recipients) {
-      try {
-        await sendMessage.mutateAsync({
-          clientId: client.clientId,
-          data: { sender: "coach", content: nudgeMessage.trim() },
-        });
-      } catch {
-        failed++;
-      }
-    }
-    setNudgeSending(false);
-    setNudgeOpen(false);
-    setNudgeSelected(new Set());
-    if (failed === 0) {
-      toast({ title: `Nudge sent to ${recipients.length} client${recipients.length === 1 ? "" : "s"}` });
-    } else {
-      toast({
-        title: `Sent to ${recipients.length - failed} client${recipients.length - failed === 1 ? "" : "s"}`,
-        description: `${failed} message${failed === 1 ? "" : "s"} failed to send.`,
-        variant: "destructive",
-      });
-    }
   };
 
   if (isLoading) {
@@ -125,7 +57,6 @@ export function Dashboard() {
   const visibleClients = allClients.slice(0, 5);
   const hasMore = allClients.length > 5;
   const completedTasks = (dashboard as any).completedTasks ?? [];
-  const selectedCount = nudgeSelected.size;
 
   return (
     <div className="space-y-8">
@@ -168,83 +99,23 @@ export function Dashboard() {
         </Card>
       </div>
 
-      {/* Stale tasks section */}
-      {staleClients.length > 0 && (
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 overflow-hidden">
-          {/* Header row */}
-          <div className="flex items-center gap-3 px-4 py-3">
-            <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center flex-shrink-0">
-              <Clock className="w-4 h-4 text-amber-500" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-sm text-foreground">
-                {staleClients.length} {staleClients.length === 1 ? "client has" : "clients have"} a task pending for 24+ hours
-              </p>
-              <button
-                className="text-xs text-amber-600 dark:text-amber-400 hover:underline mt-0.5"
-                onClick={() => setStaleExpanded(o => !o)}
-              >
-                {staleExpanded ? "Hide list ↑" : "Show list ↓"}
-              </button>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              {selectedCount > 0 && (
-                <span className="text-xs text-muted-foreground">{selectedCount} selected</span>
-              )}
-              <Button
-                size="sm"
-                className="h-8 gap-1.5 text-xs"
-                disabled={selectedCount === 0}
-                onClick={handleOpenNudge}
-              >
-                <Send className="w-3.5 h-3.5" />
-                Send nudge
-              </Button>
-            </div>
+      {(dashboard.staleTaskClientCount ?? 0) > 0 && (
+        <Link
+          href="/clients"
+          className="flex items-center gap-3 p-4 rounded-xl border border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10 transition-colors"
+          data-testid="banner-stale-tasks"
+        >
+          <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+            <Clock className="w-4 h-4 text-amber-500" />
           </div>
-
-          {/* Client list */}
-          {staleExpanded && (
-            <div className="border-t border-amber-500/20">
-              {/* Select all */}
-              <div className="flex items-center gap-2.5 px-4 py-2 border-b border-amber-500/10">
-                <Checkbox
-                  id="nudge-select-all"
-                  checked={nudgeSelected.size === staleClients.length && staleClients.length > 0}
-                  onCheckedChange={toggleAll}
-                />
-                <label htmlFor="nudge-select-all" className="text-xs text-muted-foreground cursor-pointer select-none">
-                  Select all
-                </label>
-              </div>
-              {staleClients.map((client: any) => (
-                <div
-                  key={client.clientId}
-                  className="flex items-center gap-3 px-4 py-2.5 hover:bg-amber-500/5 transition-colors border-b border-amber-500/10 last:border-0"
-                >
-                  <Checkbox
-                    id={`nudge-${client.clientId}`}
-                    checked={nudgeSelected.has(client.clientId)}
-                    onCheckedChange={() => toggleClient(client.clientId)}
-                  />
-                  <label
-                    htmlFor={`nudge-${client.clientId}`}
-                    className="flex-1 text-sm font-medium cursor-pointer select-none"
-                  >
-                    {client.name}
-                  </label>
-                  <Link
-                    href={`/clients/${client.clientId}`}
-                    className="text-xs text-primary hover:underline shrink-0"
-                    onClick={(e: React.MouseEvent) => e.stopPropagation()}
-                  >
-                    View profile →
-                  </Link>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-sm text-foreground">
+              {dashboard.staleTaskClientCount} {dashboard.staleTaskClientCount === 1 ? "client has" : "clients have"} a task pending for 24+ hours
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">Click to view your client list and follow up</p>
+          </div>
+          <span className="text-xs text-amber-600 dark:text-amber-400 font-medium shrink-0">View clients →</span>
+        </Link>
       )}
 
       <div className="grid gap-8 md:grid-cols-2">
@@ -371,7 +242,6 @@ export function Dashboard() {
         </Card>
       )}
 
-      {/* Activity heatmap dialog */}
       <Dialog open={heatmapClient !== null} onOpenChange={(open) => !open && setHeatmapClient(null)}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -380,52 +250,6 @@ export function Dashboard() {
           {heatmapClient && <ActivityHeatmap clientId={heatmapClient.id} />}
         </DialogContent>
       </Dialog>
-
-      {/* Nudge confirmation sheet */}
-      <Sheet open={nudgeOpen} onOpenChange={setNudgeOpen}>
-        <SheetContent side="bottom" className="max-h-[80vh] overflow-y-auto rounded-t-xl">
-          <SheetHeader>
-            <SheetTitle>Send nudge</SheetTitle>
-          </SheetHeader>
-          <div className="space-y-4 mt-4">
-            <div>
-              <p className="text-sm font-medium mb-2">Recipients ({selectedCount})</p>
-              <div className="flex flex-wrap gap-2">
-                {staleClients
-                  .filter((c: any) => nudgeSelected.has(c.clientId))
-                  .map((c: any) => (
-                    <Badge key={c.clientId} variant="secondary" className="text-xs">
-                      {c.name}
-                    </Badge>
-                  ))}
-              </div>
-            </div>
-            <div>
-              <p className="text-sm font-medium mb-2">Message</p>
-              <Textarea
-                value={nudgeMessage}
-                onChange={e => setNudgeMessage(e.target.value)}
-                rows={4}
-                placeholder="Type your message…"
-                className="resize-none"
-              />
-            </div>
-          </div>
-          <SheetFooter className="mt-6 flex gap-2">
-            <Button variant="outline" className="flex-1" onClick={() => setNudgeOpen(false)} disabled={nudgeSending}>
-              Cancel
-            </Button>
-            <Button
-              className="flex-1 gap-2"
-              onClick={handleSendNudge}
-              disabled={nudgeSending || !nudgeMessage.trim()}
-            >
-              <Send className="w-4 h-4" />
-              {nudgeSending ? "Sending…" : `Send to ${selectedCount}`}
-            </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
     </div>
   );
 }

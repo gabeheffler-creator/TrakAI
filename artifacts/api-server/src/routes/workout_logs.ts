@@ -19,19 +19,9 @@ const router = Router();
 router.get("/clients/:clientId/workout-logs", requireClientOwnership(), async (req, res) => {
   try {
     const { clientId } = ListWorkoutLogsParams.parse({ clientId: Number(req.params.clientId) });
-    const limitParam = req.query.limit ? parseInt(String(req.query.limit), 10) : undefined;
-    const useLimit = limitParam != null && limitParam > 0;
-    let logs;
-    if (useLimit) {
-      logs = await db.select().from(workoutLogsTable)
-        .where(eq(workoutLogsTable.clientId, clientId))
-        .orderBy(desc(workoutLogsTable.date))
-        .limit(limitParam!);
-    } else {
-      logs = await db.select().from(workoutLogsTable)
-        .where(eq(workoutLogsTable.clientId, clientId))
-        .orderBy(asc(workoutLogsTable.date));
-    }
+    const logs = await db.select().from(workoutLogsTable)
+      .where(eq(workoutLogsTable.clientId, clientId))
+      .orderBy(workoutLogsTable.date);
 
     const logIds = logs.map(l => l.id);
     const allSets = logIds.length > 0
@@ -47,7 +37,6 @@ router.get("/clients/:clientId/workout-logs", requireClientOwnership(), async (r
 
     res.json(logs.map(l => ({
       ...l,
-      formVideoUrl: l.formVideoUrl ?? null,
       createdAt: l.createdAt.toISOString(),
       sets: (setsByLog[l.id] ?? []).map(s => ({
         ...s,
@@ -170,7 +159,6 @@ router.patch("/clients/:clientId/workout-logs/:logId", requireClientOwnership(),
     const updates: Record<string, string | null> = {};
     if (body.notes !== undefined) updates.notes = body.notes;
     if (body.status !== undefined) updates.status = body.status;
-    if (body.formVideoUrl !== undefined) updates.formVideoUrl = body.formVideoUrl;
     const [updated] = await db.update(workoutLogsTable)
       .set(updates)
       .where(and(eq(workoutLogsTable.id, logId), eq(workoutLogsTable.clientId, clientId)))

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sleepLogsTable } from "@workspace/db";
-import { and, eq, desc } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import {
   ListSleepLogsParams,
   LogSleepParams,
@@ -62,45 +62,13 @@ router.post("/clients/:clientId/sleep", requireClientOwnership(), async (req, re
   }
 });
 
-router.patch("/clients/:clientId/sleep/:sleepId", requireClientOwnership(), async (req, res) => {
-  try {
-    const clientId = Number(req.params.clientId);
-    const sleepId = Number(req.params.sleepId);
-    const body = LogSleepBody.parse(req.body);
-    const { clientId: validatedClientId, sleepId: validatedSleepId } = DeleteSleepLogParams.parse({
-      clientId: Number(req.params.clientId),
-      sleepId: Number(req.params.sleepId),
-    });
-    const [s] = await db.update(sleepLogsTable)
-      .set({
-        date: body.date instanceof Date ? body.date.toISOString().split("T")[0] : String(body.date),
-        hoursSlept: String(body.hoursSlept),
-        quality: body.quality ?? null,
-        energyRating: body.energyRating ?? null,
-        notes: body.notes ?? null,
-      })
-      .where(and(eq(sleepLogsTable.id, validatedSleepId), eq(sleepLogsTable.clientId, validatedClientId)))
-      .returning();
-    if (!s) { res.status(404).json({ error: "Sleep log not found" }); return; }
-    res.json({ ...s, hoursSlept: Number(s.hoursSlept), createdAt: s.createdAt.toISOString() });
-  } catch (err) {
-    req.log.error(err);
-    res.status(400).json({ error: "Failed to update sleep log" });
-  }
-});
-
 router.delete("/clients/:clientId/sleep/:sleepId", requireClientOwnership(), async (req, res) => {
   try {
     const { sleepId } = DeleteSleepLogParams.parse({
       clientId: Number(req.params.clientId),
       sleepId: Number(req.params.sleepId),
     });
-    const { clientId: deletedClientId } = DeleteSleepLogParams.parse({
-      clientId: Number(req.params.clientId),
-      sleepId: Number(req.params.sleepId),
-    });
-    await db.delete(sleepLogsTable)
-      .where(and(eq(sleepLogsTable.id, sleepId), eq(sleepLogsTable.clientId, deletedClientId)));
+    await db.delete(sleepLogsTable).where(eq(sleepLogsTable.id, sleepId));
     res.status(204).send();
   } catch (err) {
     req.log.error(err);

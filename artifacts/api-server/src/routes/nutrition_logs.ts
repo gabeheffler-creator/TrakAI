@@ -1,22 +1,13 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { nutritionLogsTable } from "@workspace/db";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import {
   ListNutritionLogsParams,
   CreateNutritionLogParams,
   CreateNutritionLogBody,
   DeleteNutritionLogParams,
 } from "@workspace/api-zod";
-import * as z from "zod";
-
-const UpdateNutritionLogBody = z.object({
-  notes: z.string().optional().nullable(),
-  calories: z.number().optional().nullable(),
-  protein: z.number().optional().nullable(),
-  carbs: z.number().optional().nullable(),
-  fat: z.number().optional().nullable(),
-});
 import { requireClientOwnership } from "../middlewares/auth";
 
 const router = Router();
@@ -73,45 +64,13 @@ router.post("/clients/:clientId/nutrition", requireClientOwnership(), async (req
   }
 });
 
-router.patch("/clients/:clientId/nutrition/:nutritionId", requireClientOwnership(), async (req, res) => {
-  try {
-    const { clientId, nutritionId } = DeleteNutritionLogParams.parse({
-      clientId: Number(req.params.clientId),
-      nutritionId: Number(req.params.nutritionId),
-    });
-    const body = UpdateNutritionLogBody.parse(req.body);
-    const patch: Record<string, unknown> = {};
-    if ("notes"    in body) patch.notes    = body.notes    ?? null;
-    if ("calories" in body) patch.calories = body.calories ?? null;
-    if ("protein"  in body) patch.protein  = body.protein  != null ? String(body.protein)  : null;
-    if ("carbs"    in body) patch.carbs    = body.carbs    != null ? String(body.carbs)    : null;
-    if ("fat"      in body) patch.fat      = body.fat      != null ? String(body.fat)      : null;
-    const [n] = await db.update(nutritionLogsTable)
-      .set(patch)
-      .where(and(eq(nutritionLogsTable.id, nutritionId), eq(nutritionLogsTable.clientId, clientId)))
-      .returning();
-    if (!n) { res.status(404).json({ error: "Nutrition log not found" }); return; }
-    res.json({
-      ...n,
-      protein: n.protein ? Number(n.protein) : null,
-      carbs: n.carbs ? Number(n.carbs) : null,
-      fat: n.fat ? Number(n.fat) : null,
-      createdAt: n.createdAt.toISOString(),
-    });
-  } catch (err) {
-    req.log.error(err);
-    res.status(400).json({ error: "Failed to update nutrition log" });
-  }
-});
-
 router.delete("/clients/:clientId/nutrition/:nutritionId", requireClientOwnership(), async (req, res) => {
   try {
-    const { clientId, nutritionId } = DeleteNutritionLogParams.parse({
+    const { nutritionId } = DeleteNutritionLogParams.parse({
       clientId: Number(req.params.clientId),
       nutritionId: Number(req.params.nutritionId),
     });
-    await db.delete(nutritionLogsTable)
-      .where(and(eq(nutritionLogsTable.id, nutritionId), eq(nutritionLogsTable.clientId, clientId)));
+    await db.delete(nutritionLogsTable).where(eq(nutritionLogsTable.id, nutritionId));
     res.status(204).send();
   } catch (err) {
     req.log.error(err);

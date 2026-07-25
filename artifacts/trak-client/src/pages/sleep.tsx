@@ -1,5 +1,4 @@
 import { useState, useMemo, useEffect, useRef } from "react";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { useClientId } from "@/hooks/use-client-id";
 import {
   useListSleepLogs,
@@ -10,19 +9,18 @@ import {
   useUpdateClient,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, Moon, BellRing, CheckCircle2, ArrowLeft, Copy, Pencil } from "lucide-react";
+import { Plus, Trash2, Moon, BellRing, CheckCircle2, ArrowLeft, Copy } from "lucide-react";
 import { QueryErrorState } from "@/components/query-error-state";
 
 const sleepSchema = z.object({
@@ -150,27 +148,6 @@ const ALARM_APPS: AlarmApp[] = [
 ];
 
 const ALARM_STORAGE_KEY = "trak_connected_alarm_app"; // fallback cache only
-
-// ─── Sleep quality helpers ────────────────────────────────────────────────────
-
-const qualityNumMap: Record<string, number> = { poor: 1, fair: 2, good: 3, great: 4 };
-const qualityTickLabel: Record<number, string> = { 1: "Poor", 2: "Fair", 3: "Good", 4: "Great" };
-
-type DotProps = { cx?: number; cy?: number; payload?: Record<string, unknown> };
-
-function QualityDot({ cx, cy, payload }: DotProps) {
-  const q = payload?.quality as number | null | undefined;
-  if (!cx || !cy || q == null) return null;
-  const fill = q >= 3 ? "#22c55e" : q === 2 ? "#eab308" : "#ef4444";
-  return <circle cx={cx} cy={cy} r={4} fill={fill} stroke="white" strokeWidth={1.5} />;
-}
-
-function EnergyDot({ cx, cy, payload }: DotProps) {
-  const e = payload?.energy as number | null | undefined;
-  if (!cx || !cy || e == null) return null;
-  const fill = e >= 7 ? "#22c55e" : e >= 4 ? "#eab308" : "#ef4444";
-  return <circle cx={cx} cy={cy} r={4} fill={fill} stroke="white" strokeWidth={1.5} />;
-}
 
 // ─── Alarm sheet ─────────────────────────────────────────────────────────────
 
@@ -397,8 +374,6 @@ export function SleepPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [timeframe, setTimeframe] = useState<Timeframe>("1m");
   const [alarmSheetOpen, setAlarmSheetOpen] = useState(false);
-  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
-  const [editingLog, setEditingLog] = useState<{ id: number; date: string; hoursSlept: number; quality?: string | null; energyRating?: number | null; notes?: string | null } | null>(null);
 
   // Fetch client profile to read server-persisted alarm app preference.
   // Fall back to localStorage while the fetch is in-flight.
@@ -427,11 +402,6 @@ export function SleepPage() {
     defaultValues: { date: new Date().toISOString().split("T")[0], hoursSlept: 7, notes: "" },
   });
 
-  const editForm = useForm<z.infer<typeof sleepSchema>>({
-    resolver: zodResolver(sleepSchema),
-    defaultValues: { date: "", hoursSlept: 7 },
-  });
-
   const onSubmit = (values: z.infer<typeof sleepSchema>) => {
     logSleep.mutate({
       clientId: clientId!,
@@ -458,60 +428,8 @@ export function SleepPage() {
     });
   };
 
-  const handleOpenEdit = (s: typeof editingLog) => {
-    if (!s) return;
-    editForm.reset({
-      date: typeof s.date === "string" ? s.date : new Date(s.date).toISOString().split("T")[0],
-      hoursSlept: s.hoursSlept,
-      quality: (s.quality as z.infer<typeof sleepSchema>["quality"]) ?? undefined,
-      energyRating: s.energyRating ?? undefined,
-      notes: s.notes ?? "",
-    });
-    setEditingLog(s);
-  };
-
-  const [editSaving, setEditSaving] = useState(false);
-  const handleSaveEdit = async (values: z.infer<typeof sleepSchema>) => {
-    if (!editingLog || !clientId) return;
-    setEditSaving(true);
-    try {
-      const res = await fetch(`/api/clients/${clientId}/sleep/${editingLog.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          date: values.date,
-          hoursSlept: values.hoursSlept,
-          quality: values.quality,
-          energyRating: values.energyRating,
-          notes: values.notes || undefined,
-        }),
-      });
-      if (!res.ok) throw new Error("Update failed");
-      qc.invalidateQueries({ queryKey: getListSleepLogsQueryKey(clientId) });
-      setEditingLog(null);
-      toast({ title: "Sleep log updated!" });
-    } catch {
-      toast({ title: "Failed to update sleep log", variant: "destructive" });
-    } finally {
-      setEditSaving(false);
-    }
-  };
-
   const filtered = useMemo(() => filterByTimeframe(logs ?? [], timeframe), [logs, timeframe]);
   const sortedFiltered = filtered.slice().sort((a, b) => b.date.localeCompare(a.date));
-
-  // Chart data (ascending by date for left-to-right trend lines)
-  const chartData = useMemo(() =>
-    filtered.slice().sort((a, b) => a.date.localeCompare(b.date)).map(s => ({
-      date: s.date,
-      quality: s.quality ? (qualityNumMap[s.quality] ?? null) : null,
-      energy: s.energyRating ?? null,
-    })),
-    [filtered]
-  );
-  const qualityPoints = chartData.filter(d => d.quality != null);
-  const energyPoints  = chartData.filter(d => d.energy  != null);
 
   const avgSleep = filtered.length
     ? (filtered.reduce((acc, l) => acc + Number(l.hoursSlept), 0) / filtered.length).toFixed(1)
@@ -642,93 +560,6 @@ export function SleepPage() {
         </Card>
       )}
 
-      {/* ── Quality trend ───────────────────── */}
-      {!isLoading && !isError && (
-        <Card>
-          <CardHeader className="pb-1 pt-4">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <span>😴</span> Sleep Quality Trend
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pb-4">
-            {qualityPoints.length >= 2 ? (
-              <ResponsiveContainer width="100%" height={130}>
-                <LineChart data={qualityPoints}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={d => d.slice(5)} />
-                  <YAxis
-                    domain={[1, 4]}
-                    ticks={[1, 2, 3, 4]}
-                    tickFormatter={v => qualityTickLabel[v as number] ?? ""}
-                    tick={{ fontSize: 9 }}
-                    width={34}
-                  />
-                  <Tooltip
-                    formatter={(v: unknown) => [qualityTickLabel[v as number] ?? v, "Quality"]}
-                    labelFormatter={d => String(d)}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="quality"
-                    stroke="hsl(var(--primary))"
-                    strokeWidth={2}
-                    dot={<QualityDot />}
-                    activeDot={{ r: 5 }}
-                    connectNulls={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            ) : (
-              <p className="text-xs text-muted-foreground text-center py-4">
-                Log more nights with quality ratings to see trends
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* ── Energy trend ───────────────────── */}
-      {!isLoading && !isError && (
-        <Card>
-          <CardHeader className="pb-1 pt-4">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <span>⚡</span> Morning Energy Trend
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pb-4">
-            {energyPoints.length >= 2 ? (
-              <ResponsiveContainer width="100%" height={130}>
-                <LineChart data={energyPoints}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={d => d.slice(5)} />
-                  <YAxis domain={[1, 10]} ticks={[1, 3, 5, 7, 10]} tick={{ fontSize: 10 }} width={20} />
-                  <Tooltip
-                    formatter={(v: unknown) => [
-                      `${v}/10 — ${Number(v) <= 3 ? "Exhausted" : Number(v) <= 5 ? "Tired" : Number(v) <= 7 ? "OK" : Number(v) <= 9 ? "Good" : "Excellent"}`,
-                      "Energy",
-                    ]}
-                    labelFormatter={d => String(d)}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="energy"
-                    stroke="#f59e0b"
-                    strokeWidth={2}
-                    dot={<EnergyDot />}
-                    activeDot={{ r: 5 }}
-                    connectNulls={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            ) : (
-              <p className="text-xs text-muted-foreground text-center py-4">
-                Log more nights with energy ratings to see trends
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
       {isLoading && <p className="text-muted-foreground">Loading...</p>}
       {isError && (
         <QueryErrorState
@@ -761,99 +592,13 @@ export function SleepPage() {
                   {s.notes && <p className="text-xs text-muted-foreground">{s.notes}</p>}
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleOpenEdit({ id: s.id, date: String(s.date), hoursSlept: s.hoursSlept, quality: s.quality, energyRating: s.energyRating, notes: s.notes })}
-                  className="text-muted-foreground hover:text-foreground transition-colors"
-                  data-testid={`button-edit-sleep-${s.id}`}
-                  title="Edit"
-                >
-                  <Pencil className="w-4 h-4" />
-                </button>
-                <button onClick={() => setConfirmDeleteId(s.id)} className="text-muted-foreground hover:text-destructive transition-colors" data-testid={`button-delete-sleep-${s.id}`}>
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
+              <button onClick={() => handleDelete(s.id)} className="text-muted-foreground hover:text-destructive transition-colors" data-testid={`button-delete-sleep-${s.id}`}>
+                <Trash2 className="w-4 h-4" />
+              </button>
             </CardContent>
           </Card>
         ))}
       </div>
-      {/* Delete confirmation */}
-      <AlertDialog open={confirmDeleteId !== null} onOpenChange={open => { if (!open) setConfirmDeleteId(null); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete this sleep log?</AlertDialogTitle>
-            <AlertDialogDescription>This can't be undone.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => { if (confirmDeleteId !== null) { handleDelete(confirmDeleteId); setConfirmDeleteId(null); } }}
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Edit Sleep Log Dialog */}
-      <Dialog open={editingLog !== null} onOpenChange={open => { if (!open) setEditingLog(null); }}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Edit Sleep Log</DialogTitle></DialogHeader>
-          <Form {...editForm}>
-            <form onSubmit={editForm.handleSubmit(handleSaveEdit)} className="space-y-4">
-              <FormField control={editForm.control} name="date" render={({ field }) => (
-                <FormItem><FormLabel>Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl></FormItem>
-              )} />
-              <FormField control={editForm.control} name="hoursSlept" render={({ field }) => (
-                <FormItem><FormLabel>Hours Slept</FormLabel><FormControl><Input type="number" step="0.5" {...field} /></FormControl></FormItem>
-              )} />
-              <FormField control={editForm.control} name="quality" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Sleep Quality</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value ?? ""}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="How did you sleep?" /></SelectTrigger></FormControl>
-                    <SelectContent>
-                      <SelectItem value="poor">Poor</SelectItem>
-                      <SelectItem value="fair">Fair</SelectItem>
-                      <SelectItem value="good">Good</SelectItem>
-                      <SelectItem value="great">Great</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </FormItem>
-              )} />
-              <FormField control={editForm.control} name="energyRating" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Energy on Waking</FormLabel>
-                  <Select
-                    onValueChange={v => field.onChange(Number(v))}
-                    value={field.value != null ? String(field.value) : ""}
-                  >
-                    <FormControl><SelectTrigger><SelectValue placeholder="Rate your energy (1–10)" /></SelectTrigger></FormControl>
-                    <SelectContent>
-                      {Array.from({ length: 10 }, (_, i) => i + 1).map(n => (
-                        <SelectItem key={n} value={String(n)}>{n} — {n <= 3 ? "Exhausted" : n <= 5 ? "Tired" : n <= 7 ? "OK" : n <= 9 ? "Good" : "Excellent"}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </FormItem>
-              )} />
-              <FormField control={editForm.control} name="notes" render={({ field }) => (
-                <FormItem><FormLabel>Notes</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
-              )} />
-              <div className="flex gap-2">
-                <Button type="button" variant="outline" className="flex-1" onClick={() => setEditingLog(null)} disabled={editSaving}>
-                  Cancel
-                </Button>
-                <Button type="submit" className="flex-1" disabled={editSaving}>
-                  {editSaving ? "Saving…" : "Save changes"}
-                </Button>
-              </div>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

@@ -13,7 +13,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import {
   Moon, Sun, Bug, MessageSquare, ChevronRight, CheckCircle,
   Save, Ruler, ClipboardList, FileText, Upload, Loader2, ImageIcon, Timer,
-  Bell, MessageCircle, ClipboardCheck, Dumbbell, Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -110,40 +109,11 @@ export function SettingsPage() {
   const [defaultRestSeconds, setDefaultRestSeconds] = useState<string>("none");
   const [restSaved, setRestSaved] = useState(false);
 
-  // ── Notification preferences ──────────────────────────────────────────────
-  const [notifMessages, setNotifMessages] = useState(true);
-  const [notifTasks, setNotifTasks]       = useState(true);
-  const [notifWorkouts, setNotifWorkouts] = useState(true);
-  const [quietStart, setQuietStart]       = useState("");
-  const [quietEnd, setQuietEnd]           = useState("");
-  const [quietEnabled, setQuietEnabled]   = useState(false);
-
   useEffect(() => {
     fetchAppSettings().then((s: Record<string, unknown>) => {
       if (s.defaultRestSeconds != null) setDefaultRestSeconds(String(s.defaultRestSeconds));
-      if (s.notifMessages === false) setNotifMessages(false);
-      if (s.notifTasks    === false) setNotifTasks(false);
-      if (s.notifWorkouts === false) setNotifWorkouts(false);
-      if (typeof s.quietHoursStart === "string") { setQuietStart(s.quietHoursStart); }
-      if (typeof s.quietHoursEnd   === "string") { setQuietEnd(s.quietHoursEnd); }
-      if (s.quietHoursStart && s.quietHoursEnd) setQuietEnabled(true);
     }).catch(() => {});
   }, []);
-
-  const saveNotifToggle = async (key: string, value: boolean) => {
-    await patchAppSettings({ [key]: value }).catch(() => {
-      toast({ title: "Failed to save notification setting", variant: "destructive" });
-    });
-  };
-
-  const saveQuietHours = async (start: string, end: string, enabled: boolean) => {
-    await patchAppSettings({
-      quietHoursStart: enabled ? start : null,
-      quietHoursEnd:   enabled ? end   : null,
-    }).catch(() => {
-      toast({ title: "Failed to save quiet hours", variant: "destructive" });
-    });
-  };
 
   const handleSaveRestDefault = async () => {
     const value = defaultRestSeconds === "none" ? null : Number(defaultRestSeconds);
@@ -400,94 +370,6 @@ export function SettingsPage() {
             />
           </SettingRow>
         </div>
-      </div>
-
-      {/* ── Notifications ─────────────────────────────────────────── */}
-      <SectionHeader title="Notifications" />
-      <div className="rounded-2xl border border-border bg-card divide-y divide-border">
-        <div className="px-4">
-          <SettingRow
-            icon={<MessageCircle className="w-4 h-4" />}
-            label="New client messages"
-            description="Push alert when a client sends you a message"
-          >
-            <Switch
-              checked={notifMessages}
-              onCheckedChange={v => {
-                setNotifMessages(v);
-                saveNotifToggle("notifMessages", v);
-              }}
-            />
-          </SettingRow>
-        </div>
-        <div className="px-4">
-          <SettingRow
-            icon={<ClipboardCheck className="w-4 h-4" />}
-            label="Task submissions"
-            description="Push alert when a client submits or resubmits a task"
-          >
-            <Switch
-              checked={notifTasks}
-              onCheckedChange={v => {
-                setNotifTasks(v);
-                saveNotifToggle("notifTasks", v);
-              }}
-            />
-          </SettingRow>
-        </div>
-        <div className="px-4">
-          <SettingRow
-            icon={<Dumbbell className="w-4 h-4" />}
-            label="Workout check-ins"
-            description="Push alert when a client logs a completed workout"
-          >
-            <Switch
-              checked={notifWorkouts}
-              onCheckedChange={v => {
-                setNotifWorkouts(v);
-                saveNotifToggle("notifWorkouts", v);
-              }}
-            />
-          </SettingRow>
-        </div>
-        <div className="px-4">
-          <SettingRow
-            icon={<Clock className="w-4 h-4" />}
-            label="Quiet hours"
-            description="Suppress all push during this window"
-          >
-            <Switch
-              checked={quietEnabled}
-              onCheckedChange={v => {
-                setQuietEnabled(v);
-                const s = quietStart || "22:00";
-                const e = quietEnd   || "07:00";
-                if (v) { setQuietStart(s); setQuietEnd(e); }
-                saveQuietHours(s, e, v);
-              }}
-            />
-          </SettingRow>
-        </div>
-        {quietEnabled && (
-          <div className="px-4 py-3 flex items-center gap-3">
-            <span className="text-xs text-muted-foreground w-8">From</span>
-            <input
-              type="time"
-              value={quietStart}
-              onChange={e => setQuietStart(e.target.value)}
-              onBlur={() => saveQuietHours(quietStart, quietEnd, quietEnabled)}
-              className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-            <span className="text-xs text-muted-foreground">to</span>
-            <input
-              type="time"
-              value={quietEnd}
-              onChange={e => setQuietEnd(e.target.value)}
-              onBlur={() => saveQuietHours(quietStart, quietEnd, quietEnabled)}
-              className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-          </div>
-        )}
       </div>
 
       {/* ── Workout Defaults ───────────────────────────────────────── */}

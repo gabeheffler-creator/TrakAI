@@ -21,7 +21,14 @@ export function LoginPage() {
   const [, setLocation] = useLocation();
   const returnTo = new URLSearchParams(window.location.search).get("returnTo");
 
-  const login = async (u: string, p: string) => {
+  const fill = (u: string, p: string) => {
+    setUsername(u);
+    setPassword(p);
+    setError("");
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setLoading(true);
     setError("");
     try {
@@ -29,7 +36,7 @@ export function LoginPage() {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: u, password: p }),
+        body: JSON.stringify({ username, password }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -43,11 +50,6 @@ export function LoginPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    login(username, password);
   };
 
   return (
@@ -68,6 +70,7 @@ export function LoginPage() {
               id="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+              required
               autoComplete="username"
               placeholder="alex"
             />
@@ -79,6 +82,7 @@ export function LoginPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              required
               autoComplete="current-password"
               placeholder="••••••••"
             />
@@ -95,16 +99,15 @@ export function LoginPage() {
 
         <div className="rounded-xl border border-border bg-muted/40 p-4 space-y-3">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-            Demo accounts — tap to sign in
+            Demo accounts — tap to fill
           </p>
           <div className="space-y-2">
             {DEMO_CLIENTS.map((c) => (
               <button
                 key={c.username}
                 type="button"
-                onClick={() => login(c.username, c.password)}
-                disabled={loading}
-                className="w-full flex items-center justify-between rounded-lg px-3 py-2 text-sm bg-background border border-border hover:border-violet-400 hover:bg-violet-50/50 transition-colors text-left disabled:opacity-50"
+                onClick={() => fill(c.username, c.password)}
+                className="w-full flex items-center justify-between rounded-lg px-3 py-2 text-sm bg-background border border-border hover:border-violet-400 hover:bg-violet-50/50 transition-colors text-left"
               >
                 <span className="text-muted-foreground text-xs">{c.label}</span>
                 <span>

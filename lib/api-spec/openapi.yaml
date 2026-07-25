@@ -2218,121 +2218,6 @@ paths:
         "403":
           description: Coach only
 
-  /clients/{clientId}/calendar-day-notes:
-    get:
-      operationId: listCalendarDayNotes
-      tags: [clients]
-      summary: List calendar day notes for a client (coach only)
-      parameters:
-        - name: clientId
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        "200":
-          description: Calendar day notes ordered by date
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/CalendarDayNote"
-    post:
-      operationId: createCalendarDayNote
-      tags: [clients]
-      summary: Create a calendar day note (coach only)
-      parameters:
-        - name: clientId
-          in: path
-          required: true
-          schema:
-            type: integer
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CalendarDayNoteInput"
-      responses:
-        "201":
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/CalendarDayNote"
-        "403":
-          description: Coach only
-
-  /clients/{clientId}/calendar-day-notes/{noteId}:
-    patch:
-      operationId: updateCalendarDayNote
-      tags: [clients]
-      summary: Update a calendar day note (coach only)
-      parameters:
-        - name: clientId
-          in: path
-          required: true
-          schema:
-            type: integer
-        - name: noteId
-          in: path
-          required: true
-          schema:
-            type: integer
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CalendarDayNoteUpdate"
-      responses:
-        "200":
-          description: Updated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/CalendarDayNote"
-        "403":
-          description: Coach only
-        "404":
-          description: Not found
-    delete:
-      operationId: deleteCalendarDayNote
-      tags: [clients]
-      summary: Delete a calendar day note (coach only)
-      parameters:
-        - name: clientId
-          in: path
-          required: true
-          schema:
-            type: integer
-        - name: noteId
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        "204":
-          description: Deleted
-        "403":
-          description: Coach only
-
-  /client/calendar-day-notes:
-    get:
-      operationId: listClientCalendarDayNotes
-      tags: [client]
-      summary: List coach calendar notes for the logged-in client (read-only)
-      responses:
-        "200":
-          description: Calendar day notes ordered by date
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/CalendarDayNote"
-
   /clients/{clientId}/call-logs:
     get:
       operationId: listCallLogs
@@ -2633,15 +2518,6 @@ components:
           type: boolean
 
     # ── Dashboard ───────────────────────────────────────────────────────────
-    StaleTaskClient:
-      type: object
-      required: [clientId, name]
-      properties:
-        clientId:
-          type: integer
-        name:
-          type: string
-
     CoachDashboard:
       type: object
       required: [totalClients, activePrograms, recentActivity]
@@ -2652,10 +2528,6 @@ components:
           type: integer
         staleTaskClientCount:
           type: integer
-        staleTaskClients:
-          type: array
-          items:
-            $ref: "#/components/schemas/StaleTaskClient"
         recentActivity:
           type: array
           items:
@@ -3341,8 +3213,6 @@ components:
         status:
           type: string
           enum: [in_progress, completed, early_exit, cancelled]
-        formVideoUrl:
-          type: ["string", "null"]
 
     WorkoutLogDetail:
       type: object
@@ -3960,42 +3830,6 @@ components:
           type: string
         callLogId:
           type: integer
-
-    CalendarDayNote:
-      type: object
-      required: [id, clientId, date, note, createdAt, updatedAt]
-      properties:
-        id:
-          type: integer
-        clientId:
-          type: integer
-        date:
-          type: string
-          format: date
-        note:
-          type: string
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-
-    CalendarDayNoteInput:
-      type: object
-      required: [date, note]
-      properties:
-        date:
-          type: string
-        note:
-          type: string
-
-    CalendarDayNoteUpdate:
-      type: object
-      required: [note]
-      properties:
-        note:
-          type: string
 
     UploadUrlRequest:
       type: object

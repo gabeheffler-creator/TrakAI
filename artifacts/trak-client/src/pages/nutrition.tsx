@@ -13,9 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Camera, Plus, Minus, Loader2, Pencil, Check, ChevronLeft, ChevronRight, UtensilsCrossed, Trash2, Target, X, PenLine } from "lucide-react";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from "@/components/ui/sheet";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Camera, Plus, Minus, Loader2, Pencil, Check, ChevronLeft, ChevronRight, UtensilsCrossed, Trash2, Target, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { QueryErrorState } from "@/components/query-error-state";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -358,25 +356,6 @@ export function NutritionPage() {
   }, [mealSlots, diarySlot, waterGlasses, aiResults]);
   const [submitting, setSubmitting] = useState(false);
 
-  // Entry edit/delete state
-  const [editingEntry, setEditingEntry] = useState<{ id: number; imageUrl: string; notes: string | null; calories: number | null; protein: number | null; carbs: number | null; fat: number | null } | null>(null);
-  const [editEntryName, setEditEntryName] = useState("");
-  const [editEntryCals, setEditEntryCals] = useState("");
-  const [editEntryProtein, setEditEntryProtein] = useState("");
-  const [editEntryCarbs, setEditEntryCarbs] = useState("");
-  const [editEntryFat, setEditEntryFat] = useState("");
-  const [editEntrySaving, setEditEntrySaving] = useState(false);
-  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
-
-  const [copying, setCopying] = useState(false);
-  const [quickAddOpen, setQuickAddOpen] = useState(false);
-  const [quickAddName, setQuickAddName] = useState("");
-  const [quickAddCals, setQuickAddCals] = useState("");
-  const [quickAddProtein, setQuickAddProtein] = useState("");
-  const [quickAddCarbs, setQuickAddCarbs] = useState("");
-  const [quickAddFat, setQuickAddFat] = useState("");
-  const [quickAddSaving, setQuickAddSaving] = useState(false);
-
   const { data: logs, isLoading, isError, refetch, isFetching } = useListNutritionLogs(clientId!, {
     query: { enabled: !!clientId, queryKey: getListNutritionLogsQueryKey(clientId!) }
   });
@@ -543,106 +522,6 @@ export function NutritionPage() {
     setWaterGlasses(0);
   };
 
-  const handleOpenEditEntry = (entry: { id: number; imageUrl: string; notes: string | null; calories: number | null; protein: number | null; carbs: number | null; fat: number | null }) => {
-    setEditingEntry(entry);
-    setEditEntryName(entry.notes ?? "");
-    setEditEntryCals(entry.calories != null ? String(entry.calories) : "");
-    setEditEntryProtein(entry.protein != null ? String(Math.round(entry.protein)) : "");
-    setEditEntryCarbs(entry.carbs != null ? String(Math.round(entry.carbs)) : "");
-    setEditEntryFat(entry.fat != null ? String(Math.round(entry.fat)) : "");
-  };
-
-  const handleSaveEditEntry = async () => {
-    if (!editingEntry || !clientId) return;
-    setEditEntrySaving(true);
-    try {
-      const res = await fetch(`/api/clients/${clientId}/nutrition/${editingEntry.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          notes: editEntryName.trim() || null,
-          calories: editEntryCals ? parseInt(editEntryCals, 10) : null,
-          protein: editEntryProtein ? parseFloat(editEntryProtein) : null,
-          carbs: editEntryCarbs ? parseFloat(editEntryCarbs) : null,
-          fat: editEntryFat ? parseFloat(editEntryFat) : null,
-        }),
-      });
-      if (!res.ok) throw new Error("Update failed");
-      qc.invalidateQueries({ queryKey: getListNutritionLogsQueryKey(clientId) });
-      setEditingEntry(null);
-      toast({ title: "Entry updated!" });
-    } catch {
-      toast({ title: "Failed to update entry", variant: "destructive" });
-    } finally {
-      setEditEntrySaving(false);
-    }
-  };
-
-  const handleDeleteEntry = (id: number) => {
-    deleteNutritionLog.mutate({ clientId: clientId!, nutritionId: id }, {
-      onSuccess: () => {
-        qc.invalidateQueries({ queryKey: getListNutritionLogsQueryKey(clientId!) });
-        setConfirmDeleteId(null);
-        toast({ title: "Entry removed" });
-      },
-    });
-  };
-
-  const handleCopyFromYesterday = async (yesterdayMeals: typeof selectedLogs) => {
-    if (!clientId || !yesterdayMeals.length) return;
-    setCopying(true);
-    for (const entry of yesterdayMeals) {
-      await new Promise<void>(resolve => {
-        createNutritionLog.mutate({
-          clientId,
-          data: {
-            date: selectedDate,
-            imageUrl: entry.imageUrl ?? "manual_entry",
-            notes: entry.notes ?? undefined,
-            calories: entry.calories ?? undefined,
-            protein: entry.protein != null ? Number(entry.protein) : undefined,
-            carbs: entry.carbs != null ? Number(entry.carbs) : undefined,
-            fat: entry.fat != null ? Number(entry.fat) : undefined,
-          },
-        }, { onSuccess: () => resolve(), onError: () => resolve() });
-      });
-    }
-    qc.invalidateQueries({ queryKey: getListNutritionLogsQueryKey(clientId) });
-    setCopying(false);
-    toast({ title: `${yesterdayMeals.length} meal${yesterdayMeals.length !== 1 ? "s" : ""} copied!` });
-  };
-
-  const handleQuickAdd = async () => {
-    if (!clientId) return;
-    const cals = parseInt(quickAddCals, 10);
-    if (!quickAddName.trim() || isNaN(cals) || cals <= 0) return;
-    setQuickAddSaving(true);
-    await new Promise<void>(resolve => {
-      createNutritionLog.mutate({
-        clientId,
-        data: {
-          date: selectedDate,
-          imageUrl: "manual_entry",
-          notes: quickAddName.trim(),
-          calories: cals,
-          protein: quickAddProtein ? parseFloat(quickAddProtein) : undefined,
-          carbs: quickAddCarbs ? parseFloat(quickAddCarbs) : undefined,
-          fat: quickAddFat ? parseFloat(quickAddFat) : undefined,
-        },
-      }, { onSuccess: () => resolve(), onError: () => resolve() });
-    });
-    qc.invalidateQueries({ queryKey: getListNutritionLogsQueryKey(clientId) });
-    setQuickAddSaving(false);
-    setQuickAddOpen(false);
-    setQuickAddName("");
-    setQuickAddCals("");
-    setQuickAddProtein("");
-    setQuickAddCarbs("");
-    setQuickAddFat("");
-    toast({ title: "Meal added!" });
-  };
-
   const { units } = useUnitSystem();
   const calLabel = units === "imperial" ? "cal" : "kcal";
 
@@ -650,12 +529,6 @@ export function NutritionPage() {
 
   const selectedLogs = logs?.filter(n => n.date === selectedDate && n.imageUrl !== "water_only") ?? [];
   const selectedWater = logs?.find(n => n.date === selectedDate && n.imageUrl === "water_only");
-
-  const yesterdayDate = stepDate(selectedDate, -1);
-  const yesterdayMeals = (logs ?? []).filter(
-    n => n.date === yesterdayDate && n.imageUrl !== "water_only" && n.imageUrl !== "cant_track"
-  );
-  const showCopyFromYesterday = yesterdayMeals.length > 0 && selectedLogs.length < yesterdayMeals.length;
 
   const totalCal  = selectedLogs.reduce((s, n) => s + (n.calories ?? 0), 0);
   const totalPro  = selectedLogs.reduce((s, n) => s + Number(n.protein ?? 0), 0);
@@ -728,6 +601,14 @@ export function NutritionPage() {
 
       {/* ── Day Summary ───────────────────── */}
       <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
+        {/* Day type badge — shown when coach has set different training/rest goals */}
+        {isToday && goalDayType && goalDayType !== "any" && isTrainingDay !== null && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+              {isTrainingDay ? "🏋️ Training day" : "🌙 Rest day"}
+            </span>
+          </div>
+        )}
         {/* Calories row — always visible */}
         <div className="flex items-end justify-between">
           <div className="flex items-end gap-1.5">
@@ -805,49 +686,18 @@ export function NutritionPage() {
         ) : null}
       </div>
 
-      {/* ── Copy from yesterday ───────────────────── */}
-      {showCopyFromYesterday && (
-        <button
-          onClick={() => handleCopyFromYesterday(yesterdayMeals)}
-          disabled={copying}
-          className="w-full flex items-center justify-between px-4 py-3 rounded-2xl border border-dashed border-muted-foreground/30 hover:border-primary/50 hover:bg-primary/5 transition-colors text-left disabled:opacity-60 group"
-        >
-          <div className="flex items-center gap-3">
-            {copying
-              ? <Loader2 className="w-4 h-4 text-muted-foreground animate-spin flex-shrink-0" />
-              : <span className="text-base flex-shrink-0">📋</span>
-            }
-            <div>
-              <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
-                {copying ? "Copying…" : "Copy from yesterday"}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {yesterdayMeals.length} meal{yesterdayMeals.length !== 1 ? "s" : ""} logged {formatDateLabel(yesterdayDate)}
-              </p>
-            </div>
-          </div>
-          <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />
-        </button>
-      )}
-
-      {/* ── Logged entries (all days with data) ───────────────────── */}
-      {hasSelectedData && (
+      {/* ── Read-only past day view ───────────────────── */}
+      {isPast && hasSelectedData && (
         <div className="space-y-2">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-1">
-            {isPast ? "Logged entries" : "Today's entries"}
-          </p>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-1">Logged entries</p>
           {selectedLogs.map(entry => (
             <div key={entry.id} className="rounded-xl border border-border bg-card p-3 flex items-center gap-3">
-              {entry.imageUrl && entry.imageUrl !== "cant_track" && entry.imageUrl !== "manual_entry" ? (
+              {entry.imageUrl && entry.imageUrl !== "cant_track" ? (
                 <img
                   src={entry.imageUrl}
                   alt="log"
                   className="w-12 h-12 rounded-lg object-cover flex-shrink-0 bg-muted"
                 />
-              ) : entry.imageUrl === "manual_entry" ? (
-                <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <PenLine className="w-5 h-5 text-primary/60" />
-                </div>
               ) : (
                 <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
                   <UtensilsCrossed className="w-5 h-5 text-muted-foreground/40" />
@@ -870,22 +720,6 @@ export function NutritionPage() {
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-1 flex-shrink-0">
-                <button
-                  onClick={() => handleOpenEditEntry({ id: entry.id, imageUrl: entry.imageUrl ?? "", notes: entry.notes ?? null, calories: entry.calories ?? null, protein: entry.protein != null ? Number(entry.protein) : null, carbs: entry.carbs != null ? Number(entry.carbs) : null, fat: entry.fat != null ? Number(entry.fat) : null })}
-                  className="w-8 h-8 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
-                  title="Edit entry"
-                >
-                  <Pencil className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => setConfirmDeleteId(entry.id)}
-                  className="w-8 h-8 flex items-center justify-center rounded-full text-muted-foreground hover:text-destructive hover:bg-muted/60 transition-colors"
-                  title="Delete entry"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
             </div>
           ))}
         </div>
@@ -894,18 +728,6 @@ export function NutritionPage() {
       {/* ── Submission form (today + future, or past with no entries) ───────────────────── */}
       {showForm && (
         <>
-          {/* Quick Add — type a meal directly without a photo */}
-          <button
-            onClick={() => setQuickAddOpen(true)}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl border border-dashed border-primary/40 bg-primary/5 text-primary hover:bg-primary/10 transition-colors text-left"
-          >
-            <PenLine className="w-5 h-5 flex-shrink-0" />
-            <div>
-              <p className="text-sm font-semibold">Quick Add</p>
-              <p className="text-xs text-muted-foreground">Type in a meal name and macros — no photo needed</p>
-            </div>
-          </button>
-
           {/* Diary Overview slot */}
           <PhotoBox
             slot={diarySlot}
@@ -1006,169 +828,6 @@ export function NutritionPage() {
           </Button>
         </>
       )}
-
-      {/* Edit Entry Sheet */}
-      <Sheet open={editingEntry !== null} onOpenChange={open => { if (!open) setEditingEntry(null); }}>
-        <SheetContent side="bottom" className="rounded-t-2xl max-h-[90vh] overflow-y-auto">
-          <SheetHeader className="mb-4">
-            <SheetTitle>Edit Entry</SheetTitle>
-          </SheetHeader>
-          <div className="space-y-4">
-            <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Name / description</label>
-              <Input
-                placeholder="e.g. Chicken & rice"
-                value={editEntryName}
-                onChange={e => setEditEntryName(e.target.value)}
-                className="mt-1.5"
-                autoFocus
-              />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Calories <span className="normal-case font-normal text-muted-foreground/70">({calLabel})</span>
-              </label>
-              <Input
-                type="number"
-                inputMode="numeric"
-                placeholder="e.g. 520"
-                value={editEntryCals}
-                onChange={e => setEditEntryCals(e.target.value)}
-                className="mt-1.5"
-                min={0}
-              />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
-                Macros <span className="normal-case font-normal">(optional)</span>
-              </p>
-              <div className="grid grid-cols-3 gap-2">
-                {([
-                  { label: "Protein (g)", value: editEntryProtein, setter: setEditEntryProtein },
-                  { label: "Carbs (g)",   value: editEntryCarbs,   setter: setEditEntryCarbs   },
-                  { label: "Fat (g)",     value: editEntryFat,     setter: setEditEntryFat     },
-                ] as const).map(m => (
-                  <div key={m.label}>
-                    <label className="text-[11px] text-muted-foreground">{m.label}</label>
-                    <Input
-                      type="number"
-                      inputMode="decimal"
-                      placeholder="0"
-                      value={m.value}
-                      onChange={e => m.setter(e.target.value)}
-                      className="mt-0.5 h-9 text-sm"
-                      min={0}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-          <SheetFooter className="mt-6 flex-row gap-3">
-            <Button variant="outline" className="flex-1" onClick={() => setEditingEntry(null)} disabled={editEntrySaving}>
-              Cancel
-            </Button>
-            <Button className="flex-1" onClick={handleSaveEditEntry} disabled={editEntrySaving}>
-              {editEntrySaving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving…</> : "Save changes"}
-            </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
-
-      {/* Delete confirmation */}
-      <AlertDialog open={confirmDeleteId !== null} onOpenChange={open => { if (!open) setConfirmDeleteId(null); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove this entry?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete the entry and update your day totals.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Keep it</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => confirmDeleteId !== null && handleDeleteEntry(confirmDeleteId)}
-            >
-              Remove
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Quick Add Sheet */}
-      <Sheet open={quickAddOpen} onOpenChange={setQuickAddOpen}>
-        <SheetContent side="bottom" className="rounded-t-2xl max-h-[90vh] overflow-y-auto">
-          <SheetHeader className="mb-4">
-            <SheetTitle>Quick Add Meal</SheetTitle>
-          </SheetHeader>
-          <div className="space-y-4">
-            <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Meal name *</label>
-              <Input
-                placeholder="e.g. Chicken & rice, Oats with banana"
-                value={quickAddName}
-                onChange={e => setQuickAddName(e.target.value)}
-                className="mt-1.5"
-                autoFocus
-              />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Calories * <span className="normal-case font-normal text-muted-foreground/70">({calLabel})</span>
-              </label>
-              <Input
-                type="number"
-                inputMode="numeric"
-                placeholder="e.g. 520"
-                value={quickAddCals}
-                onChange={e => setQuickAddCals(e.target.value)}
-                className="mt-1.5"
-                min={1}
-              />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
-                Macros <span className="normal-case font-normal">(optional)</span>
-              </p>
-              <div className="grid grid-cols-3 gap-2">
-                {([
-                  { label: "Protein (g)", value: quickAddProtein, setter: setQuickAddProtein },
-                  { label: "Carbs (g)",   value: quickAddCarbs,   setter: setQuickAddCarbs   },
-                  { label: "Fat (g)",     value: quickAddFat,     setter: setQuickAddFat     },
-                ] as const).map(m => (
-                  <div key={m.label}>
-                    <label className="text-[11px] text-muted-foreground">{m.label}</label>
-                    <Input
-                      type="number"
-                      inputMode="decimal"
-                      placeholder="0"
-                      value={m.value}
-                      onChange={e => m.setter(e.target.value)}
-                      className="mt-0.5 h-9 text-sm"
-                      min={0}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-          <SheetFooter className="mt-6 flex-row gap-3">
-            <Button variant="outline" className="flex-1" onClick={() => setQuickAddOpen(false)} disabled={quickAddSaving}>
-              Cancel
-            </Button>
-            <Button
-              className="flex-1"
-              onClick={handleQuickAdd}
-              disabled={quickAddSaving || !quickAddName.trim() || !quickAddCals || parseInt(quickAddCals, 10) <= 0}
-            >
-              {quickAddSaving
-                ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving…</>
-                : "Add Meal"}
-            </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
     </div>
   );
 }

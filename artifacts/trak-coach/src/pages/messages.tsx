@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useParams, useLocation } from "wouter";
 import {
   useListMessages,
@@ -19,7 +19,6 @@ import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { usePushNotifications } from "@/hooks/use-push-notifications";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { Send, ArrowLeft, ClipboardList, Lightbulb } from "lucide-react";
@@ -308,18 +307,10 @@ function AssignTaskDialog({
 function ConversationPanel({ clientId, clientName, onBack }: { clientId: number; clientName: string | undefined; onBack: () => void }) {
   const qc = useQueryClient();
   const [input, setInput] = useState("");
-  const { requestPermissionAndSubscribe } = usePushNotifications();
 
   // Synchronous read from localStorage so the name is available on the very
   // first render — even on a cold hard navigation before any async data lands.
   const storedName = useMemo(() => readStoredClientName(clientId), [clientId]);
-
-  // Subscribe for push notifications scoped to this client. Called once per
-  // conversation open; no-ops if permission was already granted or denied.
-  useEffect(() => {
-    requestPermissionAndSubscribe("coach", clientId);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clientId]);
 
   const { data: clientData } = useGetClient(clientId, {
     query: {

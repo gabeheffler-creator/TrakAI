@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useLocation, useSearch } from "wouter";
 import {
   useGetClient,
@@ -27,7 +27,6 @@ import {
   useUpdateProgramExercise,
   useDeleteProgramExercise,
   useGetWorkoutLog,
-  useUpdateWorkoutLog,
   useListCoachNotes,
   useCreateCoachNote,
   useUpdateCoachNote,
@@ -45,10 +44,6 @@ import {
   useListClientProgramAssignmentHistory,
   useGenerateAiProgram,
   useListClientTasks,
-  useListCalendarDayNotes,
-  useCreateCalendarDayNote,
-  useUpdateCalendarDayNote,
-  useDeleteCalendarDayNote,
   getGetWorkoutLogQueryKey,
   getGetClientQueryKey,
   getListAssignmentsQueryKey,
@@ -64,7 +59,6 @@ import {
   getListClientGoalHistoryQueryKey,
   getListClientProgramAssignmentHistoryQueryKey,
   getListClientTasksQueryKey,
-  getListCalendarDayNotesQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -81,32 +75,14 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import { Copy, Send, Plus, CheckCircle, Circle, Trash2, ArrowLeft, ChevronDown, ChevronRight, Dumbbell, Pencil, X, Check, Phone, StickyNote, Clock, Video, Target, Sparkles, Loader2, ImageOff, Moon, Columns2, Search, GripVertical, ArrowRight, ShieldCheck, RotateCcw, Camera, Ruler, MessageSquare } from "lucide-react";
-import {
-  DndContext,
-  PointerSensor,
-  TouchSensor,
-  closestCenter,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from "@dnd-kit/core";
-import {
-  SortableContext,
-  arrayMove,
-  useSortable,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
+import { Copy, Send, Plus, CheckCircle, Circle, Trash2, ArrowLeft, ChevronDown, ChevronRight, Dumbbell, Pencil, X, Check, Phone, StickyNote, Clock, Video, Target, Sparkles, Loader2, ImageOff, Moon } from "lucide-react";
 import { Link as WLink } from "wouter";
 import { format, parseISO } from "date-fns";
 import { QueryErrorState } from "@/components/query-error-state";
 import { VideoCall } from "@/components/video-call";
 import { CallNoteReviewSheet } from "@/components/call-note-review-sheet";
 import { ClientMeasurementsTab } from "@/components/client-measurements-tab";
-import { EmptyState } from "@/components/empty-state";
 import { useCallPrefs } from "@/hooks/use-call-prefs";
 
 // ── Vertical drum / scroll picker ────────────────────────────
@@ -343,21 +319,6 @@ function DrumDial({
   );
 }
 
-// ── Message search highlight ──────────────────────────────────
-function HighlightText({ text, query }: { text: string; query: string }) {
-  if (!query.trim()) return <>{text}</>;
-  const parts = text.split(new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi"));
-  return (
-    <>
-      {parts.map((part, i) =>
-        part.toLowerCase() === query.toLowerCase()
-          ? <mark key={i} className="bg-yellow-200 dark:bg-yellow-700/60 text-inherit rounded-sm px-0.5">{part}</mark>
-          : part
-      )}
-    </>
-  );
-}
-
 const messageSchema = z.object({ content: z.string().min(1) });
 const assignmentSchema = z.object({
   title: z.string().min(1),
@@ -374,105 +335,11 @@ const assignProgramSchema = z.object({
 type DayExercise = { id: number; exerciseName: string; muscleGroup: string; sets: number; reps: string; restSeconds?: number | null; weight?: string | null };
 type ProgramDay = { id: number; name: string; notes?: string | null; exercises: DayExercise[] };
 
-// ── Program diff helpers ──────────────────────────────────────
-type ExDiff = { name: string; kind: "added" | "removed" | "changed"; detail?: string };
-type DayDiff = { dayName: string; kind: "added" | "removed" | "same"; exercises: ExDiff[] };
-
-function computeProgramDiff(currentDays: ProgramDay[], templateDays: ProgramDay[]): DayDiff[] {
-  const result: DayDiff[] = [];
-  const currentByName = new Map(currentDays.map(d => [d.name, d]));
-  const templateByName = new Map(templateDays.map(d => [d.name, d]));
-
-  for (const td of templateDays) {
-    const cd = currentByName.get(td.name);
-    if (!cd) {
-      result.push({ dayName: td.name, kind: "added", exercises: td.exercises.map(e => ({ name: e.exerciseName, kind: "added" as const })) });
-    } else {
-      const exDiffs: ExDiff[] = [];
-      const currentExByName = new Map(cd.exercises.map(e => [e.exerciseName, e]));
-      const templateExByName = new Map(td.exercises.map(e => [e.exerciseName, e]));
-      for (const te of td.exercises) {
-        const ce = currentExByName.get(te.exerciseName);
-        if (!ce) {
-          exDiffs.push({ name: te.exerciseName, kind: "added" });
-        } else {
-          const changes: string[] = [];
-          if (ce.sets !== te.sets) changes.push(`sets ${ce.sets}→${te.sets}`);
-          if (ce.reps !== te.reps) changes.push(`reps ${ce.reps}→${te.reps}`);
-          if ((ce.restSeconds ?? null) !== (te.restSeconds ?? null))
-            changes.push(`rest ${ce.restSeconds ?? "–"}→${te.restSeconds ?? "–"}s`);
-          if (changes.length) exDiffs.push({ name: te.exerciseName, kind: "changed", detail: changes.join(", ") });
-        }
-      }
-      for (const ce of cd.exercises) {
-        if (!templateExByName.has(ce.exerciseName)) exDiffs.push({ name: ce.exerciseName, kind: "removed" });
-      }
-      result.push({ dayName: td.name, kind: "same", exercises: exDiffs });
-    }
-  }
-  for (const cd of currentDays) {
-    if (!templateByName.has(cd.name))
-      result.push({ dayName: cd.name, kind: "removed", exercises: cd.exercises.map(e => ({ name: e.exerciseName, kind: "removed" as const })) });
-  }
-  return result;
-}
-
-// ── Swap parsing helpers ──────────────────────────────────────────────────────
-type SwapRecord = {
-  exerciseId: string;
-  original: string;
-  substitute: string;
-  decision?: "accepted" | "overridden" | "dismissed";
-};
-
-function parseSwapRecords(notes: string | null | undefined): SwapRecord[] {
-  if (!notes) return [];
-  const reviews = new Map<string, SwapRecord["decision"]>();
-  for (const m of notes.matchAll(/\[swap-review:(\d+):(accepted|overridden|dismissed)\]/g)) {
-    reviews.set(m[1], m[2] as SwapRecord["decision"]);
-  }
-  return Array.from(notes.matchAll(/\[swap:(\d+):([^\]]+)->([^\]]+)\]/g)).map(m => ({
-    exerciseId: m[1],
-    original: m[2],
-    substitute: m[3],
-    decision: reviews.get(m[1]),
-  }));
-}
-
-function stripMetaMarkers(notes: string) {
-  return notes
-    .replace(/\[swap:[^\]]*\]/g, "")
-    .replace(/\[swap-review:[^\]]*\]/g, "")
-    .replace(/\[sleep-adjusted\]/g, "")
-    .trim();
-}
-
-// ── Expandable workout card ───────────────────────────────────────────────────
-function ExpandableWorkoutCard({ log, clientId }: { log: { id: number; date: string; programDayName?: string | null; durationMinutes?: number | null; status: string; notes?: string | null; formVideoUrl?: string | null }; clientId: number }) {
+function ExpandableWorkoutCard({ log, clientId }: { log: { id: number; date: string; programDayName?: string | null; durationMinutes?: number | null; status: string; notes?: string | null }; clientId: number }) {
   const [open, setOpen] = useState(false);
   const { data: detail, isLoading } = useGetWorkoutLog(clientId, log.id, {
     query: { enabled: open, queryKey: getGetWorkoutLogQueryKey(clientId, log.id) }
   });
-  const updateLog = useUpdateWorkoutLog();
-  const qc = useQueryClient();
-
-  const swaps = parseSwapRecords(log.notes);
-  const pendingSwaps = swaps.filter(s => !s.decision);
-
-  const handleSwapDecision = async (swap: SwapRecord, decision: "accepted" | "overridden") => {
-    const marker = `[swap-review:${swap.exerciseId}:${decision}]`;
-    const updatedNotes = (log.notes ?? "") + marker;
-    await updateLog.mutateAsync({ clientId, logId: log.id, data: { notes: updatedNotes } });
-    qc.invalidateQueries({ queryKey: getListWorkoutLogsQueryKey(clientId) });
-  };
-
-  const handleSwapLeave = async (swap: SwapRecord) => {
-    // Dismissed = reviewed but no action taken; recorded so it leaves the pending queue
-    const marker = `[swap-review:${swap.exerciseId}:dismissed]`;
-    const updatedNotes = (log.notes ?? "") + marker;
-    await updateLog.mutateAsync({ clientId, logId: log.id, data: { notes: updatedNotes } });
-    qc.invalidateQueries({ queryKey: getListWorkoutLogsQueryKey(clientId) });
-  };
 
   const byExercise = (detail?.sets ?? []).reduce<Record<string, NonNullable<typeof detail>["sets"]>>((acc, s) => {
     (acc[s.exerciseName] ??= []).push(s);
@@ -498,18 +365,6 @@ function ExpandableWorkoutCard({ log, clientId }: { log: { id: number; date: str
                     <Moon className="w-3 h-3" /> Sleep-adjusted
                   </Badge>
                 )}
-                {pendingSwaps.length > 0 && (
-                  <Badge variant="outline" className="text-xs border-orange-400 text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/30 gap-1">
-                    <ArrowRight className="w-3 h-3" />
-                    {pendingSwaps.length === 1 ? "Swap" : `${pendingSwaps.length} Swaps`} · Review
-                  </Badge>
-                )}
-                {pendingSwaps.length === 0 && swaps.length > 0 && (
-                  <Badge variant="outline" className="text-xs border-emerald-400 text-emerald-600 dark:text-emerald-400 gap-1">
-                    <ShieldCheck className="w-3 h-3" />
-                    Swap reviewed
-                  </Badge>
-                )}
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">{log.date}{log.durationMinutes ? ` · ${log.durationMinutes} min` : ""}</p>
             </div>
@@ -519,85 +374,20 @@ function ExpandableWorkoutCard({ log, clientId }: { log: { id: number; date: str
       </button>
       {open && (
         <div className="border-t border-border px-4 pb-4 pt-3">
-          {log.status === "early_exit" && log.notes && stripMetaMarkers(log.notes) && (
+          {log.status === "early_exit" && log.notes && (
             <div className="mb-3 rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2">
               <p className="text-xs font-medium text-destructive mb-0.5">Reason for finishing early</p>
-              <p className="text-xs text-foreground">{stripMetaMarkers(log.notes)}</p>
+              <p className="text-xs text-foreground">{log.notes.replace(/\[swap:[^\]]*\]/g, "").replace(/\[sleep-adjusted\]/g, "").trim()}</p>
             </div>
           )}
-
-          {/* Swap review panel */}
-          {swaps.length > 0 && (
-            <div className="mb-3 rounded-md border border-orange-200 dark:border-orange-800 overflow-hidden">
-              <div className="bg-orange-50 dark:bg-orange-950/30 px-3 py-2 border-b border-orange-200 dark:border-orange-800">
-                <p className="text-xs font-semibold text-orange-700 dark:text-orange-300 flex items-center gap-1.5">
-                  <ArrowRight className="w-3.5 h-3.5" /> Exercise swaps
+          {log.notes && /\[swap:\d+:[^\]]+\]/.test(log.notes) && (
+            <div className="mb-3 rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 px-3 py-2">
+              <p className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-1">Exercise swaps</p>
+              {Array.from(log.notes.matchAll(/\[swap:\d+:([^\]]+)->([^\]]+)\]/g)).map((m, i) => (
+                <p key={i} className="text-xs text-foreground">
+                  <span className="line-through text-muted-foreground">{m[1]}</span>{" → "}{m[2]}
                 </p>
-              </div>
-              <div className="divide-y divide-orange-100 dark:divide-orange-900/40">
-                {swaps.map(swap => (
-                  <div key={swap.exerciseId} className="px-3 py-2.5">
-                    {/* Original → Substitute */}
-                    <div className="flex items-center gap-1.5 mb-2">
-                      <span className="text-xs text-muted-foreground line-through">{swap.original}</span>
-                      <ArrowRight className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-                      <span className="text-xs font-medium text-foreground">{swap.substitute}</span>
-                    </div>
-                    {/* Decision state */}
-                    {swap.decision === "accepted" && (
-                      <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                        <ShieldCheck className="w-3.5 h-3.5" />
-                        <span className="text-xs font-medium">Accepted</span>
-                      </div>
-                    )}
-                    {swap.decision === "overridden" && (
-                      <div className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
-                        <RotateCcw className="w-3.5 h-3.5" />
-                        <span className="text-xs font-medium">Override noted — revert in program builder</span>
-                      </div>
-                    )}
-                    {swap.decision === "dismissed" && (
-                      <span className="text-xs text-muted-foreground italic">No action taken</span>
-                    )}
-                    {!swap.decision && (
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleSwapDecision(swap, "accepted")}
-                          disabled={updateLog.isPending}
-                          className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-50"
-                        >
-                          <ShieldCheck className="w-3 h-3" /> Accept
-                        </button>
-                        <button
-                          onClick={() => handleSwapDecision(swap, "overridden")}
-                          disabled={updateLog.isPending}
-                          className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-md bg-amber-500 text-white hover:bg-amber-600 transition-colors disabled:opacity-50"
-                        >
-                          <RotateCcw className="w-3 h-3" /> Override
-                        </button>
-                        <button
-                          onClick={() => handleSwapLeave(swap)}
-                          disabled={updateLog.isPending}
-                          className="text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline transition-colors disabled:opacity-50"
-                        >
-                          Leave
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {log.formVideoUrl && (
-            <div className="mb-3 rounded-md bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-800 px-3 py-2">
-              <p className="text-xs font-medium text-violet-700 dark:text-violet-300 mb-2">📹 Form video</p>
-              <video
-                src={`/api/storage${log.formVideoUrl}`}
-                controls
-                className="w-full rounded-md max-h-64 bg-black"
-              />
+              ))}
             </div>
           )}
           {isLoading && <p className="text-xs text-muted-foreground">Loading sets…</p>}
@@ -632,20 +422,12 @@ function EditableExerciseRow({
   dayId,
   onDeleted,
   onUpdated,
-  dragHandleProps,
 }: {
   ex: DayExercise;
   programId: number;
   dayId: number;
   onDeleted: () => void;
   onUpdated: () => void;
-  dragHandleProps?: {
-    ref: (el: HTMLElement | null) => void;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    attributes: any;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    listeners: any;
-  };
 }) {
   const [editing, setEditing] = useState(false);
   const [sets, setSets] = useState(String(ex.sets));
@@ -718,18 +500,6 @@ function EditableExerciseRow({
 
   return (
     <div className="flex items-center gap-2 py-2 border-b border-border/50 last:border-0 group">
-      {dragHandleProps ? (
-        <button
-          ref={dragHandleProps.ref as React.Ref<HTMLButtonElement>}
-          {...(dragHandleProps.attributes as React.HTMLAttributes<HTMLButtonElement>)}
-          {...(dragHandleProps.listeners as React.HTMLAttributes<HTMLButtonElement>)}
-          className="p-1 text-muted-foreground/40 hover:text-muted-foreground cursor-grab active:cursor-grabbing flex-shrink-0 touch-none"
-          aria-label="Drag to reorder"
-          tabIndex={-1}
-        >
-          <GripVertical className="w-4 h-4" />
-        </button>
-      ) : null}
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium">{ex.exerciseName}</p>
         <p className="text-xs text-muted-foreground">{ex.muscleGroup}</p>
@@ -744,34 +514,6 @@ function EditableExerciseRow({
       <button onClick={handleDelete} disabled={deleteEx.isPending} className="p-1.5 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">
         <Trash2 className="w-3.5 h-3.5" />
       </button>
-    </div>
-  );
-}
-
-// ── Sortable wrapper for drag-and-drop ───────────────────────────────────────
-function SortableExerciseRow({
-  ex, programId, dayId, onDeleted, onUpdated,
-}: {
-  ex: DayExercise; programId: number; dayId: number; onDeleted: () => void; onUpdated: () => void;
-}) {
-  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: ex.id });
-  const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-    position: "relative",
-    zIndex: isDragging ? 10 : undefined,
-  };
-  return (
-    <div ref={setNodeRef} style={style}>
-      <EditableExerciseRow
-        ex={ex}
-        programId={programId}
-        dayId={dayId}
-        onDeleted={onDeleted}
-        onUpdated={onUpdated}
-        dragHandleProps={{ ref: setActivatorNodeRef, attributes, listeners }}
-      />
     </div>
   );
 }
@@ -1126,41 +868,8 @@ function AddExerciseRow({
 
 function ProgramDayCard({ day, dayNumber, programId, onChanged }: { day: ProgramDay; dayNumber: number; programId: number; onChanged: () => void }) {
   const [open, setOpen] = useState(false);
-  const [localExercises, setLocalExercises] = useState<DayExercise[]>(day.exercises);
   const { data: allExercises } = useListExercises({ query: { enabled: open, queryKey: getListExercisesQueryKey() } });
-  const updateEx = useUpdateProgramExercise();
   const muscleGroups = [...new Set(day.exercises.map(e => e.muscleGroup))];
-
-  // Sync when parent data changes (e.g. after add/delete)
-  useEffect(() => {
-    setLocalExercises(day.exercises);
-  }, [day.exercises]);
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } }),
-  );
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-
-    setLocalExercises(prev => {
-      const oldIdx = prev.findIndex(e => e.id === active.id);
-      const newIdx = prev.findIndex(e => e.id === over.id);
-      if (oldIdx === -1 || newIdx === -1) return prev;
-      const reordered = arrayMove(prev, oldIdx, newIdx);
-      // Persist new order for each exercise that changed position
-      reordered.forEach((ex, idx) => {
-        const newOrder = idx + 1;
-        const originalOrder = prev.findIndex(e => e.id === ex.id) + 1;
-        if (newOrder !== originalOrder) {
-          updateEx.mutate({ programId, dayId: day.id, peId: ex.id, data: { order: newOrder } });
-        }
-      });
-      return reordered;
-    });
-  };
 
   return (
     <Card>
@@ -1185,26 +894,22 @@ function ProgramDayCard({ day, dayNumber, programId, onChanged }: { day: Program
       {open && (
         <div className="border-t border-border px-4 pb-4 pt-3">
           {day.notes && <p className="text-xs text-muted-foreground mb-3 italic">{day.notes}</p>}
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={localExercises.map(e => e.id)} strategy={verticalListSortingStrategy}>
-              <div className="space-y-0">
-                {localExercises.map(ex => (
-                  <SortableExerciseRow
-                    key={ex.id}
-                    ex={ex}
-                    programId={programId}
-                    dayId={day.id}
-                    onDeleted={onChanged}
-                    onUpdated={onChanged}
-                  />
-                ))}
-              </div>
-            </SortableContext>
-          </DndContext>
+          <div className="space-y-0">
+            {day.exercises.map(ex => (
+              <EditableExerciseRow
+                key={ex.id}
+                ex={ex}
+                programId={programId}
+                dayId={day.id}
+                onDeleted={onChanged}
+                onUpdated={onChanged}
+              />
+            ))}
+          </div>
           <AddExerciseRow
             programId={programId}
             dayId={day.id}
-            currentCount={localExercises.length}
+            currentCount={day.exercises.length}
             allExercises={allExercises ?? []}
             onAdded={onChanged}
           />
@@ -1225,225 +930,6 @@ function BrokenPhotoPlaceholder({ aspectClass }: { aspectClass: string }) {
   );
 }
 
-// ─── Calendar Notes Tab ───────────────────────────────────────────────────────
-
-type CalendarDayNoteRecord = { id: number; clientId: number; date: string; note: string; createdAt: string; updatedAt: string };
-
-const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-function getMonthGrid(year: number, month: number): string[] {
-  const firstDay = new Date(year, month, 1);
-  const lastDay = new Date(year, month + 1, 0);
-  const dates: string[] = [];
-  for (let i = firstDay.getDay() - 1; i >= 0; i--) {
-    const d = new Date(year, month, -i);
-    dates.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
-  }
-  for (let d = 1; d <= lastDay.getDate(); d++) {
-    dates.push(`${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`);
-  }
-  const rem = 7 - (dates.length % 7);
-  if (rem < 7) {
-    for (let i = 1; i <= rem; i++) {
-      const d = new Date(year, month + 1, i);
-      dates.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
-    }
-  }
-  return dates;
-}
-
-function CalendarNotesTab({ clientId }: { clientId: number }) {
-  const today = new Date().toISOString().split("T")[0];
-  const todayDate = new Date(today + "T12:00:00");
-  const [year, setYear] = useState(todayDate.getFullYear());
-  const [month, setMonth] = useState(todayDate.getMonth());
-  const [editingDate, setEditingDate] = useState<string | null>(null);
-  const [draftText, setDraftText] = useState("");
-  const { toast } = useToast();
-  const qc = useQueryClient();
-
-  const { data: notes } = useListCalendarDayNotes(clientId, {
-    query: { queryKey: getListCalendarDayNotesQueryKey(clientId) },
-  });
-
-  const notesByDate = useMemo(() => {
-    const map = new Map<string, CalendarDayNoteRecord>();
-    for (const n of notes ?? []) map.set(n.date, n as CalendarDayNoteRecord);
-    return map;
-  }, [notes]);
-
-  const invalidate = () => qc.invalidateQueries({ queryKey: getListCalendarDayNotesQueryKey(clientId) });
-
-  const createNote = useCreateCalendarDayNote();
-  const updateNote = useUpdateCalendarDayNote();
-  const deleteNote = useDeleteCalendarDayNote();
-
-  const gridDates = useMemo(() => getMonthGrid(year, month), [year, month]);
-  const monthLabel = new Date(year, month, 1).toLocaleDateString(undefined, { month: "long", year: "numeric" });
-
-  const isCurrentMonth = (iso: string) => {
-    const d = new Date(iso + "T12:00:00");
-    return d.getFullYear() === year && d.getMonth() === month;
-  };
-
-  const startEdit = (date: string) => {
-    const existing = notesByDate.get(date);
-    setDraftText(existing?.note ?? "");
-    setEditingDate(date);
-  };
-
-  const saveNote = async () => {
-    if (!editingDate) return;
-    const text = draftText.trim();
-    const existing = notesByDate.get(editingDate);
-    if (!text) {
-      if (existing) {
-        await deleteNote.mutateAsync({ clientId, noteId: existing.id });
-        invalidate();
-        toast({ description: "Note deleted." });
-      }
-      setEditingDate(null);
-      return;
-    }
-    if (existing) {
-      await updateNote.mutateAsync({ clientId, noteId: existing.id, data: { note: text } });
-    } else {
-      await createNote.mutateAsync({ clientId, data: { date: editingDate, note: text } });
-    }
-    invalidate();
-    setEditingDate(null);
-  };
-
-  const handleDeleteNote = async (date: string) => {
-    const existing = notesByDate.get(date);
-    if (!existing) return;
-    await deleteNote.mutateAsync({ clientId, noteId: existing.id });
-    invalidate();
-    toast({ description: "Note deleted." });
-  };
-
-  const prevMonth = () => {
-    if (month === 0) { setYear(y => y - 1); setMonth(11); }
-    else setMonth(m => m - 1);
-  };
-  const nextMonth = () => {
-    if (month === 11) { setYear(y => y + 1); setMonth(0); }
-    else setMonth(m => m + 1);
-  };
-
-  return (
-    <div className="space-y-4">
-      {/* Month navigation */}
-      <div className="flex items-center justify-between">
-        <button onClick={prevMonth} className="p-2 rounded-lg hover:bg-muted transition-colors">
-          <ChevronRight className="w-4 h-4 rotate-180" />
-        </button>
-        <h3 className="font-semibold text-sm">{monthLabel}</h3>
-        <button onClick={nextMonth} className="p-2 rounded-lg hover:bg-muted transition-colors">
-          <ChevronRight className="w-4 h-4" />
-        </button>
-      </div>
-
-      {/* Day-of-week header */}
-      <div className="grid grid-cols-7 gap-px">
-        {DOW.map(d => (
-          <div key={d} className="text-center text-[10px] font-semibold text-muted-foreground py-1">{d}</div>
-        ))}
-      </div>
-
-      {/* Calendar grid */}
-      <div className="grid grid-cols-7 gap-px bg-border rounded-xl overflow-hidden border border-border">
-        {gridDates.map(date => {
-          const inMonth = isCurrentMonth(date);
-          const isToday = date === today;
-          const note = inMonth ? notesByDate.get(date) : undefined;
-          const dayNum = new Date(date + "T12:00:00").getDate();
-          const isEditing = editingDate === date;
-
-          return (
-            <div
-              key={date}
-              className={cn(
-                "bg-card min-h-[90px] p-1.5 flex flex-col gap-1",
-                !inMonth && "opacity-30 pointer-events-none",
-                isToday && "bg-primary/5",
-              )}
-            >
-              {/* Day number */}
-              <span className={cn(
-                "text-xs font-semibold w-5 h-5 flex items-center justify-center rounded-full self-start",
-                isToday ? "bg-primary text-primary-foreground" : "text-foreground"
-              )}>
-                {dayNum}
-              </span>
-
-              {/* Note area */}
-              {isEditing ? (
-                <div className="flex flex-col gap-1 flex-1">
-                  <textarea
-                    autoFocus
-                    value={draftText}
-                    onChange={e => setDraftText(e.target.value)}
-                    className="w-full flex-1 text-[10px] leading-tight rounded border border-border bg-background px-1 py-0.5 resize-none focus:outline-none focus:ring-1 focus:ring-primary"
-                    rows={3}
-                    placeholder="Add a note…"
-                    onKeyDown={e => { if (e.key === "Escape") setEditingDate(null); if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) saveNote(); }}
-                  />
-                  <div className="flex gap-0.5">
-                    <button
-                      onClick={saveNote}
-                      className="flex-1 text-[9px] font-semibold rounded bg-primary text-primary-foreground py-0.5 hover:bg-primary/90 transition-colors"
-                    >
-                      Save
-                    </button>
-                    <button
-                      onClick={() => setEditingDate(null)}
-                      className="px-1 text-[9px] rounded bg-muted text-muted-foreground hover:bg-muted/80 transition-colors"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                </div>
-              ) : note ? (
-                <div className="flex flex-col gap-0.5 flex-1 group/note">
-                  <p className="text-[10px] leading-tight text-foreground line-clamp-3">{note.note}</p>
-                  <div className="flex gap-0.5 opacity-0 group-hover/note:opacity-100 transition-opacity">
-                    <button
-                      onClick={() => startEdit(date)}
-                      className="text-[9px] text-primary hover:underline"
-                    >
-                      Edit
-                    </button>
-                    <span className="text-[9px] text-muted-foreground">·</span>
-                    <button
-                      onClick={() => handleDeleteNote(date)}
-                      className="text-[9px] text-destructive hover:underline"
-                    >
-                      Del
-                    </button>
-                  </div>
-                </div>
-              ) : inMonth ? (
-                <button
-                  onClick={() => startEdit(date)}
-                  className="flex-1 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity rounded hover:bg-muted"
-                  aria-label={`Add note for ${date}`}
-                >
-                  <Plus className="w-3 h-3 text-muted-foreground" />
-                </button>
-              ) : null}
-            </div>
-          );
-        })}
-      </div>
-
-      <p className="text-xs text-muted-foreground text-center">
-        Click any day to add a coaching note. Clients see these as read-only tags on their calendar.
-      </p>
-    </div>
-  );
-}
-
 export function ClientProfile() {
   const { clientId: clientIdStr } = useParams<{ clientId: string }>();
   const clientId = Number(clientIdStr);
@@ -1453,8 +939,6 @@ export function ClientProfile() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [msgInput, setMsgInput] = useState("");
-  const [msgSearch, setMsgSearch] = useState("");
-  const [msgSearchActive, setMsgSearchActive] = useState(false);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [programDialogOpen, setProgramDialogOpen] = useState(false);
   const [programHistoryOpen, setProgramHistoryOpen] = useState(true);
@@ -1488,8 +972,6 @@ export function ClientProfile() {
   const [sleepTimeframe, setSleepTimeframe] = useState("1m");
   const [nutritionTimeframe, setNutritionTimeframe] = useState("1m");
   const [photoTimeframe, setPhotoTimeframe] = useState("1m");
-  const [compareMode, setCompareMode] = useState(false);
-  const [compareSelected, setCompareSelected] = useState<number[]>([]);
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const generateInvite = useGenerateInviteLink();
 
@@ -1575,12 +1057,7 @@ export function ClientProfile() {
   const { data: callLogs, refetch: refetchCallLogs } = useListCallLogs(clientId, { query: { enabled: !!clientId, queryKey: getListCallLogsQueryKey(clientId) } });
   const { data: exerciseCues } = useListExerciseCues(clientId, { query: { enabled: !!clientId, queryKey: getListExerciseCuesQueryKey(clientId) } });
   const { data: allExercisesForCues } = useListExercises({ query: { queryKey: getListExercisesQueryKey() } });
-  const [showSyncPreview, setShowSyncPreview] = useState(false);
   const { data: fullProgram } = useGetProgram(programAssignment?.programId ?? 0, { query: { enabled: !!programAssignment?.programId, queryKey: getGetProgramQueryKey(programAssignment?.programId ?? 0) } });
-  const { data: templateProgram, isLoading: templateLoading } = useGetProgram(
-    fullProgram?.sourceTemplateId ?? 0,
-    { query: { enabled: showSyncPreview && !!fullProgram?.sourceTemplateId, queryKey: getGetProgramQueryKey(fullProgram?.sourceTemplateId ?? 0) } }
-  );
   const { data: programs } = useListPrograms();
   const { data: programHistory } = useListClientProgramAssignmentHistory(clientId, { query: { enabled: !!clientId, queryKey: getListClientProgramAssignmentHistoryQueryKey(clientId) } });
 
@@ -2125,7 +1602,6 @@ export function ClientProfile() {
               { value: "photos", label: "Photos" },
               { value: "tasks", label: "Tasks" },
               { value: "notes", label: "Notes", icon: <StickyNote className="w-3 h-3" /> },
-              { value: "calendar", label: "Calendar" },
             ].map(tab => (
               <TabsTrigger
                 key={tab.value}
@@ -2241,98 +1717,25 @@ export function ClientProfile() {
                     <div className="flex gap-2 shrink-0">
                       <Button variant="outline" size="sm" onClick={() => setLocation(`/programs/${programAssignment!.programId}`)}>Edit Program</Button>
                       {fullProgram?.sourceTemplateId && (
-                        <>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={syncFromTemplate.isPending}
-                            onClick={() => setShowSyncPreview(true)}
-                          >
-                            {syncFromTemplate.isPending ? "Syncing…" : "Sync from template"}
-                          </Button>
-                          <Dialog open={showSyncPreview} onOpenChange={setShowSyncPreview}>
-                            <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
-                              <DialogHeader>
-                                <DialogTitle>Preview sync from template</DialogTitle>
-                              </DialogHeader>
-                              {templateLoading ? (
-                                <div className="flex items-center justify-center py-8">
-                                  <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-                                </div>
-                              ) : (() => {
-                                const currentDays = fullProgram?.days ?? [];
-                                const templateDays = templateProgram?.days ?? [];
-                                const diffs = computeProgramDiff(currentDays, templateDays);
-                                const hasChanges = diffs.some(d => d.kind !== "same" || d.exercises.length > 0);
-
-                                if (!hasChanges) {
-                                  return (
-                                    <div className="text-center py-8">
-                                      <Check className="w-8 h-8 text-emerald-500 mx-auto mb-3" />
-                                      <p className="text-sm font-medium">Program is already up to date</p>
-                                      <p className="text-xs text-muted-foreground mt-1">No differences found between this program and its template.</p>
-                                      <Button className="mt-4" onClick={() => setShowSyncPreview(false)}>Close</Button>
-                                    </div>
-                                  );
-                                }
-
-                                return (
-                                  <div className="space-y-4">
-                                    <p className="text-sm text-muted-foreground">
-                                      The following changes will be applied. Any customizations to the client's copy will be replaced. Workout logs are preserved.
-                                    </p>
-                                    <div className="space-y-3">
-                                      {diffs.map(day => {
-                                        if (day.kind === "same" && day.exercises.length === 0) return null;
-                                        return (
-                                          <div key={day.dayName} className={`rounded-lg border px-3 py-2.5 text-sm ${
-                                            day.kind === "added" ? "border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 dark:border-emerald-800" :
-                                            day.kind === "removed" ? "border-rose-200 bg-rose-50 dark:bg-rose-950/20 dark:border-rose-800" :
-                                            "border-border bg-muted/30"
-                                          }`}>
-                                            <p className={`font-semibold text-xs mb-1.5 ${
-                                              day.kind === "added" ? "text-emerald-700 dark:text-emerald-300" :
-                                              day.kind === "removed" ? "text-rose-700 dark:text-rose-300" :
-                                              "text-foreground"
-                                            }`}>
-                                              {day.kind === "added" ? "＋ " : day.kind === "removed" ? "－ " : ""}{day.dayName}
-                                              {day.kind === "added" && <span className="ml-1 font-normal text-emerald-600 dark:text-emerald-400">(new day)</span>}
-                                              {day.kind === "removed" && <span className="ml-1 font-normal text-rose-600 dark:text-rose-400">(removed)</span>}
-                                            </p>
-                                            {day.exercises.map(ex => (
-                                              <div key={ex.name} className={`flex items-baseline gap-2 text-xs py-0.5 ${
-                                                ex.kind === "added" ? "text-emerald-700 dark:text-emerald-300" :
-                                                ex.kind === "removed" ? "text-rose-600 dark:text-rose-300 line-through" :
-                                                "text-amber-700 dark:text-amber-300"
-                                              }`}>
-                                                <span className="shrink-0">
-                                                  {ex.kind === "added" ? "＋" : ex.kind === "removed" ? "－" : "~"}
-                                                </span>
-                                                <span>{ex.name}{ex.detail ? <span className="ml-1 opacity-70">({ex.detail})</span> : null}</span>
-                                              </div>
-                                            ))}
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                    <div className="flex gap-2 pt-2">
-                                      <Button variant="outline" className="flex-1" onClick={() => setShowSyncPreview(false)}>
-                                        Cancel
-                                      </Button>
-                                      <Button
-                                        className="flex-1"
-                                        disabled={syncFromTemplate.isPending}
-                                        onClick={() => { handleSyncFromTemplate(); setShowSyncPreview(false); }}
-                                      >
-                                        {syncFromTemplate.isPending ? "Syncing…" : "Apply sync"}
-                                      </Button>
-                                    </div>
-                                  </div>
-                                );
-                              })()}
-                            </DialogContent>
-                          </Dialog>
-                        </>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="outline" size="sm" disabled={syncFromTemplate.isPending}>
+                              {syncFromTemplate.isPending ? "Syncing…" : "Sync from template"}
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Sync from template?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This will replace the client's current program with a fresh copy of the original template. Any edits made to the client's copy will be lost. Completed workout logs are preserved.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={handleSyncFromTemplate}>Sync</AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       )}
                       <Dialog open={programDialogOpen} onOpenChange={setProgramDialogOpen}>
                       <DialogTrigger asChild>
@@ -2438,7 +1841,7 @@ export function ClientProfile() {
 
         {/* Measurements */}
         <TabsContent value="measurements" className="mt-4">
-          <ClientMeasurementsTab measurements={measurements ?? []} clientId={clientId} />
+          <ClientMeasurementsTab measurements={measurements ?? []} />
         </TabsContent>
 
         {/* Sleep */}
@@ -2794,130 +2197,39 @@ export function ClientProfile() {
 
         {/* Photos */}
         <TabsContent value="photos" className="mt-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <Select value={photoTimeframe} onValueChange={setPhotoTimeframe}>
-              <SelectTrigger className="w-36 h-8 text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="7d">Last 7 days</SelectItem>
-                <SelectItem value="1m">Last month</SelectItem>
-                <SelectItem value="6m">Last 6 months</SelectItem>
-                <SelectItem value="1y">Last year</SelectItem>
-                <SelectItem value="all">All time</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button
-              variant={compareMode ? "default" : "outline"}
-              size="sm"
-              className="h-8 gap-1.5 text-xs"
-              onClick={() => { setCompareMode(m => !m); setCompareSelected([]); }}
-            >
-              <Columns2 className="w-3.5 h-3.5" />
-              {compareMode ? "Exit compare" : "Compare"}
-            </Button>
-            {compareMode && compareSelected.length > 0 && (
-              <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => setCompareSelected([])}>
-                <X className="w-3.5 h-3.5 mr-1" /> Clear
-              </Button>
-            )}
-          </div>
-
-          {compareMode && (
-            <p className="text-xs text-muted-foreground">
-              {compareSelected.length === 0
-                ? "Click a photo to set the left panel, then click another for the right."
-                : compareSelected.length === 1
-                ? "Now click a second photo for the right panel."
-                : "Comparing two photos. Click another photo to swap the right panel."}
-            </p>
-          )}
-
+          <Select value={photoTimeframe} onValueChange={setPhotoTimeframe}>
+            <SelectTrigger className="w-36 h-8 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="7d">Last 7 days</SelectItem>
+              <SelectItem value="1m">Last month</SelectItem>
+              <SelectItem value="6m">Last 6 months</SelectItem>
+              <SelectItem value="1y">Last year</SelectItem>
+              <SelectItem value="all">All time</SelectItem>
+            </SelectContent>
+          </Select>
           {(() => {
             const days = photoTimeframe === "7d" ? 7 : photoTimeframe === "1m" ? 30 : photoTimeframe === "6m" ? 180 : photoTimeframe === "1y" ? 365 : null;
             const since = days ? new Date(Date.now() - days * 86400000).toISOString().split("T")[0] : null;
             const filtered = (progressPhotos ?? []).filter(p => !since || p.date >= since).slice().reverse();
-
-            // Side-by-side panels when two photos are selected
-            const leftPhoto = filtered.find(p => p.id === compareSelected[0]);
-            const rightPhoto = filtered.find(p => p.id === compareSelected[1]);
-
-            const handlePhotoClick = (id: number) => {
-              if (!compareMode) return;
-              setCompareSelected(prev => {
-                if (prev[0] === id) return prev; // already left — do nothing
-                if (prev.length < 2) return [...prev, id];
-                return [prev[0], id]; // swap right panel
-              });
-            };
-
             return (
               <>
-                {(progressPhotos ?? []).length === 0 ? (
-                  <EmptyState
-                    icon={<Camera className="w-5 h-5" />}
-                    title="No progress photos yet"
-                    description="Your client can upload photos from their app. They'll appear here once logged."
-                  />
-                ) : filtered.length === 0 ? (
-                  <p className="text-muted-foreground text-sm">No photos in this timeframe. Try a wider range.</p>
-                ) : null}
-
-                {/* Compare panels */}
-                {compareMode && compareSelected.length === 2 && leftPhoto && rightPhoto && (
-                  <div className="flex flex-col sm:flex-row gap-3 mb-2">
-                    {[leftPhoto, rightPhoto].map((p, i) => (
-                      <div key={p.id} className="flex-1 rounded-xl overflow-hidden border border-border">
-                        <div className="bg-muted px-3 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                          {i === 0 ? "Before" : "After"}
-                        </div>
-                        {isLegacyUrl(p.imageUrl) ? (
-                          <BrokenPhotoPlaceholder aspectClass="aspect-[3/4]" />
-                        ) : (
-                          <img src={p.imageUrl} alt={`Compare ${i === 0 ? "left" : "right"}`} className="w-full aspect-[3/4] object-cover" />
-                        )}
-                        <div className="px-3 py-2 bg-card">
-                          <p className="text-sm font-semibold">{p.date}</p>
-                          {p.notes && <p className="text-xs text-muted-foreground">{p.notes}</p>}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Photo grid */}
+                {filtered.length === 0 && <p className="text-muted-foreground text-sm">No progress photos in this timeframe.</p>}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {filtered.map(p => {
-                    const selIdx = compareSelected.indexOf(p.id);
-                    const isLeft = selIdx === 0;
-                    const isRight = selIdx === 1;
-                    const isSelected = selIdx !== -1;
-                    return (
-                      <Card
-                        key={p.id}
-                        data-testid={`card-photo-${p.id}`}
-                        className={`overflow-hidden transition-all ${compareMode ? "cursor-pointer" : ""} ${isSelected ? "ring-2 ring-primary ring-offset-2" : compareMode ? "hover:ring-2 hover:ring-primary/40 hover:ring-offset-1" : ""}`}
-                        onClick={() => handlePhotoClick(p.id)}
-                      >
-                        <div className="relative">
-                          {isLegacyUrl(p.imageUrl) ? (
-                            <BrokenPhotoPlaceholder aspectClass="aspect-square" />
-                          ) : (
-                            <img src={p.imageUrl} alt="Progress" className="w-full aspect-square object-cover" />
-                          )}
-                          {isSelected && (
-                            <div className="absolute top-1.5 left-1.5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold px-1.5 py-0.5 leading-none">
-                              {isLeft ? "L" : "R"}
-                            </div>
-                          )}
-                        </div>
-                        <CardContent className="p-2">
-                          <p className="text-xs font-medium">{p.date}</p>
-                          {p.notes && <p className="text-xs text-muted-foreground">{p.notes}</p>}
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
+                  {filtered.map(p => (
+                    <Card key={p.id} data-testid={`card-photo-${p.id}`} className="overflow-hidden">
+                      {isLegacyUrl(p.imageUrl) ? (
+                        <BrokenPhotoPlaceholder aspectClass="aspect-square" />
+                      ) : (
+                        <img src={p.imageUrl} alt="Progress" className="w-full aspect-square object-cover" />
+                      )}
+                      <CardContent className="p-2">
+                        <p className="text-xs font-medium">{p.date}</p>
+                        {p.notes && <p className="text-xs text-muted-foreground">{p.notes}</p>}
+                      </CardContent>
+                    </Card>
+                  ))}
                 </div>
               </>
             );
@@ -3091,98 +2403,34 @@ export function ClientProfile() {
         {/* Messages */}
         <TabsContent value="messages" className="mt-4">
           <Card>
-            <CardContent className="p-4 flex flex-col gap-3" style={{ height: "500px" }}>
-              {/* Search bar */}
-              <div className="flex items-center gap-2 shrink-0">
-                {msgSearchActive ? (
-                  <>
-                    <div className="relative flex-1">
-                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
-                      <Input
-                        autoFocus
-                        placeholder="Search messages…"
-                        value={msgSearch}
-                        onChange={e => setMsgSearch(e.target.value)}
-                        className="pl-8 h-8 text-sm"
-                        data-testid="input-message-search"
-                      />
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 shrink-0"
-                      onClick={() => { setMsgSearchActive(false); setMsgSearch(""); }}
-                      aria-label="Close search"
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
-                  </>
-                ) : (
-                  <div className="flex justify-end w-full">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => setMsgSearchActive(true)}
-                      aria-label="Search messages"
-                      data-testid="button-search-messages"
-                    >
-                      <Search className="w-4 h-4" />
-                    </Button>
-                  </div>
-                )}
-              </div>
-
-              {/* Message list */}
-              {(() => {
-                const q = msgSearch.trim().toLowerCase();
-                const filtered = q
-                  ? (messages ?? []).filter(m => m.content.toLowerCase().includes(q))
-                  : (messages ?? []);
-                return (
-                  <div className="flex-1 overflow-y-auto space-y-3 pr-1">
-                    {(messages?.length ?? 0) === 0 && (
-                      <p className="text-muted-foreground text-sm text-center mt-8">No messages yet. Start the conversation.</p>
-                    )}
-                    {q && filtered.length === 0 && (
-                      <p className="text-muted-foreground text-sm text-center mt-8">No messages match "{msgSearch}".</p>
-                    )}
-                    {q && filtered.length > 0 && (
-                      <p className="text-xs text-muted-foreground text-center pb-1">
-                        {filtered.length} {filtered.length === 1 ? "result" : "results"} for "{msgSearch}"
+            <CardContent className="p-4 flex flex-col gap-4" style={{ height: "500px" }}>
+              <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+                {(messages?.length ?? 0) === 0 && <p className="text-muted-foreground text-sm text-center mt-8">No messages yet. Start the conversation.</p>}
+                {messages?.map(m => (
+                  <div key={m.id} data-testid={`msg-${m.id}`} className={`flex ${m.sender === "coach" ? "justify-end" : "justify-start"}`}>
+                    <div className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm ${m.sender === "coach" ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
+                      <p>{m.content}</p>
+                      <p className={`text-xs mt-1 ${m.sender === "coach" ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+                        {format(parseISO(m.createdAt), "MMM d, h:mm a")}
                       </p>
-                    )}
-                    {filtered.map(m => (
-                      <div key={m.id} data-testid={`msg-${m.id}`} className={`flex ${m.sender === "coach" ? "justify-end" : "justify-start"}`}>
-                        <div className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm ${m.sender === "coach" ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
-                          <p><HighlightText text={m.content} query={msgSearch.trim()} /></p>
-                          <p className={`text-xs mt-1 ${m.sender === "coach" ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
-                            {format(parseISO(m.createdAt), "MMM d, h:mm a")}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
+                    </div>
                   </div>
-                );
-              })()}
-
-              {/* Compose — hidden during search */}
-              {!msgSearchActive && (
-                <Form {...msgForm}>
-                  <form onSubmit={msgForm.handleSubmit(handleSend)} className="flex gap-2 shrink-0">
-                    <FormField control={msgForm.control} name="content" render={({ field }) => (
-                      <FormItem className="flex-1 mb-0">
-                        <FormControl>
-                          <Input placeholder="Write a message..." {...field} data-testid="input-message" />
-                        </FormControl>
-                      </FormItem>
-                    )} />
-                    <Button type="submit" size="icon" disabled={sendMsg.isPending} data-testid="button-send-message">
-                      <Send className="w-4 h-4" />
-                    </Button>
-                  </form>
-                </Form>
-              )}
+                ))}
+              </div>
+              <Form {...msgForm}>
+                <form onSubmit={msgForm.handleSubmit(handleSend)} className="flex gap-2">
+                  <FormField control={msgForm.control} name="content" render={({ field }) => (
+                    <FormItem className="flex-1 mb-0">
+                      <FormControl>
+                        <Input placeholder="Write a message..." {...field} data-testid="input-message" />
+                      </FormControl>
+                    </FormItem>
+                  )} />
+                  <Button type="submit" size="icon" disabled={sendMsg.isPending} data-testid="button-send-message">
+                    <Send className="w-4 h-4" />
+                  </Button>
+                </form>
+              </Form>
             </CardContent>
           </Card>
         </TabsContent>
@@ -3274,18 +2522,6 @@ export function ClientProfile() {
 
           {/* History */}
           {(() => {
-            // Show a designed empty state when there is absolutely no history
-            const hasAnyHistory = (coachNotes ?? []).length > 0 || (callLogs ?? []).length > 0;
-            if (!hasAnyHistory) {
-              return (
-                <EmptyState
-                  icon={<StickyNote className="w-5 h-5" />}
-                  title="No notes yet"
-                  description="Use the private note form above to add your first note, or log a call."
-                />
-              );
-            }
-
             const days = notesTimeframe === "7d" ? 7 : notesTimeframe === "1m" ? 30 : notesTimeframe === "6m" ? 180 : notesTimeframe === "1y" ? 365 : null;
             const cutoff = days ? new Date(Date.now() - days * 86400000) : null;
 
@@ -3413,11 +2649,6 @@ export function ClientProfile() {
               </div>
             );
           })()}
-        </TabsContent>
-
-        {/* Calendar */}
-        <TabsContent value="calendar" className="mt-4">
-          <CalendarNotesTab clientId={clientId!} />
         </TabsContent>
       </Tabs>
     </div>

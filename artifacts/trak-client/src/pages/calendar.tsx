@@ -19,8 +19,6 @@ import {
   getListActiveTasksQueryKey,
   useListMeasurements,
   getListMeasurementsQueryKey,
-  useListClientCalendarDayNotes,
-  getListClientCalendarDayNotesQueryKey,
 } from "@workspace/api-client-react";
 import type {
   ProgramDetail,
@@ -32,7 +30,6 @@ import type {
   Assignment,
   ClientTask,
   Measurement,
-  CalendarDayNote,
 } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
 import {
@@ -204,6 +201,7 @@ interface DayBlock {
   href: string;
   badge?: string;
   pulse?: boolean;
+  isRestDay?: boolean;
   isCallBlock?: boolean;
   blockType?: "workout" | "nutrition" | "sleep" | "assignment" | "task" | "call" | "measurement";
 }
@@ -217,12 +215,11 @@ interface DayCardProps {
   isToday: boolean;
   isFuture: boolean;
   cardRef?: (el: HTMLDivElement | null) => void;
-  coachNote?: CalendarDayNote;
 }
 
-function DayCard({ date, today, blocks, isToday, isFuture, cardRef, coachNote }: DayCardProps) {
+function DayCard({ date, today, blocks, isToday, isFuture, cardRef }: DayCardProps) {
   const isPast = date < today;
-  const checkableBlocks = blocks.filter(b => !b.isCallBlock);
+  const checkableBlocks = blocks.filter(b => !b.isRestDay && !b.isCallBlock);
   const allDone = checkableBlocks.length > 0 && checkableBlocks.every(b => b.done);
 
   const [userToggled, setUserToggled] = useState(false);
@@ -233,8 +230,8 @@ function DayCard({ date, today, blocks, isToday, isFuture, cardRef, coachNote }:
   const label = formatDayLabel(date, today);
   const dateShort = formatDateShort(date);
 
-  const doneCount = blocks.filter(b => !b.isCallBlock && b.done).length;
-  const totalCount = blocks.filter(b => !b.isCallBlock).length;
+  const doneCount = blocks.filter(b => !b.isRestDay && !b.isCallBlock && b.done).length;
+  const totalCount = blocks.filter(b => !b.isRestDay && !b.isCallBlock).length;
 
   return (
     <div
@@ -280,26 +277,30 @@ function DayCard({ date, today, blocks, isToday, isFuture, cardRef, coachNote }:
 
       {open && (
         <div className="px-2 pb-2 space-y-0.5">
-          {coachNote && (
-            <div className="mx-1 mb-1 flex items-start gap-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-2.5 py-1.5">
-              <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-300 shrink-0 mt-0.5">Coach</span>
-              <p className="text-xs text-amber-900 dark:text-amber-100 leading-snug">{coachNote.note}</p>
-            </div>
-          )}
-          {blocks.length === 0 && !coachNote && (
+          {blocks.length === 0 && (
             <p className="text-xs text-muted-foreground text-center py-4">Nothing scheduled</p>
           )}
-          {blocks.map(block => (
-            <BlockRow
-              key={block.id}
-              done={block.done}
-              label={block.label}
-              sublabel={block.sublabel}
-              href={block.href}
-              badge={block.badge}
-              pulse={block.pulse}
-            />
-          ))}
+          {blocks.map(block => {
+            if (block.isRestDay) {
+              return (
+                <div key={block.id} className="flex items-center gap-3 px-3 py-2.5 text-muted-foreground">
+                  <span className="text-lg">😴</span>
+                  <span className="text-sm">Rest day</span>
+                </div>
+              );
+            }
+            return (
+              <BlockRow
+                key={block.id}
+                done={block.done}
+                label={block.label}
+                sublabel={block.sublabel}
+                href={block.href}
+                badge={block.badge}
+                pulse={block.pulse}
+              />
+            );
+          })}
         </div>
       )}
     </div>
@@ -322,7 +323,7 @@ interface BlockDots {
 }
 
 function getBlockDots(blocks: DayBlock[]): BlockDots {
-  const workout = blocks.find(b => b.blockType === "workout");
+  const workout = blocks.find(b => b.blockType === "workout" && !b.isRestDay);
   const nutrition = blocks.find(b => b.blockType === "nutrition");
   const sleep = blocks.find(b => b.blockType === "sleep");
   const assignmentBlocks = blocks.filter(b => b.blockType === "assignment");
@@ -488,7 +489,7 @@ function FullCalendarOverlay({ today, buildBlocks, onClose, onSelectDate }: Full
             const isToday = date === today;
             const blocks = inMonth ? buildBlocks(date) : [];
             const dots = getBlockDots(blocks);
-            const checkable = blocks.filter(b => !b.isCallBlock);
+            const checkable = blocks.filter(b => !b.isRestDay && !b.isCallBlock);
             const allDone = checkable.length > 0 && checkable.every(b => b.done);
             const dayNum = new Date(date + "T12:00:00").getDate();
 
@@ -664,10 +665,6 @@ export function CalendarPage() {
     query: { enabled: !!clientId, queryKey: getListMeasurementsQueryKey(clientId!) },
   });
 
-  const { data: coachNotes } = useListClientCalendarDayNotes({
-    query: { enabled: !!clientId, queryKey: getListClientCalendarDayNotesQueryKey() },
-  });
-
   // Lookup maps
   const workoutLogsByDate = useMemo(() => {
     const map = new Map<string, WorkoutLog[]>();
@@ -717,12 +714,6 @@ export function CalendarPage() {
     return map;
   }, [measurements]);
 
-  const coachNotesByDate = useMemo(() => {
-    const map = new Map<string, CalendarDayNote>();
-    for (const n of coachNotes ?? []) map.set(n.date, n);
-    return map;
-  }, [coachNotes]);
-
   // Build blocks for a given date
   const buildBlocks = useCallback((date: string): DayBlock[] => {
     const isToday = date === today;
@@ -743,6 +734,15 @@ export function CalendarPage() {
           label: scheduledDay.name,
           sublabel: exerciseCount > 0 ? `${exerciseCount} exercise${exerciseCount !== 1 ? "s" : ""}` : undefined,
           href: isToday || !isPast ? "/workout" : "/workouts",
+        });
+      } else if (daysBetween(assignment.startDate, date) >= 0) {
+        blocks.push({
+          id: "rest",
+          blockType: "workout",
+          done: true,
+          label: "Rest day",
+          href: "/workout",
+          isRestDay: true,
         });
       }
     }
@@ -925,7 +925,6 @@ export function CalendarPage() {
                 isToday={date === today}
                 isFuture={date > today}
                 cardRef={setCardRef(date)}
-                coachNote={coachNotesByDate.get(date)}
               />
             );
           })}

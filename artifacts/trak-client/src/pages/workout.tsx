@@ -275,7 +275,7 @@ function RpeBottomSheet({ open, onSelect, onCancel }: { open: boolean; onSelect:
 }
 
 
-function VideoUploadSheet({ onSkip, workoutLogId, clientId }: { onSkip: () => void; workoutLogId: number | null; clientId: number | null }) {
+function VideoUploadSheet({ onSkip }: { onSkip: () => void }) {
   const [showOptions, setShowOptions] = useState(false);
   const [uploadState, setUploadState] = useState<"idle" | "uploading" | "success" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
@@ -283,7 +283,6 @@ function VideoUploadSheet({ onSkip, workoutLogId, clientId }: { onSkip: () => vo
   const driveRef = useRef<HTMLInputElement>(null);
   const downloadsRef = useRef<HTMLInputElement>(null);
   const getUploadUrl = useGetUploadUrl();
-  const updateLog = useUpdateWorkoutLog();
   const { toast } = useToast();
 
   const handleFile = (file: File) => {
@@ -300,14 +299,6 @@ function VideoUploadSheet({ onSkip, workoutLogId, clientId }: { onSkip: () => vo
               headers: { "Content-Type": file.type },
             });
             if (!r.ok) throw new Error(`Upload failed: ${r.status}`);
-            // Persist the path on the workout log so coaches can view it
-            if (clientId && workoutLogId) {
-              updateLog.mutate({
-                clientId,
-                logId: workoutLogId,
-                data: { formVideoUrl: data.objectPath },
-              });
-            }
             setUploadState("success");
           } catch {
             setUploadState("error");
@@ -1156,11 +1147,7 @@ export function WorkoutPage() {
   // ── VIDEO UPLOAD SCREEN ──────────────────────────────────────────────────
   if (mode === "upload") {
     return (
-      <VideoUploadSheet
-        onSkip={() => { playWorkoutComplete(); setMode("done"); }}
-        workoutLogId={workoutLogId}
-        clientId={clientId ?? null}
-      />
+      <VideoUploadSheet onSkip={() => { playWorkoutComplete(); setMode("done"); }} />
     );
   }
 
