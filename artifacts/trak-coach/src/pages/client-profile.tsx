@@ -76,7 +76,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import { Copy, Send, Plus, CheckCircle, Circle, Trash2, ArrowLeft, ChevronDown, ChevronRight, Dumbbell, Pencil, X, Check, Phone, StickyNote, Clock, Video, Target, Sparkles, Loader2, ImageOff, Moon } from "lucide-react";
+import { Copy, Send, Plus, CheckCircle, Circle, Trash2, ArrowLeft, ChevronDown, ChevronRight, Dumbbell, Pencil, X, Check, Phone, StickyNote, Clock, Video, Target, Sparkles, Loader2, ImageOff, Moon, Columns2 } from "lucide-react";
 import { Link as WLink } from "wouter";
 import { format, parseISO } from "date-fns";
 import { QueryErrorState } from "@/components/query-error-state";
@@ -982,6 +982,8 @@ export function ClientProfile() {
   const [sleepTimeframe, setSleepTimeframe] = useState("1m");
   const [nutritionTimeframe, setNutritionTimeframe] = useState("1m");
   const [photoTimeframe, setPhotoTimeframe] = useState("1m");
+  const [compareMode, setCompareMode] = useState(false);
+  const [compareSelected, setCompareSelected] = useState<number[]>([]);
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const generateInvite = useGenerateInviteLink();
 
@@ -2207,39 +2209,122 @@ export function ClientProfile() {
 
         {/* Photos */}
         <TabsContent value="photos" className="mt-4 space-y-3">
-          <Select value={photoTimeframe} onValueChange={setPhotoTimeframe}>
-            <SelectTrigger className="w-36 h-8 text-sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="7d">Last 7 days</SelectItem>
-              <SelectItem value="1m">Last month</SelectItem>
-              <SelectItem value="6m">Last 6 months</SelectItem>
-              <SelectItem value="1y">Last year</SelectItem>
-              <SelectItem value="all">All time</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <Select value={photoTimeframe} onValueChange={setPhotoTimeframe}>
+              <SelectTrigger className="w-36 h-8 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="7d">Last 7 days</SelectItem>
+                <SelectItem value="1m">Last month</SelectItem>
+                <SelectItem value="6m">Last 6 months</SelectItem>
+                <SelectItem value="1y">Last year</SelectItem>
+                <SelectItem value="all">All time</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              variant={compareMode ? "default" : "outline"}
+              size="sm"
+              className="h-8 gap-1.5 text-xs"
+              onClick={() => { setCompareMode(m => !m); setCompareSelected([]); }}
+            >
+              <Columns2 className="w-3.5 h-3.5" />
+              {compareMode ? "Exit compare" : "Compare"}
+            </Button>
+            {compareMode && compareSelected.length > 0 && (
+              <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => setCompareSelected([])}>
+                <X className="w-3.5 h-3.5 mr-1" /> Clear
+              </Button>
+            )}
+          </div>
+
+          {compareMode && (
+            <p className="text-xs text-muted-foreground">
+              {compareSelected.length === 0
+                ? "Click a photo to set the left panel, then click another for the right."
+                : compareSelected.length === 1
+                ? "Now click a second photo for the right panel."
+                : "Comparing two photos. Click another photo to swap the right panel."}
+            </p>
+          )}
+
           {(() => {
             const days = photoTimeframe === "7d" ? 7 : photoTimeframe === "1m" ? 30 : photoTimeframe === "6m" ? 180 : photoTimeframe === "1y" ? 365 : null;
             const since = days ? new Date(Date.now() - days * 86400000).toISOString().split("T")[0] : null;
             const filtered = (progressPhotos ?? []).filter(p => !since || p.date >= since).slice().reverse();
+
+            // Side-by-side panels when two photos are selected
+            const leftPhoto = filtered.find(p => p.id === compareSelected[0]);
+            const rightPhoto = filtered.find(p => p.id === compareSelected[1]);
+
+            const handlePhotoClick = (id: number) => {
+              if (!compareMode) return;
+              setCompareSelected(prev => {
+                if (prev[0] === id) return prev; // already left — do nothing
+                if (prev.length < 2) return [...prev, id];
+                return [prev[0], id]; // swap right panel
+              });
+            };
+
             return (
               <>
                 {filtered.length === 0 && <p className="text-muted-foreground text-sm">No progress photos in this timeframe.</p>}
+
+                {/* Compare panels */}
+                {compareMode && compareSelected.length === 2 && leftPhoto && rightPhoto && (
+                  <div className="flex flex-col sm:flex-row gap-3 mb-2">
+                    {[leftPhoto, rightPhoto].map((p, i) => (
+                      <div key={p.id} className="flex-1 rounded-xl overflow-hidden border border-border">
+                        <div className="bg-muted px-3 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                          {i === 0 ? "Before" : "After"}
+                        </div>
+                        {isLegacyUrl(p.imageUrl) ? (
+                          <BrokenPhotoPlaceholder aspectClass="aspect-[3/4]" />
+                        ) : (
+                          <img src={p.imageUrl} alt={`Compare ${i === 0 ? "left" : "right"}`} className="w-full aspect-[3/4] object-cover" />
+                        )}
+                        <div className="px-3 py-2 bg-card">
+                          <p className="text-sm font-semibold">{p.date}</p>
+                          {p.notes && <p className="text-xs text-muted-foreground">{p.notes}</p>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Photo grid */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {filtered.map(p => (
-                    <Card key={p.id} data-testid={`card-photo-${p.id}`} className="overflow-hidden">
-                      {isLegacyUrl(p.imageUrl) ? (
-                        <BrokenPhotoPlaceholder aspectClass="aspect-square" />
-                      ) : (
-                        <img src={p.imageUrl} alt="Progress" className="w-full aspect-square object-cover" />
-                      )}
-                      <CardContent className="p-2">
-                        <p className="text-xs font-medium">{p.date}</p>
-                        {p.notes && <p className="text-xs text-muted-foreground">{p.notes}</p>}
-                      </CardContent>
-                    </Card>
-                  ))}
+                  {filtered.map(p => {
+                    const selIdx = compareSelected.indexOf(p.id);
+                    const isLeft = selIdx === 0;
+                    const isRight = selIdx === 1;
+                    const isSelected = selIdx !== -1;
+                    return (
+                      <Card
+                        key={p.id}
+                        data-testid={`card-photo-${p.id}`}
+                        className={`overflow-hidden transition-all ${compareMode ? "cursor-pointer" : ""} ${isSelected ? "ring-2 ring-primary ring-offset-2" : compareMode ? "hover:ring-2 hover:ring-primary/40 hover:ring-offset-1" : ""}`}
+                        onClick={() => handlePhotoClick(p.id)}
+                      >
+                        <div className="relative">
+                          {isLegacyUrl(p.imageUrl) ? (
+                            <BrokenPhotoPlaceholder aspectClass="aspect-square" />
+                          ) : (
+                            <img src={p.imageUrl} alt="Progress" className="w-full aspect-square object-cover" />
+                          )}
+                          {isSelected && (
+                            <div className="absolute top-1.5 left-1.5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold px-1.5 py-0.5 leading-none">
+                              {isLeft ? "L" : "R"}
+                            </div>
+                          )}
+                        </div>
+                        <CardContent className="p-2">
+                          <p className="text-xs font-medium">{p.date}</p>
+                          {p.notes && <p className="text-xs text-muted-foreground">{p.notes}</p>}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </div>
               </>
             );
