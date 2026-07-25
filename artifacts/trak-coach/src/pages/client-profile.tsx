@@ -81,7 +81,9 @@ import { Link as WLink } from "wouter";
 import { format, parseISO } from "date-fns";
 import { QueryErrorState } from "@/components/query-error-state";
 import { VideoCall } from "@/components/video-call";
+import { CallNoteReviewSheet } from "@/components/call-note-review-sheet";
 import { ClientMeasurementsTab } from "@/components/client-measurements-tab";
+import { useCallPrefs } from "@/hooks/use-call-prefs";
 
 // ── Vertical drum / scroll picker ────────────────────────────
 const ITEM_H = 44;
@@ -1091,6 +1093,8 @@ export function ClientProfile() {
 
   // Video call state
   const [videoCallOpen, setVideoCallOpen] = useState(false);
+  const [noteReview, setNoteReview] = useState<{ callLogId: number; date: string } | null>(null);
+  const { autoCallNotes, reviewCallNotes } = useCallPrefs();
 
   const handleStartVideoCall = async () => {
     try { await fetch(`/api/clients/${clientId}/video-call/start`, { method: "POST" }); } catch { /* ignore */ }
@@ -1098,8 +1102,39 @@ export function ClientProfile() {
   };
 
   const handleEndVideoCall = async () => {
-    try { await fetch(`/api/clients/${clientId}/video-call/end`, { method: "POST" }); } catch { /* ignore */ }
+    let callLogId: number | null = null;
+    let callDate: string = new Date().toISOString().split("T")[0];
+    try {
+      const resp = await fetch(`/api/clients/${clientId}/video-call/end`, { method: "POST" });
+      if (resp.ok) {
+        const data = await resp.json();
+        callLogId = data.callLogId ?? null;
+        // Use today's date as the call date
+      }
+    } catch { /* ignore */ }
     setVideoCallOpen(false);
+    if (autoCallNotes && reviewCallNotes && callLogId !== null) {
+      setNoteReview({ callLogId, date: callDate });
+    } else {
+      refetchCallLogs();
+    }
+  };
+
+  const handleNoteReviewApprove = async (note: string) => {
+    if (!noteReview) return;
+    await fetch(`/api/clients/${clientId}/call-logs/${noteReview.callLogId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ notes: note || null }),
+    });
+    setNoteReview(null);
+    refetchCallLogs();
+  };
+
+  const handleNoteReviewDelete = async () => {
+    if (!noteReview) return;
+    await fetch(`/api/clients/${clientId}/call-logs/${noteReview.callLogId}`, { method: "DELETE" });
+    setNoteReview(null);
     refetchCallLogs();
   };
 
@@ -1351,6 +1386,18 @@ export function ClientProfile() {
           roomName={videoRoomName}
           displayName="Coach"
           onClose={handleEndVideoCall}
+        />
+      )}
+
+      {noteReview && (
+        <CallNoteReviewSheet
+          open={!!noteReview}
+          clientName={client.name}
+          date={noteReview.date}
+          callLogId={noteReview.callLogId}
+          onApprove={handleNoteReviewApprove}
+          onDelete={handleNoteReviewDelete}
+          onClose={() => { setNoteReview(null); refetchCallLogs(); }}
         />
       )}
 

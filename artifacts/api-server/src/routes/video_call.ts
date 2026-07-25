@@ -18,24 +18,27 @@ router.post("/clients/:id/video-call/end", requireClientOwnership("id"), async (
   const startedAt = activeCalls.get(id);
   activeCalls.delete(id);
 
+  let callLogId: number | null = null;
+
   if (startedAt) {
     const durationMs = Date.now() - startedAt.getTime();
     const durationMinutes = Math.max(1, Math.round(durationMs / 60000));
     const today = new Date().toISOString().split("T")[0];
     try {
-      await db.insert(callLogsTable).values({
+      const [inserted] = await db.insert(callLogsTable).values({
         clientId: id,
         date: today,
         durationMinutes,
         notes: null,
         source: "auto",
-      });
+      }).returning({ id: callLogsTable.id });
+      callLogId = inserted?.id ?? null;
     } catch (err) {
       req.log.warn({ err, clientId: id }, "Failed to auto-log video call");
     }
   }
 
-  res.json({ active: false, startedAt: null });
+  res.json({ active: false, startedAt: null, callLogId });
 });
 
 router.get("/clients/:id/video-call/status", requireClientOwnership("id"), (req, res) => {
