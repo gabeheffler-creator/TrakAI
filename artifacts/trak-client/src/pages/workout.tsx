@@ -8,13 +8,11 @@ import {
   useCreateWorkoutLog,
   useUpdateWorkoutLog,
   useLogSet,
-  useListExercises,
   useGetLatestSleepLog,
   useGetLastWorkoutPerformance,
   useGetUploadUrl,
   getGetLatestSleepLogQueryKey,
   getGetLastWorkoutPerformanceQueryKey,
-  getListExercisesQueryKey,
   getGetClientProgramAssignmentQueryKey,
   getGetClientProgramQueryKey,
   getListWorkoutLogsQueryKey,
@@ -30,6 +28,7 @@ import { useLocation, Link } from "wouter";
 import { cn } from "@/lib/utils";
 import type { Exercise } from "@workspace/api-client-react";
 import { QueryErrorState } from "@/components/query-error-state";
+import { ExercisesPage } from "@/pages/exercises";
 
 type Mode = "select" | "checkin" | "overview" | "active" | "upload" | "done" | "early-exit-done";
 
@@ -250,69 +249,6 @@ function RpeBottomSheet({ open, onSelect, onCancel }: { open: boolean; onSelect:
   );
 }
 
-function SwapModal({
-  currentExercise,
-  allExercises,
-  onSelect,
-  onCancel,
-}: {
-  currentExercise: { exerciseName: string; muscleGroup: string };
-  allExercises: Exercise[];
-  onSelect: (ex: Exercise) => void;
-  onCancel: () => void;
-}) {
-  const isCompoundName = (name: string) => {
-    const compounds = ["squat", "deadlift", "bench press", "bent over row", "overhead press", "pull-up", "chin-up"];
-    const lower = name.toLowerCase();
-    return compounds.some(c => lower.includes(c));
-  };
-
-  const currentIsCompound = isCompoundName(currentExercise.exerciseName);
-  const currentBase = currentExercise.exerciseName.toLowerCase()
-    .replace(/barbell|dumbbell|incline|decline|flat|sumo|romanian|conventional|front|back|close grip|wide grip/g, "")
-    .trim();
-
-  const swappable = allExercises.filter(ex => {
-    if (ex.name === currentExercise.exerciseName) return false;
-    if (currentIsCompound) {
-      // Only show variations of the same lift
-      const exBase = ex.name.toLowerCase()
-        .replace(/barbell|dumbbell|incline|decline|flat|sumo|romanian|conventional|front|back|close grip|wide grip/g, "")
-        .trim();
-      return exBase.split(" ").some(word => currentBase.split(" ").includes(word) && word.length > 3);
-    }
-    // For accessories, show same muscle group
-    return ex.muscleGroup === currentExercise.muscleGroup;
-  });
-
-  return (
-    <div className="fixed inset-0 z-[70] bg-background/95 backdrop-blur-sm flex flex-col">
-      <div className="flex items-center justify-between px-4 py-4 border-b border-border">
-        <div>
-          <h2 className="text-lg font-bold">Swap Exercise</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {currentIsCompound ? "Showing variations of this lift" : `Showing ${currentExercise.muscleGroup} exercises`}
-          </p>
-        </div>
-        <button onClick={onCancel} className="p-2 text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
-      </div>
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
-        {swappable.length === 0 ? (
-          <p className="text-center text-muted-foreground py-8 text-sm">No alternatives found in your exercise library.</p>
-        ) : swappable.map(ex => (
-          <button
-            key={ex.id}
-            onClick={() => onSelect(ex)}
-            className="w-full p-4 rounded-2xl border border-border bg-card text-left hover:border-primary/50 hover:bg-accent transition-colors"
-          >
-            <p className="font-semibold text-sm">{ex.name}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">{ex.muscleGroup}</p>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 function VideoUploadSheet({ onSkip }: { onSkip: () => void }) {
   const [showOptions, setShowOptions] = useState(false);
@@ -607,7 +543,6 @@ export function WorkoutPage() {
   const { data: program, isError: programError, refetch: refetchProgram, isFetching: programFetching } = useGetClientProgram(clientId!, {
     query: { enabled: !!clientId && !!assignment, queryKey: getGetClientProgramQueryKey(clientId!) }
   });
-  const { data: allExercises } = useListExercises({ query: { enabled: mode === "active" && swapModal, queryKey: getListExercisesQueryKey() } });
 
   const createWorkoutLog = useCreateWorkoutLog();
   const updateWorkoutLog = useUpdateWorkoutLog();
@@ -1671,12 +1606,15 @@ export function WorkoutPage() {
           />
         )}
         {swapModal && (
-          <SwapModal
-            currentExercise={{ exerciseName: currentEx.exerciseName, muscleGroup: currentEx.muscleGroup }}
-            allExercises={allExercises ?? []}
-            onSelect={handleSwap}
-            onCancel={() => setSwapModal(false)}
-          />
+          <div className="fixed inset-0 z-[70] bg-background overflow-y-auto">
+            <div className="px-4 py-4">
+              <ExercisesPage
+                swapMode
+                onSwapSelect={(ex) => { handleSwap(ex); setSwapModal(false); }}
+                onCancelSwap={() => setSwapModal(false)}
+              />
+            </div>
+          </div>
         )}
 
         {/* Outer: clipping layer only */}

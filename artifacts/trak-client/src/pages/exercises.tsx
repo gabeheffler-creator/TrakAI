@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useListExercises } from "@workspace/api-client-react";
 import type { Exercise } from "@workspace/api-client-react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -217,7 +218,13 @@ function useIsMobile() {
   return typeof window !== "undefined" && window.innerWidth < 640;
 }
 
-export function ExercisesPage() {
+interface ExercisesPageProps {
+  swapMode?: boolean;
+  onSwapSelect?: (ex: Exercise) => void;
+  onCancelSwap?: () => void;
+}
+
+export function ExercisesPage({ swapMode = false, onSwapSelect, onCancelSwap }: ExercisesPageProps = {}) {
   const isMobile = useIsMobile();
 
   const [search, setSearch] = useState("");
@@ -231,6 +238,7 @@ export function ExercisesPage() {
     try { return (localStorage.getItem(VIEW_STORAGE_KEY) as ViewMode) ?? "list"; } catch { return "list"; }
   });
   const [selected, setSelected] = useState<Exercise | null>(null);
+  const [swapCandidate, setSwapCandidate] = useState<Exercise | null>(null);
 
   const { data: exercises, isLoading, isError, refetch, isFetching } = useListExercises();
 
@@ -338,18 +346,26 @@ export function ExercisesPage() {
     ? Object.values(display.grouped).reduce((s, arr) => s + arr.length, 0)
     : display.sorted.length;
 
-  const cardClass = cn(
-    "border-2 border-purple-500/40 hover:border-purple-500/70 transition-colors cursor-pointer active:scale-[0.98]"
-  );
-
   function renderCard(e: Exercise) {
     const equipment = (e as any).equipment as string | undefined;
     const difficulty = (e as any).difficulty as string | undefined;
+    const isCandidate = swapMode && swapCandidate?.id === e.id;
     return (
       <Card
         key={e.id}
-        className={cardClass}
-        onClick={() => setSelected(e)}
+        className={cn(
+          "border-2 transition-colors cursor-pointer active:scale-[0.98]",
+          isCandidate
+            ? "border-primary bg-primary/5"
+            : "border-purple-500/40 hover:border-purple-500/70"
+        )}
+        onClick={() => {
+          if (swapMode) {
+            setSwapCandidate(isCandidate ? null : e);
+          } else {
+            setSelected(e);
+          }
+        }}
       >
         <CardContent className="pt-4 pb-4 px-5">
           <p className="font-semibold text-base leading-snug">{e.name}</p>
@@ -396,32 +412,45 @@ export function ExercisesPage() {
 
   return (
     <>
-      <ExerciseDetail exercise={selected} onClose={() => setSelected(null)} isMobile={isMobile} />
+      {!swapMode && <ExerciseDetail exercise={selected} onClose={() => setSelected(null)} isMobile={isMobile} />}
 
-      <div className="space-y-4">
+      <div className={cn("space-y-4", swapMode && swapCandidate ? "pb-24" : "")}>
         {/* Header */}
         <div className="flex items-start justify-between gap-2">
           <div>
-            <h1 className="text-2xl font-bold">Exercise Library</h1>
+            <h1 className="text-2xl font-bold">{swapMode ? "Swap Exercise" : "Exercise Library"}</h1>
             <p className="text-muted-foreground text-sm mt-0.5">
-              {isLoading ? "Loading…" : `${totalShown} exercise${totalShown !== 1 ? "s" : ""}${totalShown !== (exercises?.length ?? 0) ? ` of ${exercises?.length ?? 0}` : ""}`}
+              {swapMode
+                ? (swapCandidate ? `Selected: ${swapCandidate.name}` : "Tap an exercise to select it")
+                : (isLoading ? "Loading…" : `${totalShown} exercise${totalShown !== 1 ? "s" : ""}${totalShown !== (exercises?.length ?? 0) ? ` of ${exercises?.length ?? 0}` : ""}`)
+              }
             </p>
           </div>
 
-          {/* View toggle */}
-          <Select value={view} onValueChange={v => handleViewChange(v as ViewMode)}>
-            <SelectTrigger className="w-[105px] h-9 text-sm shrink-0">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="list">
-                <span className="flex items-center gap-1.5"><LayoutList className="w-3.5 h-3.5" /> List</span>
-              </SelectItem>
-              <SelectItem value="grid">
-                <span className="flex items-center gap-1.5"><LayoutGrid className="w-3.5 h-3.5" /> Grid</span>
-              </SelectItem>
-            </SelectContent>
-          </Select>
+          {swapMode ? (
+            <button
+              onClick={onCancelSwap}
+              className="p-2 text-muted-foreground hover:text-foreground shrink-0"
+              aria-label="Cancel swap"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          ) : (
+            /* View toggle */
+            <Select value={view} onValueChange={v => handleViewChange(v as ViewMode)}>
+              <SelectTrigger className="w-[105px] h-9 text-sm shrink-0">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="list">
+                  <span className="flex items-center gap-1.5"><LayoutList className="w-3.5 h-3.5" /> List</span>
+                </SelectItem>
+                <SelectItem value="grid">
+                  <span className="flex items-center gap-1.5"><LayoutGrid className="w-3.5 h-3.5" /> Grid</span>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          )}
         </div>
 
         {/* Search */}
@@ -550,6 +579,28 @@ export function ExercisesPage() {
           </>
         )}
       </div>
+
+      {/* Frozen swap action bar — appears when an exercise is selected in swap mode */}
+      {swapMode && swapCandidate && (
+        <div className="fixed bottom-0 left-0 right-0 z-[75] bg-background border-t border-border px-4 py-4 flex gap-3">
+          <Button
+            variant="ghost"
+            className="flex-1 h-12"
+            onClick={() => setSwapCandidate(null)}
+          >
+            Cancel
+          </Button>
+          <Button
+            className="flex-1 h-12 font-semibold"
+            onClick={() => {
+              onSwapSelect?.(swapCandidate);
+              setSwapCandidate(null);
+            }}
+          >
+            Swap
+          </Button>
+        </div>
+      )}
     </>
   );
 }
