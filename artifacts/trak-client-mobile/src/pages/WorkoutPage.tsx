@@ -38,6 +38,13 @@ interface SetEntry {
   logged: boolean;
 }
 
+interface WorkoutLogSummary {
+  id: number;
+  programDayId: number | null;
+  date: string;
+  sets: { id: number }[];
+}
+
 interface WorkoutPageProps {
   clientId: number;
   clientName: string;
@@ -188,7 +195,87 @@ const S = {
     width: "100%",
     outline: "none",
   }),
+  historyToggle: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    background: "transparent",
+    border: "1px solid #334155",
+    borderRadius: 12,
+    padding: "12px 16px",
+    cursor: "pointer",
+    width: "100%",
+    outline: "none",
+    color: "#94a3b8",
+    fontSize: 14,
+    fontWeight: 600,
+  },
+  logItem: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    background: "#1e293b",
+    border: "1px solid #334155",
+    borderRadius: 12,
+    padding: "12px 16px",
+  },
+  emptyHistory: {
+    textAlign: "center" as const,
+    padding: "24px 0",
+    color: "#64748b",
+  },
 };
+
+// ─── HistoryList component ────────────────────────────────────────────────────
+
+function HistoryList({
+  logs,
+  dayNameById,
+  formatLogDate,
+}: {
+  logs: WorkoutLogSummary[];
+  dayNameById: (id: number | null) => string;
+  formatLogDate: (dateStr: string) => string;
+}) {
+  if (logs.length === 0) {
+    return (
+      <div style={S.emptyHistory}>
+        <div style={{ fontSize: 28, marginBottom: 8 }}>📋</div>
+        <div style={{ fontSize: 14, fontWeight: 600, color: "#94a3b8" }}>No workouts logged yet</div>
+        <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>
+          Your completed workouts will appear here.
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {logs.map(log => (
+        <div key={log.id} style={S.logItem}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#f1f5f9" }}>
+              {dayNameById(log.programDayId)}
+            </div>
+            <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
+              {formatLogDate(log.date)}
+            </div>
+          </div>
+          <span style={{
+            fontSize: 12,
+            fontWeight: 700,
+            padding: "3px 10px",
+            borderRadius: 99,
+            background: "#0f172a",
+            color: "#94a3b8",
+            border: "1px solid #334155",
+          }}>
+            {log.sets.length} set{log.sets.length !== 1 ? "s" : ""}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 // ─── WorkoutPage component ────────────────────────────────────────────────────
 
@@ -202,19 +289,25 @@ export default function WorkoutPage({ clientId, clientName }: WorkoutPageProps) 
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
   const [allDays, setAllDays] = useState<ProgramDay[]>([]);
+  const [recentLogs, setRecentLogs] = useState<WorkoutLogSummary[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
       // Fetch assignment, cues, and today's workout log in parallel
-      const [assignment, cuesData, logsData]: [ProgramAssignment, ExerciseCue[], { id: number; programDayId: number; date: string }[]] = await Promise.all([
+      const [assignment, cuesData, logsData]: [ProgramAssignment, ExerciseCue[], WorkoutLogSummary[]] = await Promise.all([
         apiFetch<ProgramAssignment>(`/api/clients/${clientId}/program-assignment`),
         apiFetch<ExerciseCue[]>(`/api/clients/${clientId}/exercise-cues`),
-        apiFetch<{ id: number; programDayId: number; date: string }[]>(`/api/clients/${clientId}/workout-logs?limit=5`),
+        apiFetch<WorkoutLogSummary[]>(`/api/clients/${clientId}/workout-logs`),
       ]);
 
       setCues(cuesData);
+
+      // Store recent logs (newest first, up to 10)
+      const sorted = [...logsData].sort((a, b) => b.date.localeCompare(a.date));
+      setRecentLogs(sorted.slice(0, 10));
 
       // Fetch full program detail
       const program = await apiFetch<{
@@ -323,13 +416,33 @@ export default function WorkoutPage({ clientId, clientName }: WorkoutPageProps) 
     );
   }
 
+  const dayNameById = (id: number | null) => {
+    if (id === null) return "Workout";
+    return allDays.find(d => d.id === id)?.name ?? "Workout";
+  };
+
+  const formatLogDate = (dateStr: string) => {
+    const d = new Date(dateStr + "T00:00:00");
+    return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  };
+
   if (done) {
     return (
-      <div style={{ ...S.page, alignItems: "center", justifyContent: "center", gap: 16, padding: 32, textAlign: "center" }}>
-        <div style={{ fontSize: 56 }}>🎉</div>
-        <div style={{ fontSize: 22, fontWeight: 800 }}>Workout logged!</div>
-        <div style={{ fontSize: 14, color: "#94a3b8" }}>{loggedCount} of {totalSets} sets completed</div>
-        <button onClick={() => { setDone(false); load(); }} style={S.primaryBtn(false)}>Back to workout</button>
+      <div style={{ ...S.page, overflowY: "auto" }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, padding: "48px 32px 24px", textAlign: "center" }}>
+          <div style={{ fontSize: 56 }}>🎉</div>
+          <div style={{ fontSize: 22, fontWeight: 800 }}>Workout logged!</div>
+          <div style={{ fontSize: 14, color: "#94a3b8" }}>{loggedCount} of {totalSets} sets completed</div>
+          <button onClick={() => { setDone(false); load(); }} style={{ ...S.primaryBtn(false), marginTop: 8 }}>Back to workout</button>
+        </div>
+
+        {/* Recent history on done screen */}
+        <div style={{ padding: "0 20px 32px", display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ fontSize: 12, color: "#64748b", fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>
+            Recent workouts
+          </div>
+          <HistoryList logs={recentLogs} dayNameById={dayNameById} formatLogDate={formatLogDate} />
+        </div>
       </div>
     );
   }
@@ -386,6 +499,17 @@ export default function WorkoutPage({ clientId, clientName }: WorkoutPageProps) 
               ))}
             </>
           )}
+
+          {/* History section */}
+          <div style={{ marginTop: 4, display: "flex", flexDirection: "column", gap: 10 }}>
+            <button style={S.historyToggle} onClick={() => setShowHistory(h => !h)}>
+              <span>📋 Workout history</span>
+              <span style={{ fontSize: 12, color: "#64748b" }}>{showHistory ? "▲" : "▼"}</span>
+            </button>
+            {showHistory && (
+              <HistoryList logs={recentLogs} dayNameById={dayNameById} formatLogDate={formatLogDate} />
+            )}
+          </div>
         </div>
       )}
 
