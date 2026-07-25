@@ -63,6 +63,7 @@ interface WorkoutLogDetail {
 interface WorkoutPageProps {
   clientId: number;
   clientName: string;
+  onNavigate?: (tab: string) => void;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -330,7 +331,7 @@ function HistoryList({
 
 // ─── WorkoutPage component ────────────────────────────────────────────────────
 
-export default function WorkoutPage({ clientId, clientName }: WorkoutPageProps) {
+export default function WorkoutPage({ clientId, clientName, onNavigate }: WorkoutPageProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [today, setToday] = useState<ProgramDay | null>(null);
@@ -498,7 +499,11 @@ export default function WorkoutPage({ clientId, clientName }: WorkoutPageProps) 
           <div style={{ fontSize: 56 }}>🎉</div>
           <div style={{ fontSize: 22, fontWeight: 800 }}>Workout logged!</div>
           <div style={{ fontSize: 14, color: "#94a3b8" }}>{loggedCount} of {totalSets} sets completed</div>
-          <button onClick={() => { setDone(false); load(); }} style={{ ...S.primaryBtn(false), marginTop: 8 }}>Back to workout</button>
+          {onNavigate ? (
+            <button onClick={() => onNavigate("home")} style={{ ...S.primaryBtn(false), marginTop: 8 }}>Back to Home</button>
+          ) : (
+            <button onClick={() => { setDone(false); load(); }} style={{ ...S.primaryBtn(false), marginTop: 8 }}>Back to workout</button>
+          )}
         </div>
 
         {/* Recent history on done screen */}
