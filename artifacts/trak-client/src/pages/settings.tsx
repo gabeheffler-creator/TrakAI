@@ -8,12 +8,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Moon, Sun, Ruler, Dumbbell, BarChart2, Bug, MessageSquare, ChevronRight, CheckCircle, FlaskConical, FileDown } from "lucide-react";
+import { Moon, Sun, Ruler, Dumbbell, BarChart2, Bug, MessageSquare, ChevronRight, CheckCircle, FileDown } from "lucide-react";
 import { Link } from "wouter";
 
-const BETA_MODE_KEY = "trak_beta_mode";
-function readBetaMode() { return localStorage.getItem(BETA_MODE_KEY) === "true"; }
-function saveBetaMode(v: boolean) { localStorage.setItem(BETA_MODE_KEY, String(v)); }
 
 function SettingRow({
   icon,
@@ -79,9 +76,6 @@ export function SettingsPage() {
   const { units, setUnits } = useUnitSystem();
   const { workoutView, setWorkoutView, showProgressBar, setShowProgressBar } = useWorkoutPrefs();
   const { toast } = useToast();
-  const [betaMode, setBetaModeState] = useState(() => readBetaMode());
-
-  const toggleBetaMode = (v: boolean) => { saveBetaMode(v); setBetaModeState(v); };
 
   const [bugSheetOpen, setBugSheetOpen] = useState(false);
   const [bugText, setBugText] = useState("");
@@ -199,20 +193,6 @@ export function SettingsPage() {
             description="Show workout progress bar at the top"
           >
             <Switch checked={showProgressBar} onCheckedChange={setShowProgressBar} />
-          </SettingRow>
-        </div>
-      </div>
-
-      {/* ── Beta ───────────────────────────────── */}
-      <SectionHeader title="Beta Features" />
-      <div className="rounded-2xl border border-border bg-card divide-y divide-border">
-        <div className="px-4">
-          <SettingRow
-            icon={<FlaskConical className="w-4 h-4" />}
-            label="Beta mode"
-            description="Enable experimental features before public release"
-          >
-            <Switch checked={betaMode} onCheckedChange={toggleBetaMode} />
           </SettingRow>
         </div>
       </div>
