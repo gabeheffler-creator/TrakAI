@@ -25,6 +25,12 @@ import { QueryErrorState } from "@/components/query-error-state";
 type SortMode = "target" | "compound" | "movement" | "cardio" | "mobility" | "strength";
 type ViewMode = "grid" | "list";
 
+const EQUIPMENT_OPTIONS = ["Barbell", "Dumbbell", "Cable", "Machine", "Bodyweight", "Bands", "Other"] as const;
+type Equipment = typeof EQUIPMENT_OPTIONS[number];
+
+const DIFFICULTY_OPTIONS = ["Beginner", "Intermediate", "Advanced"] as const;
+type Difficulty = typeof DIFFICULTY_OPTIONS[number];
+
 const exerciseSchema = z.object({
   name: z.string().min(1),
   muscleGroup: z.string().min(1),
@@ -32,6 +38,8 @@ const exerciseSchema = z.object({
   isUnilateral: z.boolean().optional(),
   movementPattern: z.string().optional(),
   description: z.string().optional(),
+  equipment: z.enum(EQUIPMENT_OPTIONS).optional(),
+  difficulty: z.enum(DIFFICULTY_OPTIONS).optional(),
 });
 
 const MUSCLE_GROUPS = [
@@ -58,6 +66,8 @@ type Exercise = {
   movementPattern?: string | null;
   description?: string | null;
   videoUrl?: string | null;
+  equipment?: Equipment | null;
+  difficulty?: Difficulty | null;
 };
 
 function capitalize(s: string) {
@@ -125,6 +135,12 @@ function ExerciseBadges({ exercise, size = "sm" }: { exercise: Exercise; size?: 
         <Badge variant="outline" className={cls}>
           {capitalize(exercise.movementPattern)}
         </Badge>
+      )}
+      {exercise.equipment && exercise.equipment !== "Other" && (
+        <Badge variant="outline" className={cls}>{exercise.equipment}</Badge>
+      )}
+      {exercise.difficulty && (
+        <Badge variant="secondary" className={cls}>{exercise.difficulty}</Badge>
       )}
     </div>
   );
@@ -234,6 +250,8 @@ function ExerciseDetailPanel({
   const [editIsUnilateral, setEditIsUnilateral] = useState(exercise.isUnilateral);
   const [editMovement, setEditMovement] = useState(exercise.movementPattern ?? "");
   const [editDescription, setEditDescription] = useState(exercise.description ?? "");
+  const [editEquipment, setEditEquipment] = useState<Equipment>(exercise.equipment ?? "Other");
+  const [editDifficulty, setEditDifficulty] = useState<Difficulty>(exercise.difficulty ?? "Intermediate");
 
   const updateExercise = useUpdateExercise();
   const { toast } = useToast();
@@ -246,6 +264,8 @@ function ExerciseDetailPanel({
     setEditIsUnilateral(exercise.isUnilateral);
     setEditMovement(exercise.movementPattern ?? "");
     setEditDescription(exercise.description ?? "");
+    setEditEquipment(exercise.equipment ?? "Other");
+    setEditDifficulty(exercise.difficulty ?? "Intermediate");
     setEditing(true);
   }
 
@@ -260,6 +280,8 @@ function ExerciseDetailPanel({
           isUnilateral: editIsUnilateral,
           movementPattern: editMovement || null,
           description: editDescription || null,
+          equipment: editEquipment,
+          difficulty: editDifficulty,
         },
       },
       {
@@ -414,6 +436,40 @@ function ExerciseDetailPanel({
                 ))}
               </div>
             </div>
+
+            <div>
+              <p className="text-sm font-medium mb-2">Equipment</p>
+              <div className="flex flex-wrap gap-2">
+                {EQUIPMENT_OPTIONS.map(eq => (
+                  <button
+                    key={eq}
+                    type="button"
+                    onClick={() => setEditEquipment(eq)}
+                    className={`text-sm px-3 py-2 rounded border transition-colors ${editEquipment === eq ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}
+                    data-testid={`button-equipment-${eq.toLowerCase()}`}
+                  >
+                    {eq}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <p className="text-sm font-medium mb-2">Difficulty</p>
+              <div className="flex gap-2">
+                {DIFFICULTY_OPTIONS.map(d => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => setEditDifficulty(d)}
+                    className={`flex-1 text-sm px-3 py-2 rounded border transition-colors ${editDifficulty === d ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}
+                    data-testid={`button-difficulty-${d.toLowerCase()}`}
+                  >
+                    {d}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
@@ -450,6 +506,14 @@ function ExerciseDetailPanel({
             <div className="rounded-xl border bg-card p-4">
               <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">Target Area</p>
               <p className="font-semibold text-base">{exercise.muscleGroup}</p>
+            </div>
+            <div className="rounded-xl border bg-card p-4">
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">Equipment</p>
+              <p className="font-semibold text-base">{exercise.equipment ?? "Other"}</p>
+            </div>
+            <div className="rounded-xl border bg-card p-4">
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">Difficulty</p>
+              <p className="font-semibold text-base">{exercise.difficulty ?? "Intermediate"}</p>
             </div>
             <div className="rounded-xl border bg-card p-4">
               <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">Category</p>
@@ -545,7 +609,10 @@ export function Exercises() {
 
   const form = useForm<z.infer<typeof exerciseSchema>>({
     resolver: zodResolver(exerciseSchema),
-    defaultValues: { name: "", muscleGroup: "", isCompound: false, isUnilateral: false, movementPattern: "", description: "" },
+    defaultValues: {
+      name: "", muscleGroup: "", isCompound: false, isUnilateral: false,
+      movementPattern: "", description: "", equipment: "Other", difficulty: "Intermediate",
+    },
   });
 
   const onSubmit = (values: z.infer<typeof exerciseSchema>) => {
@@ -557,6 +624,8 @@ export function Exercises() {
         isUnilateral: values.isUnilateral,
         movementPattern: values.movementPattern || undefined,
         description: values.description || undefined,
+        equipment: values.equipment,
+        difficulty: values.difficulty,
       }
     }, {
       onSuccess: () => {
@@ -644,6 +713,32 @@ export function Exercises() {
                             onClick={() => form.setValue("movementPattern", field.value === mp ? "" : mp)}
                             className={`flex-1 text-sm px-3 py-2 rounded border transition-colors ${field.value === mp ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}
                           >{capitalize(mp)}</button>
+                        ))}
+                      </div>
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="equipment" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Equipment</FormLabel>
+                      <div className="flex flex-wrap gap-2">
+                        {EQUIPMENT_OPTIONS.map(eq => (
+                          <button key={eq} type="button"
+                            onClick={() => form.setValue("equipment", eq)}
+                            className={`text-sm px-3 py-2 rounded border transition-colors ${field.value === eq ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}
+                          >{eq}</button>
+                        ))}
+                      </div>
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="difficulty" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Difficulty</FormLabel>
+                      <div className="flex gap-2">
+                        {DIFFICULTY_OPTIONS.map(d => (
+                          <button key={d} type="button"
+                            onClick={() => form.setValue("difficulty", d)}
+                            className={`flex-1 text-sm px-3 py-2 rounded border transition-colors ${field.value === d ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}
+                          >{d}</button>
                         ))}
                       </div>
                     </FormItem>

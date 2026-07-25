@@ -144,6 +144,8 @@ function serializeExercise(e: typeof exercisesTable.$inferSelect) {
     movementPattern: e.movementPattern ?? null,
     description: e.description ?? null,
     videoUrl: e.videoUrl ?? null,
+    equipment: e.equipment ?? "Other",
+    difficulty: e.difficulty ?? "Intermediate",
     createdAt: e.createdAt.toISOString(),
   };
 }
@@ -174,6 +176,8 @@ router.post("/exercises", requireCoachAuth, async (req, res) => {
       movementPattern: body.movementPattern ?? null,
       description: body.description ?? null,
       videoUrl: body.videoUrl ?? null,
+      equipment: body.equipment ?? "Other",
+      difficulty: body.difficulty ?? "Intermediate",
     }).returning();
     res.status(201).json(serializeExercise(exercise));
   } catch (err) {
@@ -198,6 +202,8 @@ router.patch("/exercises/:exerciseId", requireCoachAuth, async (req, res) => {
     if ("movementPattern" in body) updates.movementPattern = body.movementPattern ?? null;
     if ("description" in body) updates.description = body.description ?? null;
     if ("videoUrl" in body) updates.videoUrl = body.videoUrl ?? null;
+    if (body.equipment !== undefined) updates.equipment = body.equipment;
+    if (body.difficulty !== undefined) updates.difficulty = body.difficulty;
 
     const [exercise] = await db.update(exercisesTable)
       .set(updates)

@@ -30,11 +30,29 @@ const MOVEMENT_ORDER: Record<string, number> = {
 };
 function movementOrder(m: string | null | undefined) { return MOVEMENT_ORDER[m ?? ""] ?? 99; }
 
+const DIFFICULTY_ORDER: Record<string, number> = {
+  Beginner: 1, Intermediate: 2, Advanced: 3,
+};
+
 const CARDIO_GROUPS = new Set(["Cardio", "HIIT"]);
 const MOBILITY_GROUPS = new Set(["Mobility"]);
 
+const EQUIPMENT_OPTIONS = ["Barbell", "Dumbbell", "Cable", "Machine", "Bodyweight", "Bands", "Other"] as const;
+type EquipmentFilter = typeof EQUIPMENT_OPTIONS[number] | "all";
+
 type FilterMode = "all" | "strength" | "cardio" | "mobility";
-type SortMode = "default" | "name-asc" | "name-desc" | "target-area" | "compound-first" | "isolation-first" | "movement" | "unilateral-first" | "bilateral-first";
+type SortMode =
+  | "default"
+  | "name-asc"
+  | "name-desc"
+  | "target-area"
+  | "compound-first"
+  | "isolation-first"
+  | "movement"
+  | "unilateral-first"
+  | "bilateral-first"
+  | "beginner-first"
+  | "advanced-first";
 type ViewMode = "list" | "grid";
 
 const VIEW_STORAGE_KEY = "trak-exercises-view";
@@ -52,6 +70,9 @@ function DetailField({ label, value }: { label: string; value: string }) {
 }
 
 function ExerciseDetailContent({ exercise }: { exercise: Exercise }) {
+  const equipment = (exercise as any).equipment as string | undefined;
+  const difficulty = (exercise as any).difficulty as string | undefined;
+
   return (
     <div className="space-y-5 px-1">
       {/* Title */}
@@ -77,6 +98,21 @@ function ExerciseDetailContent({ exercise }: { exercise: Exercise }) {
           )}>
             {exercise.isUnilateral ? "Unilateral" : "Bilateral"}
           </span>
+          {equipment && (
+            <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-700">
+              {equipment}
+            </span>
+          )}
+          {difficulty && (
+            <span className={cn(
+              "text-xs font-medium px-2.5 py-1 rounded-full",
+              difficulty === "Beginner" ? "bg-green-500/10 text-green-700"
+              : difficulty === "Advanced" ? "bg-red-500/10 text-red-700"
+              : "bg-muted text-muted-foreground"
+            )}>
+              {difficulty}
+            </span>
+          )}
           {exercise.movementPattern && (
             <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-muted text-muted-foreground">
               {exercise.movementPattern}
@@ -98,6 +134,8 @@ function ExerciseDetailContent({ exercise }: { exercise: Exercise }) {
         <DetailField label="Target muscle" value={exercise.muscleGroup} />
         <DetailField label="Type" value={exercise.isCompound ? "Compound" : "Isolation"} />
         <DetailField label="Laterality" value={exercise.isUnilateral ? "Unilateral" : "Bilateral"} />
+        {equipment && <DetailField label="Equipment" value={equipment} />}
+        {difficulty && <DetailField label="Difficulty" value={difficulty} />}
         {exercise.movementPattern && (
           <DetailField label="Movement pattern" value={exercise.movementPattern} />
         )}
@@ -184,6 +222,8 @@ export function ExercisesPage() {
 
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterMode>("all");
+  const [equipmentFilter, setEquipmentFilter] = useState<EquipmentFilter>("all");
+  const [difficultyFilter, setDifficultyFilter] = useState<"all" | "Beginner" | "Intermediate" | "Advanced">("all");
   const [sortBy, setSortBy] = useState<SortMode>(() => {
     try { return (localStorage.getItem(SORT_STORAGE_KEY) as SortMode) ?? "default"; } catch { return "default"; }
   });
@@ -219,17 +259,27 @@ export function ExercisesPage() {
 
   // 2. Filter
   const filtered = useMemo(() => {
-    if (filter === "all") return searched;
-    if (filter === "cardio") return searched.filter(e => CARDIO_GROUPS.has(e.muscleGroup));
-    if (filter === "mobility") return searched.filter(e => MOBILITY_GROUPS.has(e.muscleGroup));
-    // strength = everything else
-    return searched.filter(e => !CARDIO_GROUPS.has(e.muscleGroup) && !MOBILITY_GROUPS.has(e.muscleGroup));
-  }, [searched, filter]);
+    let result = searched;
+
+    // Category filter
+    if (filter === "cardio") result = result.filter(e => CARDIO_GROUPS.has(e.muscleGroup));
+    else if (filter === "mobility") result = result.filter(e => MOBILITY_GROUPS.has(e.muscleGroup));
+    else if (filter === "strength") result = result.filter(e => !CARDIO_GROUPS.has(e.muscleGroup) && !MOBILITY_GROUPS.has(e.muscleGroup));
+
+    // Equipment filter
+    if (equipmentFilter !== "all") {
+      result = result.filter(e => ((e as any).equipment ?? "Other") === equipmentFilter);
+    }
+
+    // Difficulty filter
+    if (difficultyFilter !== "all") {
+      result = result.filter(e => ((e as any).difficulty ?? "Intermediate") === difficultyFilter);
+    }
+
+    return result;
+  }, [searched, filter, equipmentFilter, difficultyFilter]);
 
   // 3. Sort + group
-  // view is the primary driver: "list" = grouped with section headers (when
-  // sort is Default), "grid" = always flat 2-column, no headers.
-  // Non-default sorts also flatten list view into a single sorted list.
   const display = useMemo(() => {
     const showGroups = view === "list" && sortBy === "default";
 
@@ -241,11 +291,9 @@ export function ExercisesPage() {
       return { mode: "grouped" as const, grouped };
     }
 
-    // Flat sorted list — used for: grid view (any sort) + list view with non-default sort
     const sorted = [...filtered].sort((a, b) => {
       switch (sortBy) {
         case "default":
-          // Grid view + Default sort: deterministic order by group then name
           { const go = groupOrder(a.muscleGroup) - groupOrder(b.muscleGroup);
             return go !== 0 ? go : a.name.localeCompare(b.name); }
         case "name-asc": return a.name.localeCompare(b.name);
@@ -270,6 +318,16 @@ export function ExercisesPage() {
           const mo = movementOrder(a.movementPattern) - movementOrder(b.movementPattern);
           return mo !== 0 ? mo : a.name.localeCompare(b.name);
         }
+        case "beginner-first": {
+          const da = DIFFICULTY_ORDER[((a as any).difficulty ?? "Intermediate")] ?? 2;
+          const db = DIFFICULTY_ORDER[((b as any).difficulty ?? "Intermediate")] ?? 2;
+          return da !== db ? da - db : a.name.localeCompare(b.name);
+        }
+        case "advanced-first": {
+          const da = DIFFICULTY_ORDER[((a as any).difficulty ?? "Intermediate")] ?? 2;
+          const db = DIFFICULTY_ORDER[((b as any).difficulty ?? "Intermediate")] ?? 2;
+          return da !== db ? db - da : a.name.localeCompare(b.name);
+        }
         default: return 0;
       }
     });
@@ -285,6 +343,8 @@ export function ExercisesPage() {
   );
 
   function renderCard(e: Exercise) {
+    const equipment = (e as any).equipment as string | undefined;
+    const difficulty = (e as any).difficulty as string | undefined;
     return (
       <Card
         key={e.id}
@@ -305,6 +365,21 @@ export function ExercisesPage() {
             )}>
               {e.isCompound ? "Compound" : "Isolation"}
             </span>
+            {equipment && (
+              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700">
+                {equipment}
+              </span>
+            )}
+            {difficulty && (
+              <span className={cn(
+                "text-[10px] font-medium px-1.5 py-0.5 rounded-full",
+                difficulty === "Beginner" ? "bg-green-500/10 text-green-700"
+                : difficulty === "Advanced" ? "bg-red-500/10 text-red-700"
+                : "bg-muted text-muted-foreground"
+              )}>
+                {difficulty}
+              </span>
+            )}
             {e.movementPattern && (
               <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
                 {e.movementPattern}
@@ -369,7 +444,7 @@ export function ExercisesPage() {
           )}
         </div>
 
-        {/* Filter chips + Sort */}
+        {/* Filter row 1: Category + Sort */}
         <div className="flex items-center justify-between gap-3">
           <div className="flex gap-1.5 overflow-x-auto pb-0.5 flex-1 min-w-0">
             {(["all", "strength", "cardio", "mobility"] as FilterMode[]).map(f => (
@@ -396,8 +471,39 @@ export function ExercisesPage() {
               <SelectItem value="movement">Movement pattern</SelectItem>
               <SelectItem value="unilateral-first">Unilateral first</SelectItem>
               <SelectItem value="bilateral-first">Bilateral first</SelectItem>
+              <SelectItem value="beginner-first">Beginner first</SelectItem>
+              <SelectItem value="advanced-first">Advanced first</SelectItem>
             </SelectContent>
           </Select>
+        </div>
+
+        {/* Filter row 2: Equipment + Difficulty */}
+        <div className="space-y-2">
+          <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+            <FilterChip
+              label="All equipment"
+              active={equipmentFilter === "all"}
+              onClick={() => setEquipmentFilter("all")}
+            />
+            {EQUIPMENT_OPTIONS.map(eq => (
+              <FilterChip
+                key={eq}
+                label={eq}
+                active={equipmentFilter === eq}
+                onClick={() => setEquipmentFilter(eq)}
+              />
+            ))}
+          </div>
+          <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+            {(["all", "Beginner", "Intermediate", "Advanced"] as const).map(d => (
+              <FilterChip
+                key={d}
+                label={d === "all" ? "All levels" : d}
+                active={difficultyFilter === d}
+                onClick={() => setDifficultyFilter(d)}
+              />
+            ))}
+          </div>
         </div>
 
         {/* Error */}

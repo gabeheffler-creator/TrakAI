@@ -2538,6 +2538,14 @@ components:
           type: number
 
     # ── Exercise Library ────────────────────────────────────────────────────
+    ExerciseEquipment:
+      type: string
+      enum: [Barbell, Dumbbell, Cable, Machine, Bodyweight, Bands, Other]
+
+    ExerciseDifficulty:
+      type: string
+      enum: [Beginner, Intermediate, Advanced]
+
     Exercise:
       type: object
       required: [id, name, muscleGroup, isCompound, isUnilateral]
@@ -2558,6 +2566,10 @@ components:
           type: ["string", "null"]
         videoUrl:
           type: ["string", "null"]
+        equipment:
+          $ref: "#/components/schemas/ExerciseEquipment"
+        difficulty:
+          $ref: "#/components/schemas/ExerciseDifficulty"
         createdAt:
           type: string
           format: date-time
@@ -2582,6 +2594,10 @@ components:
           type: string
         videoUrl:
           type: string
+        equipment:
+          $ref: "#/components/schemas/ExerciseEquipment"
+        difficulty:
+          $ref: "#/components/schemas/ExerciseDifficulty"
 
     ExercisePatch:
       type: object
@@ -2602,6 +2618,10 @@ components:
           type: ["string", "null"]
         videoUrl:
           type: ["string", "null"]
+        equipment:
+          $ref: "#/components/schemas/ExerciseEquipment"
+        difficulty:
+          $ref: "#/components/schemas/ExerciseDifficulty"
 
     # ── Program ─────────────────────────────────────────────────────────────
     Program:
