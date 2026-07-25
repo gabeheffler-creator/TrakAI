@@ -27,6 +27,7 @@ import {
   useUpdateProgramExercise,
   useDeleteProgramExercise,
   useGetWorkoutLog,
+  useUpdateWorkoutLog,
   useListCoachNotes,
   useCreateCoachNote,
   useUpdateCoachNote,
@@ -82,7 +83,7 @@ import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import { Copy, Send, Plus, CheckCircle, Circle, Trash2, ArrowLeft, ChevronDown, ChevronRight, Dumbbell, Pencil, X, Check, Phone, StickyNote, Clock, Video, Target, Sparkles, Loader2, ImageOff, Moon, Columns2, Search, GripVertical } from "lucide-react";
+import { Copy, Send, Plus, CheckCircle, Circle, Trash2, ArrowLeft, ChevronDown, ChevronRight, Dumbbell, Pencil, X, Check, Phone, StickyNote, Clock, Video, Target, Sparkles, Loader2, ImageOff, Moon, Columns2, Search, GripVertical, ArrowRight, ShieldCheck, RotateCcw } from "lucide-react";
 import {
   DndContext,
   PointerSensor,
@@ -415,11 +416,62 @@ function computeProgramDiff(currentDays: ProgramDay[], templateDays: ProgramDay[
   return result;
 }
 
+// ── Swap parsing helpers ──────────────────────────────────────────────────────
+type SwapRecord = {
+  exerciseId: string;
+  original: string;
+  substitute: string;
+  decision?: "accepted" | "overridden" | "dismissed";
+};
+
+function parseSwapRecords(notes: string | null | undefined): SwapRecord[] {
+  if (!notes) return [];
+  const reviews = new Map<string, SwapRecord["decision"]>();
+  for (const m of notes.matchAll(/\[swap-review:(\d+):(accepted|overridden|dismissed)\]/g)) {
+    reviews.set(m[1], m[2] as SwapRecord["decision"]);
+  }
+  return Array.from(notes.matchAll(/\[swap:(\d+):([^\]]+)->([^\]]+)\]/g)).map(m => ({
+    exerciseId: m[1],
+    original: m[2],
+    substitute: m[3],
+    decision: reviews.get(m[1]),
+  }));
+}
+
+function stripMetaMarkers(notes: string) {
+  return notes
+    .replace(/\[swap:[^\]]*\]/g, "")
+    .replace(/\[swap-review:[^\]]*\]/g, "")
+    .replace(/\[sleep-adjusted\]/g, "")
+    .trim();
+}
+
+// ── Expandable workout card ───────────────────────────────────────────────────
 function ExpandableWorkoutCard({ log, clientId }: { log: { id: number; date: string; programDayName?: string | null; durationMinutes?: number | null; status: string; notes?: string | null; formVideoUrl?: string | null }; clientId: number }) {
   const [open, setOpen] = useState(false);
   const { data: detail, isLoading } = useGetWorkoutLog(clientId, log.id, {
     query: { enabled: open, queryKey: getGetWorkoutLogQueryKey(clientId, log.id) }
   });
+  const updateLog = useUpdateWorkoutLog();
+  const qc = useQueryClient();
+
+  const swaps = parseSwapRecords(log.notes);
+  const pendingSwaps = swaps.filter(s => !s.decision);
+
+  const handleSwapDecision = async (swap: SwapRecord, decision: "accepted" | "overridden") => {
+    const marker = `[swap-review:${swap.exerciseId}:${decision}]`;
+    const updatedNotes = (log.notes ?? "") + marker;
+    await updateLog.mutateAsync({ clientId, logId: log.id, data: { notes: updatedNotes } });
+    qc.invalidateQueries({ queryKey: getListWorkoutLogsQueryKey(clientId) });
+  };
+
+  const handleSwapLeave = async (swap: SwapRecord) => {
+    // Dismissed = reviewed but no action taken; recorded so it leaves the pending queue
+    const marker = `[swap-review:${swap.exerciseId}:dismissed]`;
+    const updatedNotes = (log.notes ?? "") + marker;
+    await updateLog.mutateAsync({ clientId, logId: log.id, data: { notes: updatedNotes } });
+    qc.invalidateQueries({ queryKey: getListWorkoutLogsQueryKey(clientId) });
+  };
 
   const byExercise = (detail?.sets ?? []).reduce<Record<string, NonNullable<typeof detail>["sets"]>>((acc, s) => {
     (acc[s.exerciseName] ??= []).push(s);
@@ -445,6 +497,18 @@ function ExpandableWorkoutCard({ log, clientId }: { log: { id: number; date: str
                     <Moon className="w-3 h-3" /> Sleep-adjusted
                   </Badge>
                 )}
+                {pendingSwaps.length > 0 && (
+                  <Badge variant="outline" className="text-xs border-orange-400 text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/30 gap-1">
+                    <ArrowRight className="w-3 h-3" />
+                    {pendingSwaps.length === 1 ? "Swap" : `${pendingSwaps.length} Swaps`} · Review
+                  </Badge>
+                )}
+                {pendingSwaps.length === 0 && swaps.length > 0 && (
+                  <Badge variant="outline" className="text-xs border-emerald-400 text-emerald-600 dark:text-emerald-400 gap-1">
+                    <ShieldCheck className="w-3 h-3" />
+                    Swap reviewed
+                  </Badge>
+                )}
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">{log.date}{log.durationMinutes ? ` · ${log.durationMinutes} min` : ""}</p>
             </div>
@@ -454,22 +518,77 @@ function ExpandableWorkoutCard({ log, clientId }: { log: { id: number; date: str
       </button>
       {open && (
         <div className="border-t border-border px-4 pb-4 pt-3">
-          {log.status === "early_exit" && log.notes && (
+          {log.status === "early_exit" && log.notes && stripMetaMarkers(log.notes) && (
             <div className="mb-3 rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2">
               <p className="text-xs font-medium text-destructive mb-0.5">Reason for finishing early</p>
-              <p className="text-xs text-foreground">{log.notes.replace(/\[swap:[^\]]*\]/g, "").replace(/\[sleep-adjusted\]/g, "").trim()}</p>
+              <p className="text-xs text-foreground">{stripMetaMarkers(log.notes)}</p>
             </div>
           )}
-          {log.notes && /\[swap:\d+:[^\]]+\]/.test(log.notes) && (
-            <div className="mb-3 rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 px-3 py-2">
-              <p className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-1">Exercise swaps</p>
-              {Array.from(log.notes.matchAll(/\[swap:\d+:([^\]]+)->([^\]]+)\]/g)).map((m, i) => (
-                <p key={i} className="text-xs text-foreground">
-                  <span className="line-through text-muted-foreground">{m[1]}</span>{" → "}{m[2]}
+
+          {/* Swap review panel */}
+          {swaps.length > 0 && (
+            <div className="mb-3 rounded-md border border-orange-200 dark:border-orange-800 overflow-hidden">
+              <div className="bg-orange-50 dark:bg-orange-950/30 px-3 py-2 border-b border-orange-200 dark:border-orange-800">
+                <p className="text-xs font-semibold text-orange-700 dark:text-orange-300 flex items-center gap-1.5">
+                  <ArrowRight className="w-3.5 h-3.5" /> Exercise swaps
                 </p>
-              ))}
+              </div>
+              <div className="divide-y divide-orange-100 dark:divide-orange-900/40">
+                {swaps.map(swap => (
+                  <div key={swap.exerciseId} className="px-3 py-2.5">
+                    {/* Original → Substitute */}
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <span className="text-xs text-muted-foreground line-through">{swap.original}</span>
+                      <ArrowRight className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                      <span className="text-xs font-medium text-foreground">{swap.substitute}</span>
+                    </div>
+                    {/* Decision state */}
+                    {swap.decision === "accepted" && (
+                      <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                        <ShieldCheck className="w-3.5 h-3.5" />
+                        <span className="text-xs font-medium">Accepted</span>
+                      </div>
+                    )}
+                    {swap.decision === "overridden" && (
+                      <div className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span className="text-xs font-medium">Override noted — revert in program builder</span>
+                      </div>
+                    )}
+                    {swap.decision === "dismissed" && (
+                      <span className="text-xs text-muted-foreground italic">No action taken</span>
+                    )}
+                    {!swap.decision && (
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleSwapDecision(swap, "accepted")}
+                          disabled={updateLog.isPending}
+                          className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                        >
+                          <ShieldCheck className="w-3 h-3" /> Accept
+                        </button>
+                        <button
+                          onClick={() => handleSwapDecision(swap, "overridden")}
+                          disabled={updateLog.isPending}
+                          className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-md bg-amber-500 text-white hover:bg-amber-600 transition-colors disabled:opacity-50"
+                        >
+                          <RotateCcw className="w-3 h-3" /> Override
+                        </button>
+                        <button
+                          onClick={() => handleSwapLeave(swap)}
+                          disabled={updateLog.isPending}
+                          className="text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline transition-colors disabled:opacity-50"
+                        >
+                          Leave
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
+
           {log.formVideoUrl && (
             <div className="mb-3 rounded-md bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-800 px-3 py-2">
               <p className="text-xs font-medium text-violet-700 dark:text-violet-300 mb-2">📹 Form video</p>
