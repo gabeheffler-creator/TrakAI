@@ -20,7 +20,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, Moon, BellRing, CheckCircle2, ArrowLeft, Copy } from "lucide-react";
+import { Plus, Trash2, Moon, BellRing, CheckCircle2, ArrowLeft, Copy, Pencil } from "lucide-react";
 import { QueryErrorState } from "@/components/query-error-state";
 
 const sleepSchema = z.object({
@@ -374,6 +374,7 @@ export function SleepPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [timeframe, setTimeframe] = useState<Timeframe>("1m");
   const [alarmSheetOpen, setAlarmSheetOpen] = useState(false);
+  const [editingLog, setEditingLog] = useState<{ id: number; date: string; hoursSlept: number; quality?: string | null; energyRating?: number | null; notes?: string | null } | null>(null);
 
   // Fetch client profile to read server-persisted alarm app preference.
   // Fall back to localStorage while the fetch is in-flight.
@@ -402,6 +403,11 @@ export function SleepPage() {
     defaultValues: { date: new Date().toISOString().split("T")[0], hoursSlept: 7, notes: "" },
   });
 
+  const editForm = useForm<z.infer<typeof sleepSchema>>({
+    resolver: zodResolver(sleepSchema),
+    defaultValues: { date: "", hoursSlept: 7 },
+  });
+
   const onSubmit = (values: z.infer<typeof sleepSchema>) => {
     logSleep.mutate({
       clientId: clientId!,
@@ -426,6 +432,46 @@ export function SleepPage() {
     deleteSleepLog.mutate({ clientId: clientId!, sleepId: id }, {
       onSuccess: () => qc.invalidateQueries({ queryKey: getListSleepLogsQueryKey(clientId!) })
     });
+  };
+
+  const handleOpenEdit = (s: typeof editingLog) => {
+    if (!s) return;
+    editForm.reset({
+      date: typeof s.date === "string" ? s.date : new Date(s.date).toISOString().split("T")[0],
+      hoursSlept: s.hoursSlept,
+      quality: (s.quality as z.infer<typeof sleepSchema>["quality"]) ?? undefined,
+      energyRating: s.energyRating ?? undefined,
+      notes: s.notes ?? "",
+    });
+    setEditingLog(s);
+  };
+
+  const [editSaving, setEditSaving] = useState(false);
+  const handleSaveEdit = async (values: z.infer<typeof sleepSchema>) => {
+    if (!editingLog || !clientId) return;
+    setEditSaving(true);
+    try {
+      const res = await fetch(`/api/clients/${clientId}/sleep/${editingLog.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          date: values.date,
+          hoursSlept: values.hoursSlept,
+          quality: values.quality,
+          energyRating: values.energyRating,
+          notes: values.notes || undefined,
+        }),
+      });
+      if (!res.ok) throw new Error("Update failed");
+      qc.invalidateQueries({ queryKey: getListSleepLogsQueryKey(clientId) });
+      setEditingLog(null);
+      toast({ title: "Sleep log updated!" });
+    } catch {
+      toast({ title: "Failed to update sleep log", variant: "destructive" });
+    } finally {
+      setEditSaving(false);
+    }
   };
 
   const filtered = useMemo(() => filterByTimeframe(logs ?? [], timeframe), [logs, timeframe]);
@@ -592,13 +638,80 @@ export function SleepPage() {
                   {s.notes && <p className="text-xs text-muted-foreground">{s.notes}</p>}
                 </div>
               </div>
-              <button onClick={() => handleDelete(s.id)} className="text-muted-foreground hover:text-destructive transition-colors" data-testid={`button-delete-sleep-${s.id}`}>
-                <Trash2 className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleOpenEdit({ id: s.id, date: String(s.date), hoursSlept: s.hoursSlept, quality: s.quality, energyRating: s.energyRating, notes: s.notes })}
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                  data-testid={`button-edit-sleep-${s.id}`}
+                  title="Edit"
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
+                <button onClick={() => handleDelete(s.id)} className="text-muted-foreground hover:text-destructive transition-colors" data-testid={`button-delete-sleep-${s.id}`}>
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
             </CardContent>
           </Card>
         ))}
       </div>
+      {/* Edit Sleep Log Dialog */}
+      <Dialog open={editingLog !== null} onOpenChange={open => { if (!open) setEditingLog(null); }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Edit Sleep Log</DialogTitle></DialogHeader>
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit(handleSaveEdit)} className="space-y-4">
+              <FormField control={editForm.control} name="date" render={({ field }) => (
+                <FormItem><FormLabel>Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl></FormItem>
+              )} />
+              <FormField control={editForm.control} name="hoursSlept" render={({ field }) => (
+                <FormItem><FormLabel>Hours Slept</FormLabel><FormControl><Input type="number" step="0.5" {...field} /></FormControl></FormItem>
+              )} />
+              <FormField control={editForm.control} name="quality" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Sleep Quality</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value ?? ""}>
+                    <FormControl><SelectTrigger><SelectValue placeholder="How did you sleep?" /></SelectTrigger></FormControl>
+                    <SelectContent>
+                      <SelectItem value="poor">Poor</SelectItem>
+                      <SelectItem value="fair">Fair</SelectItem>
+                      <SelectItem value="good">Good</SelectItem>
+                      <SelectItem value="great">Great</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FormItem>
+              )} />
+              <FormField control={editForm.control} name="energyRating" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Energy on Waking</FormLabel>
+                  <Select
+                    onValueChange={v => field.onChange(Number(v))}
+                    value={field.value != null ? String(field.value) : ""}
+                  >
+                    <FormControl><SelectTrigger><SelectValue placeholder="Rate your energy (1–10)" /></SelectTrigger></FormControl>
+                    <SelectContent>
+                      {Array.from({ length: 10 }, (_, i) => i + 1).map(n => (
+                        <SelectItem key={n} value={String(n)}>{n} — {n <= 3 ? "Exhausted" : n <= 5 ? "Tired" : n <= 7 ? "OK" : n <= 9 ? "Good" : "Excellent"}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormItem>
+              )} />
+              <FormField control={editForm.control} name="notes" render={({ field }) => (
+                <FormItem><FormLabel>Notes</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
+              )} />
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" className="flex-1" onClick={() => setEditingLog(null)} disabled={editSaving}>
+                  Cancel
+                </Button>
+                <Button type="submit" className="flex-1" disabled={editSaving}>
+                  {editSaving ? "Saving…" : "Save changes"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
