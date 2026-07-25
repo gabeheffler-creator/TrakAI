@@ -1158,6 +1158,24 @@ export interface ExerciseCueInput {
   callLogId?: number;
 }
 
+export interface CalendarDayNote {
+  id: number;
+  clientId: number;
+  date: string;
+  note: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CalendarDayNoteInput {
+  date: string;
+  note: string;
+}
+
+export interface CalendarDayNoteUpdate {
+  note: string;
+}
+
 export interface UploadUrlRequest {
   filename: string;
   contentType: string;

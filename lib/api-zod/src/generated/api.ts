@@ -2086,6 +2086,82 @@ export const DeleteExerciseCueParams = zod.object({
 
 
 /**
+ * @summary List calendar day notes for a client (coach only)
+ */
+export const ListCalendarDayNotesParams = zod.object({
+  "clientId": zod.coerce.number()
+})
+
+export const ListCalendarDayNotesResponseItem = zod.object({
+  "id": zod.number(),
+  "clientId": zod.number(),
+  "date": zod.coerce.date(),
+  "note": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+export const ListCalendarDayNotesResponse = zod.array(ListCalendarDayNotesResponseItem)
+
+
+/**
+ * @summary Create a calendar day note (coach only)
+ */
+export const CreateCalendarDayNoteParams = zod.object({
+  "clientId": zod.coerce.number()
+})
+
+export const CreateCalendarDayNoteBody = zod.object({
+  "date": zod.string(),
+  "note": zod.string()
+})
+
+
+/**
+ * @summary Update a calendar day note (coach only)
+ */
+export const UpdateCalendarDayNoteParams = zod.object({
+  "clientId": zod.coerce.number(),
+  "noteId": zod.coerce.number()
+})
+
+export const UpdateCalendarDayNoteBody = zod.object({
+  "note": zod.string()
+})
+
+export const UpdateCalendarDayNoteResponse = zod.object({
+  "id": zod.number(),
+  "clientId": zod.number(),
+  "date": zod.coerce.date(),
+  "note": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Delete a calendar day note (coach only)
+ */
+export const DeleteCalendarDayNoteParams = zod.object({
+  "clientId": zod.coerce.number(),
+  "noteId": zod.coerce.number()
+})
+
+
+/**
+ * @summary List coach calendar notes for the logged-in client (read-only)
+ */
+export const ListClientCalendarDayNotesResponseItem = zod.object({
+  "id": zod.number(),
+  "clientId": zod.number(),
+  "date": zod.coerce.date(),
+  "note": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+export const ListClientCalendarDayNotesResponse = zod.array(ListClientCalendarDayNotesResponseItem)
+
+
+/**
  * @summary List coaching call logs for a client
  */
 export const ListCallLogsParams = zod.object({

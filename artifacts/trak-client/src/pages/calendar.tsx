@@ -19,6 +19,8 @@ import {
   getListActiveTasksQueryKey,
   useListMeasurements,
   getListMeasurementsQueryKey,
+  useListClientCalendarDayNotes,
+  getListClientCalendarDayNotesQueryKey,
 } from "@workspace/api-client-react";
 import type {
   ProgramDetail,
@@ -30,6 +32,7 @@ import type {
   Assignment,
   ClientTask,
   Measurement,
+  CalendarDayNote,
 } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
 import {
@@ -214,9 +217,10 @@ interface DayCardProps {
   isToday: boolean;
   isFuture: boolean;
   cardRef?: (el: HTMLDivElement | null) => void;
+  coachNote?: CalendarDayNote;
 }
 
-function DayCard({ date, today, blocks, isToday, isFuture, cardRef }: DayCardProps) {
+function DayCard({ date, today, blocks, isToday, isFuture, cardRef, coachNote }: DayCardProps) {
   const isPast = date < today;
   const checkableBlocks = blocks.filter(b => !b.isCallBlock);
   const allDone = checkableBlocks.length > 0 && checkableBlocks.every(b => b.done);
@@ -276,7 +280,13 @@ function DayCard({ date, today, blocks, isToday, isFuture, cardRef }: DayCardPro
 
       {open && (
         <div className="px-2 pb-2 space-y-0.5">
-          {blocks.length === 0 && (
+          {coachNote && (
+            <div className="mx-1 mb-1 flex items-start gap-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-2.5 py-1.5">
+              <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-300 shrink-0 mt-0.5">Coach</span>
+              <p className="text-xs text-amber-900 dark:text-amber-100 leading-snug">{coachNote.note}</p>
+            </div>
+          )}
+          {blocks.length === 0 && !coachNote && (
             <p className="text-xs text-muted-foreground text-center py-4">Nothing scheduled</p>
           )}
           {blocks.map(block => (
@@ -654,6 +664,10 @@ export function CalendarPage() {
     query: { enabled: !!clientId, queryKey: getListMeasurementsQueryKey(clientId!) },
   });
 
+  const { data: coachNotes } = useListClientCalendarDayNotes({
+    query: { enabled: !!clientId, queryKey: getListClientCalendarDayNotesQueryKey() },
+  });
+
   // Lookup maps
   const workoutLogsByDate = useMemo(() => {
     const map = new Map<string, WorkoutLog[]>();
@@ -702,6 +716,12 @@ export function CalendarPage() {
     }
     return map;
   }, [measurements]);
+
+  const coachNotesByDate = useMemo(() => {
+    const map = new Map<string, CalendarDayNote>();
+    for (const n of coachNotes ?? []) map.set(n.date, n);
+    return map;
+  }, [coachNotes]);
 
   // Build blocks for a given date
   const buildBlocks = useCallback((date: string): DayBlock[] => {
@@ -905,6 +925,7 @@ export function CalendarPage() {
                 isToday={date === today}
                 isFuture={date > today}
                 cardRef={setCardRef(date)}
+                coachNote={coachNotesByDate.get(date)}
               />
             );
           })}

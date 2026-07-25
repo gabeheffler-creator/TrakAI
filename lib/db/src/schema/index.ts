@@ -16,3 +16,4 @@ export * from "./nutrition_goals";
 export * from "./coach_settings";
 export * from "./client_tasks";
 export * from "./exercise_cues";
+export * from "./calendar_day_notes";

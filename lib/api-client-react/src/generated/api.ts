@@ -30,6 +30,9 @@ import type {
   AuthUser,
   BulkAssignProgramInput,
   BulkAssignProgramResult,
+  CalendarDayNote,
+  CalendarDayNoteInput,
+  CalendarDayNoteUpdate,
   CallLog,
   CallLogInput,
   Client,
@@ -7302,6 +7305,378 @@ export const useDeleteExerciseCue = <TError = ErrorType<void>,
       > => {
       return useMutation(getDeleteExerciseCueMutationOptions(options));
     }
+
+export const getListCalendarDayNotesUrl = (clientId: number,) => {
+
+
+
+
+  return `/api/clients/${clientId}/calendar-day-notes`
+}
+
+/**
+ * @summary List calendar day notes for a client (coach only)
+ */
+export const listCalendarDayNotes = async (clientId: number, options?: RequestInit): Promise<CalendarDayNote[]> => {
+
+  return customFetch<CalendarDayNote[]>(getListCalendarDayNotesUrl(clientId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCalendarDayNotesQueryKey = (clientId: number,) => {
+    return [
+    `/api/clients/${clientId}/calendar-day-notes`
+    ] as const;
+    }
+
+
+export const getListCalendarDayNotesQueryOptions = <TData = Awaited<ReturnType<typeof listCalendarDayNotes>>, TError = ErrorType<unknown>>(clientId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCalendarDayNotes>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCalendarDayNotesQueryKey(clientId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCalendarDayNotes>>> = ({ signal }) => listCalendarDayNotes(clientId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(clientId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCalendarDayNotes>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCalendarDayNotesQueryResult = NonNullable<Awaited<ReturnType<typeof listCalendarDayNotes>>>
+export type ListCalendarDayNotesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List calendar day notes for a client (coach only)
+ */
+
+export function useListCalendarDayNotes<TData = Awaited<ReturnType<typeof listCalendarDayNotes>>, TError = ErrorType<unknown>>(
+ clientId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCalendarDayNotes>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCalendarDayNotesQueryOptions(clientId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getCreateCalendarDayNoteUrl = (clientId: number,) => {
+
+
+
+
+  return `/api/clients/${clientId}/calendar-day-notes`
+}
+
+/**
+ * @summary Create a calendar day note (coach only)
+ */
+export const createCalendarDayNote = async (clientId: number,
+    calendarDayNoteInput: CalendarDayNoteInput, options?: RequestInit): Promise<CalendarDayNote> => {
+
+  return customFetch<CalendarDayNote>(getCreateCalendarDayNoteUrl(clientId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      calendarDayNoteInput,)
+  }
+);}
+
+
+
+
+export const getCreateCalendarDayNoteMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCalendarDayNote>>, TError,{clientId: number;data: BodyType<CalendarDayNoteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCalendarDayNote>>, TError,{clientId: number;data: BodyType<CalendarDayNoteInput>}, TContext> => {
+
+const mutationKey = ['createCalendarDayNote'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCalendarDayNote>>, {clientId: number;data: BodyType<CalendarDayNoteInput>}> = (props) => {
+          const {clientId,data} = props ?? {};
+
+          return  createCalendarDayNote(clientId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCalendarDayNoteMutationResult = NonNullable<Awaited<ReturnType<typeof createCalendarDayNote>>>
+    export type CreateCalendarDayNoteMutationBody = BodyType<CalendarDayNoteInput>
+    export type CreateCalendarDayNoteMutationError = ErrorType<void>
+
+    /**
+ * @summary Create a calendar day note (coach only)
+ */
+export const useCreateCalendarDayNote = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCalendarDayNote>>, TError,{clientId: number;data: BodyType<CalendarDayNoteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createCalendarDayNote>>,
+        TError,
+        {clientId: number;data: BodyType<CalendarDayNoteInput>},
+        TContext
+      > => {
+      return useMutation(getCreateCalendarDayNoteMutationOptions(options));
+    }
+
+export const getUpdateCalendarDayNoteUrl = (clientId: number,
+    noteId: number,) => {
+
+
+
+
+  return `/api/clients/${clientId}/calendar-day-notes/${noteId}`
+}
+
+/**
+ * @summary Update a calendar day note (coach only)
+ */
+export const updateCalendarDayNote = async (clientId: number,
+    noteId: number,
+    calendarDayNoteUpdate: CalendarDayNoteUpdate, options?: RequestInit): Promise<CalendarDayNote> => {
+
+  return customFetch<CalendarDayNote>(getUpdateCalendarDayNoteUrl(clientId,noteId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      calendarDayNoteUpdate,)
+  }
+);}
+
+
+
+
+export const getUpdateCalendarDayNoteMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCalendarDayNote>>, TError,{clientId: number;noteId: number;data: BodyType<CalendarDayNoteUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCalendarDayNote>>, TError,{clientId: number;noteId: number;data: BodyType<CalendarDayNoteUpdate>}, TContext> => {
+
+const mutationKey = ['updateCalendarDayNote'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCalendarDayNote>>, {clientId: number;noteId: number;data: BodyType<CalendarDayNoteUpdate>}> = (props) => {
+          const {clientId,noteId,data} = props ?? {};
+
+          return  updateCalendarDayNote(clientId,noteId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCalendarDayNoteMutationResult = NonNullable<Awaited<ReturnType<typeof updateCalendarDayNote>>>
+    export type UpdateCalendarDayNoteMutationBody = BodyType<CalendarDayNoteUpdate>
+    export type UpdateCalendarDayNoteMutationError = ErrorType<void>
+
+    /**
+ * @summary Update a calendar day note (coach only)
+ */
+export const useUpdateCalendarDayNote = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCalendarDayNote>>, TError,{clientId: number;noteId: number;data: BodyType<CalendarDayNoteUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCalendarDayNote>>,
+        TError,
+        {clientId: number;noteId: number;data: BodyType<CalendarDayNoteUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateCalendarDayNoteMutationOptions(options));
+    }
+
+export const getDeleteCalendarDayNoteUrl = (clientId: number,
+    noteId: number,) => {
+
+
+
+
+  return `/api/clients/${clientId}/calendar-day-notes/${noteId}`
+}
+
+/**
+ * @summary Delete a calendar day note (coach only)
+ */
+export const deleteCalendarDayNote = async (clientId: number,
+    noteId: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteCalendarDayNoteUrl(clientId,noteId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteCalendarDayNoteMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteCalendarDayNote>>, TError,{clientId: number;noteId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteCalendarDayNote>>, TError,{clientId: number;noteId: number}, TContext> => {
+
+const mutationKey = ['deleteCalendarDayNote'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteCalendarDayNote>>, {clientId: number;noteId: number}> = (props) => {
+          const {clientId,noteId} = props ?? {};
+
+          return  deleteCalendarDayNote(clientId,noteId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteCalendarDayNoteMutationResult = NonNullable<Awaited<ReturnType<typeof deleteCalendarDayNote>>>
+
+    export type DeleteCalendarDayNoteMutationError = ErrorType<void>
+
+    /**
+ * @summary Delete a calendar day note (coach only)
+ */
+export const useDeleteCalendarDayNote = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteCalendarDayNote>>, TError,{clientId: number;noteId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteCalendarDayNote>>,
+        TError,
+        {clientId: number;noteId: number},
+        TContext
+      > => {
+      return useMutation(getDeleteCalendarDayNoteMutationOptions(options));
+    }
+
+export const getListClientCalendarDayNotesUrl = () => {
+
+
+
+
+  return `/api/client/calendar-day-notes`
+}
+
+/**
+ * @summary List coach calendar notes for the logged-in client (read-only)
+ */
+export const listClientCalendarDayNotes = async ( options?: RequestInit): Promise<CalendarDayNote[]> => {
+
+  return customFetch<CalendarDayNote[]>(getListClientCalendarDayNotesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListClientCalendarDayNotesQueryKey = () => {
+    return [
+    `/api/client/calendar-day-notes`
+    ] as const;
+    }
+
+
+export const getListClientCalendarDayNotesQueryOptions = <TData = Awaited<ReturnType<typeof listClientCalendarDayNotes>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listClientCalendarDayNotes>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListClientCalendarDayNotesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listClientCalendarDayNotes>>> = ({ signal }) => listClientCalendarDayNotes({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listClientCalendarDayNotes>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListClientCalendarDayNotesQueryResult = NonNullable<Awaited<ReturnType<typeof listClientCalendarDayNotes>>>
+export type ListClientCalendarDayNotesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List coach calendar notes for the logged-in client (read-only)
+ */
+
+export function useListClientCalendarDayNotes<TData = Awaited<ReturnType<typeof listClientCalendarDayNotes>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listClientCalendarDayNotes>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListClientCalendarDayNotesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getListCallLogsUrl = (clientId: number,) => {
 

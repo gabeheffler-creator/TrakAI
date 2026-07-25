@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useParams, useLocation, useSearch } from "wouter";
 import {
   useGetClient,
@@ -44,6 +44,10 @@ import {
   useListClientProgramAssignmentHistory,
   useGenerateAiProgram,
   useListClientTasks,
+  useListCalendarDayNotes,
+  useCreateCalendarDayNote,
+  useUpdateCalendarDayNote,
+  useDeleteCalendarDayNote,
   getGetWorkoutLogQueryKey,
   getGetClientQueryKey,
   getListAssignmentsQueryKey,
@@ -59,6 +63,7 @@ import {
   getListClientGoalHistoryQueryKey,
   getListClientProgramAssignmentHistoryQueryKey,
   getListClientTasksQueryKey,
+  getListCalendarDayNotesQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -75,6 +80,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { Copy, Send, Plus, CheckCircle, Circle, Trash2, ArrowLeft, ChevronDown, ChevronRight, Dumbbell, Pencil, X, Check, Phone, StickyNote, Clock, Video, Target, Sparkles, Loader2, ImageOff, Moon, Columns2, Search, GripVertical } from "lucide-react";
 import {
@@ -1099,6 +1105,225 @@ function BrokenPhotoPlaceholder({ aspectClass }: { aspectClass: string }) {
   );
 }
 
+// ─── Calendar Notes Tab ───────────────────────────────────────────────────────
+
+type CalendarDayNoteRecord = { id: number; clientId: number; date: string; note: string; createdAt: string; updatedAt: string };
+
+const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function getMonthGrid(year: number, month: number): string[] {
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const dates: string[] = [];
+  for (let i = firstDay.getDay() - 1; i >= 0; i--) {
+    const d = new Date(year, month, -i);
+    dates.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+  }
+  for (let d = 1; d <= lastDay.getDate(); d++) {
+    dates.push(`${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`);
+  }
+  const rem = 7 - (dates.length % 7);
+  if (rem < 7) {
+    for (let i = 1; i <= rem; i++) {
+      const d = new Date(year, month + 1, i);
+      dates.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+    }
+  }
+  return dates;
+}
+
+function CalendarNotesTab({ clientId }: { clientId: number }) {
+  const today = new Date().toISOString().split("T")[0];
+  const todayDate = new Date(today + "T12:00:00");
+  const [year, setYear] = useState(todayDate.getFullYear());
+  const [month, setMonth] = useState(todayDate.getMonth());
+  const [editingDate, setEditingDate] = useState<string | null>(null);
+  const [draftText, setDraftText] = useState("");
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  const { data: notes } = useListCalendarDayNotes(clientId, {
+    query: { queryKey: getListCalendarDayNotesQueryKey(clientId) },
+  });
+
+  const notesByDate = useMemo(() => {
+    const map = new Map<string, CalendarDayNoteRecord>();
+    for (const n of notes ?? []) map.set(n.date, n as CalendarDayNoteRecord);
+    return map;
+  }, [notes]);
+
+  const invalidate = () => qc.invalidateQueries({ queryKey: getListCalendarDayNotesQueryKey(clientId) });
+
+  const createNote = useCreateCalendarDayNote();
+  const updateNote = useUpdateCalendarDayNote();
+  const deleteNote = useDeleteCalendarDayNote();
+
+  const gridDates = useMemo(() => getMonthGrid(year, month), [year, month]);
+  const monthLabel = new Date(year, month, 1).toLocaleDateString(undefined, { month: "long", year: "numeric" });
+
+  const isCurrentMonth = (iso: string) => {
+    const d = new Date(iso + "T12:00:00");
+    return d.getFullYear() === year && d.getMonth() === month;
+  };
+
+  const startEdit = (date: string) => {
+    const existing = notesByDate.get(date);
+    setDraftText(existing?.note ?? "");
+    setEditingDate(date);
+  };
+
+  const saveNote = async () => {
+    if (!editingDate) return;
+    const text = draftText.trim();
+    const existing = notesByDate.get(editingDate);
+    if (!text) {
+      if (existing) {
+        await deleteNote.mutateAsync({ clientId, noteId: existing.id });
+        invalidate();
+        toast({ description: "Note deleted." });
+      }
+      setEditingDate(null);
+      return;
+    }
+    if (existing) {
+      await updateNote.mutateAsync({ clientId, noteId: existing.id, data: { note: text } });
+    } else {
+      await createNote.mutateAsync({ clientId, data: { date: editingDate, note: text } });
+    }
+    invalidate();
+    setEditingDate(null);
+  };
+
+  const handleDeleteNote = async (date: string) => {
+    const existing = notesByDate.get(date);
+    if (!existing) return;
+    await deleteNote.mutateAsync({ clientId, noteId: existing.id });
+    invalidate();
+    toast({ description: "Note deleted." });
+  };
+
+  const prevMonth = () => {
+    if (month === 0) { setYear(y => y - 1); setMonth(11); }
+    else setMonth(m => m - 1);
+  };
+  const nextMonth = () => {
+    if (month === 11) { setYear(y => y + 1); setMonth(0); }
+    else setMonth(m => m + 1);
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Month navigation */}
+      <div className="flex items-center justify-between">
+        <button onClick={prevMonth} className="p-2 rounded-lg hover:bg-muted transition-colors">
+          <ChevronRight className="w-4 h-4 rotate-180" />
+        </button>
+        <h3 className="font-semibold text-sm">{monthLabel}</h3>
+        <button onClick={nextMonth} className="p-2 rounded-lg hover:bg-muted transition-colors">
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Day-of-week header */}
+      <div className="grid grid-cols-7 gap-px">
+        {DOW.map(d => (
+          <div key={d} className="text-center text-[10px] font-semibold text-muted-foreground py-1">{d}</div>
+        ))}
+      </div>
+
+      {/* Calendar grid */}
+      <div className="grid grid-cols-7 gap-px bg-border rounded-xl overflow-hidden border border-border">
+        {gridDates.map(date => {
+          const inMonth = isCurrentMonth(date);
+          const isToday = date === today;
+          const note = inMonth ? notesByDate.get(date) : undefined;
+          const dayNum = new Date(date + "T12:00:00").getDate();
+          const isEditing = editingDate === date;
+
+          return (
+            <div
+              key={date}
+              className={cn(
+                "bg-card min-h-[90px] p-1.5 flex flex-col gap-1",
+                !inMonth && "opacity-30 pointer-events-none",
+                isToday && "bg-primary/5",
+              )}
+            >
+              {/* Day number */}
+              <span className={cn(
+                "text-xs font-semibold w-5 h-5 flex items-center justify-center rounded-full self-start",
+                isToday ? "bg-primary text-primary-foreground" : "text-foreground"
+              )}>
+                {dayNum}
+              </span>
+
+              {/* Note area */}
+              {isEditing ? (
+                <div className="flex flex-col gap-1 flex-1">
+                  <textarea
+                    autoFocus
+                    value={draftText}
+                    onChange={e => setDraftText(e.target.value)}
+                    className="w-full flex-1 text-[10px] leading-tight rounded border border-border bg-background px-1 py-0.5 resize-none focus:outline-none focus:ring-1 focus:ring-primary"
+                    rows={3}
+                    placeholder="Add a note…"
+                    onKeyDown={e => { if (e.key === "Escape") setEditingDate(null); if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) saveNote(); }}
+                  />
+                  <div className="flex gap-0.5">
+                    <button
+                      onClick={saveNote}
+                      className="flex-1 text-[9px] font-semibold rounded bg-primary text-primary-foreground py-0.5 hover:bg-primary/90 transition-colors"
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={() => setEditingDate(null)}
+                      className="px-1 text-[9px] rounded bg-muted text-muted-foreground hover:bg-muted/80 transition-colors"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              ) : note ? (
+                <div className="flex flex-col gap-0.5 flex-1 group/note">
+                  <p className="text-[10px] leading-tight text-foreground line-clamp-3">{note.note}</p>
+                  <div className="flex gap-0.5 opacity-0 group-hover/note:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => startEdit(date)}
+                      className="text-[9px] text-primary hover:underline"
+                    >
+                      Edit
+                    </button>
+                    <span className="text-[9px] text-muted-foreground">·</span>
+                    <button
+                      onClick={() => handleDeleteNote(date)}
+                      className="text-[9px] text-destructive hover:underline"
+                    >
+                      Del
+                    </button>
+                  </div>
+                </div>
+              ) : inMonth ? (
+                <button
+                  onClick={() => startEdit(date)}
+                  className="flex-1 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity rounded hover:bg-muted"
+                  aria-label={`Add note for ${date}`}
+                >
+                  <Plus className="w-3 h-3 text-muted-foreground" />
+                </button>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+
+      <p className="text-xs text-muted-foreground text-center">
+        Click any day to add a coaching note. Clients see these as read-only tags on their calendar.
+      </p>
+    </div>
+  );
+}
+
 export function ClientProfile() {
   const { clientId: clientIdStr } = useParams<{ clientId: string }>();
   const clientId = Number(clientIdStr);
@@ -1780,6 +2005,7 @@ export function ClientProfile() {
               { value: "photos", label: "Photos" },
               { value: "tasks", label: "Tasks" },
               { value: "notes", label: "Notes", icon: <StickyNote className="w-3 h-3" /> },
+              { value: "calendar", label: "Calendar" },
             ].map(tab => (
               <TabsTrigger
                 key={tab.value}
@@ -3047,6 +3273,11 @@ export function ClientProfile() {
               </div>
             );
           })()}
+        </TabsContent>
+
+        {/* Calendar */}
+        <TabsContent value="calendar" className="mt-4">
+          <CalendarNotesTab clientId={clientId!} />
         </TabsContent>
       </Tabs>
     </div>
