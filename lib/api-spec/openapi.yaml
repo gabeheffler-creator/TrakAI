@@ -2339,6 +2339,8 @@ components:
           type: boolean
         connectedAlarmAppId:
           type: ["string", "null"]
+        coachName:
+          type: ["string", "null"]
 
     ClientInput:
       type: object
@@ -3608,6 +3610,9 @@ components:
         altStatus:
           type: ["string", "null"]
           enum: [pending, accepted, rejected, left_alone, null]
+        dueDate:
+          type: ["string", "null"]
+          format: date
         createdAt:
           type: string
           format: date-time

@@ -142,38 +142,46 @@ export function Dashboard() {
               View all
             </Link>
           </div>
-          <div className="space-y-3">
-            {activeTasks.map((task, index) => (
-              <Card
-                key={task.id}
-                className="border-violet-200 bg-violet-50 dark:bg-violet-950/30 dark:border-violet-800"
-                data-testid={index === 0 ? "card-active-task" : `card-active-task-${index}`}
-              >
-                <CardContent className="px-4 py-3 space-y-3">
-                  <p className="text-sm leading-relaxed text-foreground">
-                    {(task.altStatus === "accepted" && task.alternativeText) ? task.alternativeText : task.text}
-                  </p>
-                  <Button
-                    className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700"
-                    disabled={completeTask.isPending}
-                    data-testid={index === 0 ? "button-mark-complete" : `button-mark-complete-${index}`}
-                    onClick={() => {
-                      completeTask.mutate(
-                        { clientId: clientId!, taskId: task.id },
-                        {
-                          onSuccess: () => {
-                            qc.invalidateQueries({ queryKey: getListActiveTasksQueryKey(clientId!) });
-                          },
-                        }
-                      );
-                    }}
+          {/* When 6 tasks come back it means there are more than 5 — clip after ~5 cards and show a peek + fade */}
+          <div
+            className={activeTasks.length === 6 ? "relative overflow-hidden" : undefined}
+            style={activeTasks.length === 6 ? { maxHeight: "calc(5 * 5.75rem + 4 * 0.75rem + 2.5rem)" } : undefined}
+          >
+            <div className="space-y-3">
+              {activeTasks.map((task, index) => {
+                const label = (task.altStatus === "accepted" && task.alternativeText)
+                  ? task.alternativeText
+                  : task.text;
+                return (
+                  <Card
+                    key={task.id}
+                    className="border-violet-200 bg-violet-50 dark:bg-violet-950/30 dark:border-violet-800"
+                    data-testid={index === 0 ? "card-active-task" : `card-active-task-${index}`}
                   >
-                    <CheckCircle2 className="w-4 h-4" />
-                    Mark Complete
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
+                    <CardContent className="px-4 py-3 space-y-3">
+                      <p className="text-sm leading-relaxed text-foreground">{label}</p>
+                      <Button
+                        className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700"
+                        disabled={completeTask.isPending}
+                        data-testid={index === 0 ? "button-mark-complete" : `button-mark-complete-${index}`}
+                        onClick={() => {
+                          completeTask.mutate(
+                            { clientId: clientId!, taskId: task.id },
+                            { onSuccess: () => qc.invalidateQueries({ queryKey: getListActiveTasksQueryKey(clientId!) }) }
+                          );
+                        }}
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        Mark Complete
+                      </Button>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+            {activeTasks.length === 6 && (
+              <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-background to-transparent pointer-events-none" />
+            )}
           </div>
         </div>
       )}

@@ -11,7 +11,7 @@ import { WorkoutLogDetailPage } from "@/pages/workout-log-detail";
 import { MeasurementsPage } from "@/pages/measurements";
 import { SleepPage } from "@/pages/sleep";
 import { NutritionPage } from "@/pages/nutrition";
-import { AssignmentsPage } from "@/pages/assignments";
+
 import { MessagesPage } from "@/pages/messages";
 import { StatsPage } from "@/pages/stats";
 import { SoundsPage } from "@/pages/sounds";
@@ -85,7 +85,7 @@ function AppRouter() {
       <Route path="/photos"><Redirect to="/stats" /></Route>
       <Route path="/progress"><Redirect to="/stats" /></Route>
       <Route path="/stats"><Protected><StatsPage /></Protected></Route>
-      <Route path="/assignments"><Protected><AssignmentsPage /></Protected></Route>
+
       <Route path="/messages"><Protected><MessagesPage /></Protected></Route>
       <Route path="/sounds"><Protected><SoundsPage /></Protected></Route>
       <Route path="/exercises"><Protected><ExercisesPage /></Protected></Route>

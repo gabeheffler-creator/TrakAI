@@ -19,6 +19,8 @@ export interface ClientTask {
   alternativeText?: string | null;
   /** @nullable */
   altStatus?: ClientTaskAltStatus;
+  /** @nullable */
+  dueDate?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }

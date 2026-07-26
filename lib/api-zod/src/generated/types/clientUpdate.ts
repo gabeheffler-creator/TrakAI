@@ -17,4 +17,6 @@ export interface ClientUpdate {
   goalTargetDate?: string | null;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  connectedAlarmAppId?: string | null;
 }

@@ -143,14 +143,17 @@ router.get("/clients/:clientId/tasks/active", requireClientOwnership(), async (r
   }
 });
 
-// GET /api/clients/:clientId/tasks/active-list — up to 5 accepted tasks for client home screen
+// GET /api/clients/:clientId/tasks/active-list — up to 6 accepted tasks for client home screen (6th signals overflow)
 router.get("/clients/:clientId/tasks/active-list", requireClientOwnership(), async (req, res) => {
   try {
     const clientId = Number(req.params.clientId);
     const tasks = await db.select().from(clientTasksTable)
-      .where(and(eq(clientTasksTable.clientId, clientId), eq(clientTasksTable.status, "accepted")))
+      .where(and(
+        eq(clientTasksTable.clientId, clientId),
+        eq(clientTasksTable.status, "accepted"),
+      ))
       .orderBy(desc(clientTasksTable.createdAt))
-      .limit(5);
+      .limit(6);
     res.json(tasks.map(serializeTask));
   } catch (err) {
     req.log.error(err);

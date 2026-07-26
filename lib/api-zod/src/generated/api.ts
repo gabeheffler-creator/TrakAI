@@ -73,7 +73,9 @@ export const ListClientsResponseItem = zod.object({
   "status": zod.enum(['active', 'inactive']).optional(),
   "createdAt": zod.coerce.date(),
   "programName": zod.string().nullish(),
-  "hasStalePendingTask": zod.boolean().optional()
+  "hasStalePendingTask": zod.boolean().optional(),
+  "connectedAlarmAppId": zod.string().nullish(),
+  "coachName": zod.string().nullish()
 })
 export const ListClientsResponse = zod.array(ListClientsResponseItem)
 
@@ -112,7 +114,9 @@ export const GetClientResponse = zod.object({
   "status": zod.enum(['active', 'inactive']).optional(),
   "createdAt": zod.coerce.date(),
   "programName": zod.string().nullish(),
-  "hasStalePendingTask": zod.boolean().optional()
+  "hasStalePendingTask": zod.boolean().optional(),
+  "connectedAlarmAppId": zod.string().nullish(),
+  "coachName": zod.string().nullish()
 })
 
 
@@ -146,7 +150,8 @@ export const UpdateClientResponse = zod.object({
   "createdAt": zod.coerce.date(),
   "programName": zod.string().nullish(),
   "hasStalePendingTask": zod.boolean().optional(),
-  "connectedAlarmAppId": zod.string().nullish()
+  "connectedAlarmAppId": zod.string().nullish(),
+  "coachName": zod.string().nullish()
 })
 
 
@@ -181,7 +186,9 @@ export const UpdateClientStatusResponse = zod.object({
   "status": zod.enum(['active', 'inactive']).optional(),
   "createdAt": zod.coerce.date(),
   "programName": zod.string().nullish(),
-  "hasStalePendingTask": zod.boolean().optional()
+  "hasStalePendingTask": zod.boolean().optional(),
+  "connectedAlarmAppId": zod.string().nullish(),
+  "coachName": zod.string().nullish()
 })
 
 
@@ -226,7 +233,9 @@ export const CreateClientGoalResponse = zod.object({
   "status": zod.enum(['active', 'inactive']).optional(),
   "createdAt": zod.coerce.date(),
   "programName": zod.string().nullish(),
-  "hasStalePendingTask": zod.boolean().optional()
+  "hasStalePendingTask": zod.boolean().optional(),
+  "connectedAlarmAppId": zod.string().nullish(),
+  "coachName": zod.string().nullish()
 })
 
 
@@ -289,7 +298,9 @@ export const GetMyClientResponse = zod.object({
   "status": zod.enum(['active', 'inactive']).optional(),
   "createdAt": zod.coerce.date(),
   "programName": zod.string().nullish(),
-  "hasStalePendingTask": zod.boolean().optional()
+  "hasStalePendingTask": zod.boolean().optional(),
+  "connectedAlarmAppId": zod.string().nullish(),
+  "coachName": zod.string().nullish()
 })
 
 
@@ -338,7 +349,9 @@ export const GetClientDashboardResponse = zod.object({
   "status": zod.enum(['active', 'inactive']).optional(),
   "createdAt": zod.coerce.date(),
   "programName": zod.string().nullish(),
-  "hasStalePendingTask": zod.boolean().optional()
+  "hasStalePendingTask": zod.boolean().optional(),
+  "connectedAlarmAppId": zod.string().nullish(),
+  "coachName": zod.string().nullish()
 }),
   "currentProgram": zod.object({
   "id": zod.number(),
@@ -1666,6 +1679,7 @@ export const ListMessagesResponseItem = zod.object({
   "rejectionReason": zod.string().nullish(),
   "alternativeText": zod.string().nullish(),
   "altStatus": zod.union([zod.literal('pending'),zod.literal('accepted'),zod.literal('rejected'),zod.literal('left_alone'),zod.literal(null)]).nullish(),
+  "dueDate": zod.coerce.date().nullish(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
 }),zod.null()]).optional(),
@@ -1743,6 +1757,7 @@ export const ListClientTasksResponseItem = zod.object({
   "rejectionReason": zod.string().nullish(),
   "alternativeText": zod.string().nullish(),
   "altStatus": zod.union([zod.literal('pending'),zod.literal('accepted'),zod.literal('rejected'),zod.literal('left_alone'),zod.literal(null)]).nullish(),
+  "dueDate": zod.coerce.date().nullish(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
 })
@@ -1780,6 +1795,7 @@ export const ListClientTaskHistoryResponseItem = zod.object({
   "rejectionReason": zod.string().nullish(),
   "alternativeText": zod.string().nullish(),
   "altStatus": zod.union([zod.literal('pending'),zod.literal('accepted'),zod.literal('rejected'),zod.literal('left_alone'),zod.literal(null)]).nullish(),
+  "dueDate": zod.coerce.date().nullish(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
 })
@@ -1801,6 +1817,7 @@ export const GetActiveTaskResponse = zod.union([zod.object({
   "rejectionReason": zod.string().nullish(),
   "alternativeText": zod.string().nullish(),
   "altStatus": zod.union([zod.literal('pending'),zod.literal('accepted'),zod.literal('rejected'),zod.literal('left_alone'),zod.literal(null)]).nullish(),
+  "dueDate": zod.coerce.date().nullish(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
 }),zod.null()])
@@ -1821,6 +1838,7 @@ export const ListActiveTasksResponseItem = zod.object({
   "rejectionReason": zod.string().nullish(),
   "alternativeText": zod.string().nullish(),
   "altStatus": zod.union([zod.literal('pending'),zod.literal('accepted'),zod.literal('rejected'),zod.literal('left_alone'),zod.literal(null)]).nullish(),
+  "dueDate": zod.coerce.date().nullish(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
 })
@@ -1843,6 +1861,7 @@ export const AcceptTaskResponse = zod.object({
   "rejectionReason": zod.string().nullish(),
   "alternativeText": zod.string().nullish(),
   "altStatus": zod.union([zod.literal('pending'),zod.literal('accepted'),zod.literal('rejected'),zod.literal('left_alone'),zod.literal(null)]).nullish(),
+  "dueDate": zod.coerce.date().nullish(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
 })
@@ -1872,6 +1891,7 @@ export const RejectTaskResponse = zod.object({
   "rejectionReason": zod.string().nullish(),
   "alternativeText": zod.string().nullish(),
   "altStatus": zod.union([zod.literal('pending'),zod.literal('accepted'),zod.literal('rejected'),zod.literal('left_alone'),zod.literal(null)]).nullish(),
+  "dueDate": zod.coerce.date().nullish(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
 })
@@ -1893,6 +1913,7 @@ export const CompleteTaskResponse = zod.object({
   "rejectionReason": zod.string().nullish(),
   "alternativeText": zod.string().nullish(),
   "altStatus": zod.union([zod.literal('pending'),zod.literal('accepted'),zod.literal('rejected'),zod.literal('left_alone'),zod.literal(null)]).nullish(),
+  "dueDate": zod.coerce.date().nullish(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
 })
@@ -1922,6 +1943,7 @@ export const SuggestAlternativeTaskResponse = zod.object({
   "rejectionReason": zod.string().nullish(),
   "alternativeText": zod.string().nullish(),
   "altStatus": zod.union([zod.literal('pending'),zod.literal('accepted'),zod.literal('rejected'),zod.literal('left_alone'),zod.literal(null)]).nullish(),
+  "dueDate": zod.coerce.date().nullish(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
 })
@@ -1943,6 +1965,7 @@ export const LeaveTaskResponse = zod.object({
   "rejectionReason": zod.string().nullish(),
   "alternativeText": zod.string().nullish(),
   "altStatus": zod.union([zod.literal('pending'),zod.literal('accepted'),zod.literal('rejected'),zod.literal('left_alone'),zod.literal(null)]).nullish(),
+  "dueDate": zod.coerce.date().nullish(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
 })

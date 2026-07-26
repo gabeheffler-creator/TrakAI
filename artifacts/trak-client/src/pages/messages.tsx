@@ -7,6 +7,8 @@ import {
   getListMessagesQueryKey,
   useAcceptTask,
   useRejectTask,
+  useGetMyClient,
+  getGetMyClientQueryKey,
   type ClientTask,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -168,6 +170,10 @@ export function MessagesPage() {
     },
   });
 
+  const { data: myClient } = useGetMyClient({
+    query: { enabled: !!clientId, queryKey: getGetMyClientQueryKey() },
+  });
+
   const sendMessage = useSendMessage();
   const markRead = useMarkMessagesRead();
   const { requestPermissionAndSubscribe } = usePushNotifications();
@@ -228,15 +234,21 @@ export function MessagesPage() {
   return (
     <div className="-m-4 md:-m-6 h-[calc(100vh-3.5rem)] sm:h-screen flex flex-col overflow-hidden border-t border-border relative">
       {/* Coach header */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-background flex-shrink-0">
-        <div className="w-9 h-9 rounded-full bg-violet-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-          C
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card flex-shrink-0">
+        <div className="w-9 h-9 rounded-full bg-violet-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0 shrink-0">
+          {myClient?.coachName
+            ? myClient.coachName.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase()
+            : "C"}
         </div>
-        <div>
-          <p className="font-semibold text-sm">Your Coach</p>
-          <p className="text-xs text-muted-foreground flex items-center gap-1">
+        <div className="min-w-0">
+          {myClient?.coachName ? (
+            <p className="font-semibold text-sm truncate">{myClient.coachName}</p>
+          ) : (
+            <div className="h-4 w-24 bg-muted animate-pulse rounded" />
+          )}
+          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            Active
+            Your coach
           </p>
         </div>
       </div>

@@ -11,6 +11,7 @@ export const clientTasksTable = pgTable("client_tasks", {
   rejectionReason: text("rejection_reason"),
   alternativeText: text("alternative_text"),
   altStatus: text("alt_status"),
+  dueDate: text("due_date"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });

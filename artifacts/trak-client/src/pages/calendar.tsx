@@ -700,9 +700,12 @@ export function CalendarPage() {
       });
     }
 
-    // Coach tasks (today only)
-    if (isToday && activeTasks && activeTasks.length > 0) {
+    // Coach tasks — on their due date if set, otherwise today only
+    if (activeTasks && activeTasks.length > 0) {
       for (const task of activeTasks as ClientTask[]) {
+        const taskDueDate = (task as ClientTask & { dueDate?: string | null }).dueDate;
+        const showOnDate = taskDueDate ?? today;
+        if (showOnDate !== date) continue;
         const taskLabel =
           task.altStatus === "accepted" && task.alternativeText
             ? task.alternativeText
@@ -712,7 +715,7 @@ export function CalendarPage() {
           blockType: "task",
           done: task.status === "completed",
           label: taskLabel,
-          href: "/tasks",
+          href: "/messages",
           badge: "coach task",
         });
       }

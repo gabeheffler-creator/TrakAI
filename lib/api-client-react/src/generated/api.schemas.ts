@@ -72,6 +72,8 @@ export interface Client {
   hasStalePendingTask?: boolean;
   /** @nullable */
   connectedAlarmAppId?: string | null;
+  /** @nullable */
+  coachName?: string | null;
 }
 
 export interface ClientInput {
@@ -1004,6 +1006,8 @@ export interface ClientTask {
   alternativeText?: string | null;
   /** @nullable */
   altStatus?: ClientTaskAltStatus;
+  /** @nullable */
+  dueDate?: string | null;
   createdAt: string;
   updatedAt: string;
 }

@@ -26,4 +26,8 @@ export interface Client {
   /** @nullable */
   programName?: string | null;
   hasStalePendingTask?: boolean;
+  /** @nullable */
+  connectedAlarmAppId?: string | null;
+  /** @nullable */
+  coachName?: string | null;
 }

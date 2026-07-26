@@ -11,6 +11,7 @@ import {
   programsTable,
   clientGoalHistoryTable,
   clientTasksTable,
+  coachesTable,
 } from "@workspace/db";
 import { eq, sql, desc, and, inArray, lt } from "drizzle-orm";
 import { randomBytes } from "crypto";
@@ -128,7 +129,11 @@ router.get("/clients/me", requireClientAuth, async (req, res) => {
   try {
     if (req.actor?.type !== "client") { res.status(404).json({ error: "No client account found" }); return; }
     const { client } = req.actor;
-    res.json({ ...client, createdAt: client.createdAt.toISOString() });
+    const [coach] = await db
+      .select({ name: coachesTable.name })
+      .from(coachesTable)
+      .where(eq(coachesTable.id, client.coachId));
+    res.json({ ...client, createdAt: client.createdAt.toISOString(), coachName: coach?.name ?? null });
   } catch (err) {
     req.log.error(err);
     res.status(500).json({ error: "Failed to get client" });

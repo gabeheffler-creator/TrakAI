@@ -15,7 +15,7 @@ const navigation = [
   { name: "Nutrition", href: "/nutrition", icon: UtensilsCrossed },
   { name: "Stats", href: "/stats", icon: TrendingUp },
   { name: "Sleep", href: "/sleep", icon: Moon },
-  { name: "Tasks", href: "/assignments", icon: ClipboardList },
+
   { name: "Messages", href: "/messages", icon: MessageCircle },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
