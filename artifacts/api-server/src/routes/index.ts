@@ -24,7 +24,6 @@ import inviteRouter from "./invite";
 import nutritionGoalsRouter from "./nutrition_goals";
 import coachSettingsRouter from "./coach_settings";
 import tasksRouter from "./tasks";
-import exerciseCuesRouter from "./exercise_cues";
 
 const router: IRouter = Router();
 
@@ -53,6 +52,5 @@ router.use(inviteRouter);
 router.use(nutritionGoalsRouter);
 router.use(coachSettingsRouter);
 router.use(tasksRouter);
-router.use(exerciseCuesRouter);
 
 export default router;

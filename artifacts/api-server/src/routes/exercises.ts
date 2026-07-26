@@ -107,7 +107,6 @@ async function seedExercises() {
           muscleGroup: e.muscleGroup,
           description: e.description ?? null,
           isCompound: e.isCompound,
-          isUnilateral: e.movementPattern === "unilateral",
           movementPattern: e.movementPattern,
         }))
       );
@@ -119,7 +118,7 @@ async function seedExercises() {
     if (toBackfill.length > 0) {
       for (const exercise of toBackfill) {
         await db.update(exercisesTable)
-          .set({ isCompound: exercise.isCompound, isUnilateral: exercise.movementPattern === "unilateral", movementPattern: exercise.movementPattern, muscleGroup: exercise.muscleGroup })
+          .set({ isCompound: exercise.isCompound, movementPattern: exercise.movementPattern, muscleGroup: exercise.muscleGroup })
           .where(eq(exercisesTable.name, exercise.name));
       }
     }
@@ -140,12 +139,9 @@ function serializeExercise(e: typeof exercisesTable.$inferSelect) {
     name: e.name,
     muscleGroup: e.muscleGroup,
     isCompound: e.isCompound,
-    isUnilateral: e.isUnilateral,
     movementPattern: e.movementPattern ?? null,
     description: e.description ?? null,
     videoUrl: e.videoUrl ?? null,
-    equipment: e.equipment ?? "Other",
-    difficulty: e.difficulty ?? "Intermediate",
     createdAt: e.createdAt.toISOString(),
   };
 }
@@ -172,12 +168,9 @@ router.post("/exercises", requireCoachAuth, async (req, res) => {
       name: body.name,
       muscleGroup: body.muscleGroup,
       isCompound: body.isCompound ?? false,
-      isUnilateral: body.isUnilateral ?? false,
       movementPattern: body.movementPattern ?? null,
       description: body.description ?? null,
       videoUrl: body.videoUrl ?? null,
-      equipment: body.equipment ?? "Other",
-      difficulty: body.difficulty ?? "Intermediate",
     }).returning();
     res.status(201).json(serializeExercise(exercise));
   } catch (err) {
@@ -188,7 +181,7 @@ router.post("/exercises", requireCoachAuth, async (req, res) => {
 
 router.patch("/exercises/:exerciseId", requireCoachAuth, async (req, res) => {
   try {
-    const exerciseId = parseInt(req.params.exerciseId as string, 10);
+    const exerciseId = parseInt(req.params.exerciseId, 10);
     if (isNaN(exerciseId)) {
       res.status(400).json({ error: "Invalid exercise ID" });
       return;
@@ -198,17 +191,9 @@ router.patch("/exercises/:exerciseId", requireCoachAuth, async (req, res) => {
     if (body.name !== undefined) updates.name = body.name;
     if (body.muscleGroup !== undefined) updates.muscleGroup = body.muscleGroup;
     if (body.isCompound !== undefined) updates.isCompound = body.isCompound;
-    if (body.isUnilateral !== undefined) updates.isUnilateral = body.isUnilateral;
     if ("movementPattern" in body) updates.movementPattern = body.movementPattern ?? null;
     if ("description" in body) updates.description = body.description ?? null;
     if ("videoUrl" in body) updates.videoUrl = body.videoUrl ?? null;
-    if (body.equipment !== undefined) updates.equipment = body.equipment;
-    if (body.difficulty !== undefined) updates.difficulty = body.difficulty;
-
-    if (Object.keys(updates).length === 0) {
-      res.status(400).json({ error: "No fields to update" });
-      return;
-    }
 
     const [exercise] = await db.update(exercisesTable)
       .set(updates)

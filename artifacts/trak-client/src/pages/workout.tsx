@@ -8,52 +8,27 @@ import {
   useCreateWorkoutLog,
   useUpdateWorkoutLog,
   useLogSet,
+  useListExercises,
   useGetLatestSleepLog,
   useGetLastWorkoutPerformance,
-  useGetUploadUrl,
-  useListExerciseCues,
   getGetLatestSleepLogQueryKey,
   getGetLastWorkoutPerformanceQueryKey,
+  getListExercisesQueryKey,
   getGetClientProgramAssignmentQueryKey,
   getGetClientProgramQueryKey,
   getListWorkoutLogsQueryKey,
-  getListExerciseCuesQueryKey,
 } from "@workspace/api-client-react";
-import type { ExerciseCue } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle, ChevronRight, Dumbbell, X, Trophy, ArrowRight, RefreshCw, Upload, FolderOpen, ImageIcon, Pencil, RotateCcw, Check, Moon, Download } from "lucide-react";
+import { CheckCircle, ChevronRight, Dumbbell, X, Trophy, ArrowRight, RefreshCw, Upload, FolderOpen, ImageIcon, Pencil, RotateCcw, Check, Moon } from "lucide-react";
 import { useLocation, Link } from "wouter";
 import { cn } from "@/lib/utils";
 import type { Exercise } from "@workspace/api-client-react";
 import { QueryErrorState } from "@/components/query-error-state";
-import { ExercisesPage } from "@/pages/exercises";
-
-// ─── YouTube helpers ─────────────────────────────────────────────────────────
-
-function getYouTubeVideoId(url: string): string | null {
-  try {
-    const u = new URL(url);
-    if (u.hostname === "youtu.be") return u.pathname.slice(1).split("?")[0] || null;
-    if (u.hostname.includes("youtube.com")) {
-      if (u.pathname === "/watch") return u.searchParams.get("v");
-      if (u.pathname.startsWith("/embed/")) return u.pathname.split("/embed/")[1]?.split("?")[0] || null;
-      if (u.pathname.startsWith("/shorts/")) return u.pathname.split("/shorts/")[1]?.split("?")[0] || null;
-    }
-  } catch { /* not a URL */ }
-  return null;
-}
-
-function getYouTubeEmbedUrl(url: string): string | null {
-  const id = getYouTubeVideoId(url);
-  return id ? `https://www.youtube.com/embed/${id}?rel=0` : null;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 
 type Mode = "select" | "checkin" | "overview" | "active" | "upload" | "done" | "early-exit-done";
 
@@ -274,162 +249,99 @@ function RpeBottomSheet({ open, onSelect, onCancel }: { open: boolean; onSelect:
   );
 }
 
+function SwapModal({
+  currentExercise,
+  allExercises,
+  onSelect,
+  onCancel,
+}: {
+  currentExercise: { exerciseName: string; muscleGroup: string };
+  allExercises: Exercise[];
+  onSelect: (ex: Exercise) => void;
+  onCancel: () => void;
+}) {
+  const isCompoundName = (name: string) => {
+    const compounds = ["squat", "deadlift", "bench press", "bent over row", "overhead press", "pull-up", "chin-up"];
+    const lower = name.toLowerCase();
+    return compounds.some(c => lower.includes(c));
+  };
+
+  const currentIsCompound = isCompoundName(currentExercise.exerciseName);
+  const currentBase = currentExercise.exerciseName.toLowerCase()
+    .replace(/barbell|dumbbell|incline|decline|flat|sumo|romanian|conventional|front|back|close grip|wide grip/g, "")
+    .trim();
+
+  const swappable = allExercises.filter(ex => {
+    if (ex.name === currentExercise.exerciseName) return false;
+    if (currentIsCompound) {
+      // Only show variations of the same lift
+      const exBase = ex.name.toLowerCase()
+        .replace(/barbell|dumbbell|incline|decline|flat|sumo|romanian|conventional|front|back|close grip|wide grip/g, "")
+        .trim();
+      return exBase.split(" ").some(word => currentBase.split(" ").includes(word) && word.length > 3);
+    }
+    // For accessories, show same muscle group
+    return ex.muscleGroup === currentExercise.muscleGroup;
+  });
+
+  return (
+    <div className="fixed inset-0 z-[70] bg-background/95 backdrop-blur-sm flex flex-col">
+      <div className="flex items-center justify-between px-4 py-4 border-b border-border">
+        <div>
+          <h2 className="text-lg font-bold">Swap Exercise</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {currentIsCompound ? "Showing variations of this lift" : `Showing ${currentExercise.muscleGroup} exercises`}
+          </p>
+        </div>
+        <button onClick={onCancel} className="p-2 text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
+      </div>
+      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+        {swappable.length === 0 ? (
+          <p className="text-center text-muted-foreground py-8 text-sm">No alternatives found in your exercise library.</p>
+        ) : swappable.map(ex => (
+          <button
+            key={ex.id}
+            onClick={() => onSelect(ex)}
+            className="w-full p-4 rounded-2xl border border-border bg-card text-left hover:border-primary/50 hover:bg-accent transition-colors"
+          >
+            <p className="font-semibold text-sm">{ex.name}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{ex.muscleGroup}</p>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function VideoUploadSheet({ onSkip }: { onSkip: () => void }) {
   const [showOptions, setShowOptions] = useState(false);
-  const [uploadState, setUploadState] = useState<"idle" | "uploading" | "success" | "error">("idle");
-  const [errorMsg, setErrorMsg] = useState("");
-  const galleryRef = useRef<HTMLInputElement>(null);
-  const driveRef = useRef<HTMLInputElement>(null);
-  const downloadsRef = useRef<HTMLInputElement>(null);
-  const getUploadUrl = useGetUploadUrl();
-  const { toast } = useToast();
-
-  const handleFile = (file: File) => {
-    setUploadState("uploading");
-    setErrorMsg("");
-    getUploadUrl.mutate(
-      { data: { filename: file.name, contentType: file.type } },
-      {
-        onSuccess: async (data) => {
-          try {
-            const r = await fetch(data.uploadUrl, {
-              method: "PUT",
-              body: file,
-              headers: { "Content-Type": file.type },
-            });
-            if (!r.ok) throw new Error(`Upload failed: ${r.status}`);
-            setUploadState("success");
-          } catch {
-            setUploadState("error");
-            setErrorMsg("Upload failed. Check your connection and try again.");
-          }
-        },
-        onError: () => {
-          setUploadState("error");
-          setErrorMsg("Couldn't start the upload. Please try again.");
-        },
-      }
-    );
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) handleFile(file);
-    e.target.value = "";
-  };
-
-  if (uploadState === "uploading") {
-    return (
-      <div className="fixed inset-0 bg-background flex flex-col items-center justify-center p-8 text-center z-[60]">
-        <div className="w-16 h-16 rounded-full border-4 border-primary border-t-transparent animate-spin mb-6" />
-        <h1 className="text-xl font-bold mb-2">Uploading…</h1>
-        <p className="text-muted-foreground text-sm">Please keep this screen open.</p>
-      </div>
-    );
-  }
-
-  if (uploadState === "success") {
-    return (
-      <div className="fixed inset-0 bg-background flex flex-col items-center justify-center p-8 text-center z-[60]">
-        <CheckCircle className="w-16 h-16 text-green-500 mb-6" />
-        <h1 className="text-2xl font-bold mb-2">Video Uploaded!</h1>
-        <p className="text-muted-foreground text-sm mb-10 max-w-xs">
-          Your coach will review your form and give you feedback.
-        </p>
-        <div className="w-full max-w-xs space-y-3">
-          <Button
-            size="lg"
-            variant="outline"
-            className="w-full h-14 text-base font-semibold"
-            onClick={() => { setUploadState("idle"); setShowOptions(true); }}
-          >
-            Upload Another
-          </Button>
-          <Button
-            size="lg"
-            className="w-full h-14 text-base font-semibold"
-            onClick={onSkip}
-          >
-            Done
-          </Button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="fixed inset-0 bg-background flex flex-col items-center justify-center p-8 text-center z-[60]">
-      {/* Hidden file inputs */}
-      <input
-        ref={galleryRef}
-        type="file"
-        accept="video/*"
-        capture="environment"
-        className="hidden"
-        onChange={handleInputChange}
-      />
-      <input
-        ref={driveRef}
-        type="file"
-        accept="video/*"
-        className="hidden"
-        onChange={handleInputChange}
-      />
-      <input
-        ref={downloadsRef}
-        type="file"
-        accept="video/*"
-        className="hidden"
-        onChange={handleInputChange}
-      />
-
       <Upload className="w-16 h-16 text-primary mb-6 opacity-80" strokeWidth={1.5} />
       <h1 className="text-2xl font-bold mb-2">Upload Form Videos</h1>
       <p className="text-muted-foreground text-sm mb-10 max-w-xs">
         Share your form videos with your coach so they can give you feedback.
       </p>
 
-      {uploadState === "error" && (
-        <div className="mb-6 text-sm text-destructive bg-destructive/10 rounded-xl px-4 py-3 max-w-xs w-full text-left">
-          {errorMsg}
-        </div>
-      )}
-
       {showOptions ? (
         <div className="w-full max-w-xs space-y-3">
-          <button
-            onClick={() => galleryRef.current?.click()}
-            className="w-full flex items-center gap-3 p-4 rounded-2xl border border-border bg-card hover:border-primary/50 hover:bg-accent transition-colors"
-          >
-            <ImageIcon className="w-5 h-5 text-primary flex-shrink-0" />
+          <button className="w-full flex items-center gap-3 p-4 rounded-2xl border border-border bg-card hover:border-primary/50 hover:bg-accent transition-colors">
+            <ImageIcon className="w-5 h-5 text-primary" />
             <div className="text-left">
               <p className="text-sm font-semibold">Photo Gallery</p>
               <p className="text-xs text-muted-foreground">Choose from your device</p>
             </div>
           </button>
-          <button
-            onClick={() => driveRef.current?.click()}
-            className="w-full flex items-center gap-3 p-4 rounded-2xl border border-border bg-card hover:border-primary/50 hover:bg-accent transition-colors"
-          >
-            <FolderOpen className="w-5 h-5 text-primary flex-shrink-0" />
+          <button className="w-full flex items-center gap-3 p-4 rounded-2xl border border-border bg-card hover:border-primary/50 hover:bg-accent transition-colors">
+            <FolderOpen className="w-5 h-5 text-primary" />
             <div className="text-left">
               <p className="text-sm font-semibold">Google Drive</p>
-              <p className="text-xs text-muted-foreground">Upload from Drive or cloud storage</p>
+              <p className="text-xs text-muted-foreground">Upload from Drive or Docs</p>
             </div>
           </button>
           <button
-            onClick={() => downloadsRef.current?.click()}
-            className="w-full flex items-center gap-3 p-4 rounded-2xl border border-border bg-card hover:border-primary/50 hover:bg-accent transition-colors"
-          >
-            <Download className="w-5 h-5 text-primary flex-shrink-0" />
-            <div className="text-left">
-              <p className="text-sm font-semibold">Downloads</p>
-              <p className="text-xs text-muted-foreground">Browse files on your device</p>
-            </div>
-          </button>
-          <button
-            onClick={() => { setShowOptions(false); setUploadState("idle"); setErrorMsg(""); }}
+            onClick={() => setShowOptions(false)}
             className="text-sm text-muted-foreground mt-2"
           >
             ← Back
@@ -546,7 +458,7 @@ export function WorkoutPage() {
   const [listEditWeight, setListEditWeight] = useState("");
   const [listEditReps, setListEditReps] = useState("");
   const [listEditRpe, setListEditRpe] = useState<number | null>(null);
-  const { workoutView, showProgressBar, progressMode, setProgressMode } = useWorkoutPrefs();
+  const { workoutView, showProgressBar } = useWorkoutPrefs();
 
   // Pre-workout checkin
   const [energy, setEnergy] = useState<number | null>(null);
@@ -554,21 +466,9 @@ export function WorkoutPage() {
   const [adjustPercent, setAdjustPercent] = useState(20);
   const [effectiveRestSeconds, setEffectiveRestSeconds] = useState<(number | null)[]>([]);
   const [showRestTimer, setShowRestTimer] = useState(false);
-  const defaultRestSecondsRef = useRef<number | null>(null);
-
-  // Fetch coach's default rest time once on mount
-  useEffect(() => {
-    fetch("/api/client/coach-settings", { credentials: "include" })
-      .then(r => r.ok ? r.json() : {})
-      .then((d: { defaultRestSeconds?: number | null }) => {
-        if (d.defaultRestSeconds != null) defaultRestSecondsRef.current = d.defaultRestSeconds;
-      })
-      .catch(() => {});
-  }, []);
   const [restSecondsLeft, setRestSecondsLeft] = useState(0);
   const [restTotalSeconds, setRestTotalSeconds] = useState(0);
   const restIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const restEndTimeRef = useRef<number | null>(null);
 
   const { data: assignment, isError: assignmentError, refetch: refetchAssignment, isFetching: assignmentFetching } = useGetClientProgramAssignment(clientId!, {
     query: { enabled: !!clientId, queryKey: getGetClientProgramAssignmentQueryKey(clientId!) }
@@ -580,6 +480,7 @@ export function WorkoutPage() {
   const { data: program, isError: programError, refetch: refetchProgram, isFetching: programFetching } = useGetClientProgram(clientId!, {
     query: { enabled: !!clientId && !!assignment, queryKey: getGetClientProgramQueryKey(clientId!) }
   });
+  const { data: allExercises } = useListExercises({ query: { enabled: mode === "active" && swapModal, queryKey: getListExercisesQueryKey() } });
 
   const createWorkoutLog = useCreateWorkoutLog();
   const updateWorkoutLog = useUpdateWorkoutLog();
@@ -614,21 +515,10 @@ export function WorkoutPage() {
 
   const currentEx = exercises[currentExIdx];
   const currentSets = sets[currentExIdx] ?? [];
-  const completedExCount = sets.filter(sArr => sArr.some(s => s.logged)).length;
 
   const { data: lastPerformanceData } = useGetLastWorkoutPerformance(clientId!, selectedDay?.id ?? 0, {
     query: { enabled: !!clientId && !!selectedDay?.id, queryKey: getGetLastWorkoutPerformanceQueryKey(clientId!, selectedDay?.id ?? 0) }
   });
-
-  const { data: exerciseCuesData } = useListExerciseCues(clientId!, {
-    query: { enabled: !!clientId, queryKey: getListExerciseCuesQueryKey(clientId!) }
-  });
-
-  const cuesByExId = useMemo(() => {
-    const m: Record<number, ExerciseCue[]> = {};
-    (exerciseCuesData ?? []).forEach(c => { (m[c.exerciseId] ??= []).push(c); });
-    return m;
-  }, [exerciseCuesData]);
   const prevPerfMap = useMemo(() => {
     const m: Record<number, { weight: string; reps: string }> = {};
     for (const p of lastPerformanceData ?? []) {
@@ -645,7 +535,6 @@ export function WorkoutPage() {
       clearInterval(restIntervalRef.current);
       restIntervalRef.current = null;
     }
-    restEndTimeRef.current = null;
     setShowRestTimer(false);
     setRestSecondsLeft(0);
   }, []);
@@ -659,13 +548,11 @@ export function WorkoutPage() {
     setRestTotalSeconds(secs);
     setRestSecondsLeft(secs);
     setShowRestTimer(true);
-    restEndTimeRef.current = Date.now() + secs * 1000;
     restIntervalRef.current = setInterval(() => {
       setRestSecondsLeft(prev => {
         if (prev <= 1) {
           clearInterval(restIntervalRef.current!);
           restIntervalRef.current = null;
-          restEndTimeRef.current = null;
           playRing();
           setShowRestTimer(false);
           return 0;
@@ -679,26 +566,6 @@ export function WorkoutPage() {
     return () => {
       if (restIntervalRef.current) clearInterval(restIntervalRef.current);
     };
-  }, []);
-
-  // Resync rest timer after screen lock / tab switch
-  useEffect(() => {
-    const handleVisibility = () => {
-      if (!document.hidden && restEndTimeRef.current != null) {
-        const remaining = Math.max(0, Math.round((restEndTimeRef.current - Date.now()) / 1000));
-        if (remaining <= 0) {
-          if (restIntervalRef.current) { clearInterval(restIntervalRef.current); restIntervalRef.current = null; }
-          restEndTimeRef.current = null;
-          setShowRestTimer(false);
-          setRestSecondsLeft(0);
-          playRing();
-        } else {
-          setRestSecondsLeft(remaining);
-        }
-      }
-    };
-    document.addEventListener("visibilitychange", handleVisibility);
-    return () => document.removeEventListener("visibilitychange", handleVisibility);
   }, []);
 
   const initSets = useCallback((dayExercises: typeof exercises, applyAdjust: boolean, adjustPct: number, prevPerf: Record<number, { weight: string; reps: string }> = {}) => {
@@ -724,20 +591,17 @@ export function WorkoutPage() {
     });
     setSets(initial);
     setEffectiveRestSeconds(dayExercises.map(ex => {
-      const base = ex.restSeconds ?? defaultRestSecondsRef.current;
-      if (!base) return null;
+      if (!ex.restSeconds) return null;
       return applyAdjust
-        ? Math.round(base * (1 + adjustPct / 100))
-        : base;
+        ? Math.round(ex.restSeconds * (1 + adjustPct / 100))
+        : ex.restSeconds;
     }));
   }, []);
 
   const handleBeginWorkout = () => {
     if (!clientId || !selectedDay) return;
 
-    const yesterday = (() => { const d = new Date(today + "T12:00:00"); d.setDate(d.getDate() - 1); return d.toISOString().split("T")[0]; })();
-    const sleepIsFresh = latestSleepLog != null && (latestSleepLog.date === today || latestSleepLog.date === yesterday);
-    const poorSleep = sleepIsFresh && (latestSleepLog!.quality === "poor" || latestSleepLog!.quality === "fair");
+    const poorSleep = latestSleepLog?.quality === "poor" || latestSleepLog?.quality === "fair";
     const lowEnergy = (energy ?? 10) <= 5;
     const pct = program?.sleepAdjustPercent ?? 20;
     const shouldAdjust = (program?.sleepAdjustEnabled !== false) && poorSleep && lowEnergy;
@@ -746,7 +610,7 @@ export function WorkoutPage() {
 
     createWorkoutLog.mutate({
       clientId,
-      data: { programDayId: selectedDay.id, date: today, ...(shouldAdjust ? { notes: "[sleep-adjusted]" } : {}) }
+      data: { programDayId: selectedDay.id, date: today }
     }, {
       onSuccess: (log) => {
         setWorkoutLogId(log.id);
@@ -1001,20 +865,10 @@ export function WorkoutPage() {
   };
 
   const handleSwap = (ex: Exercise) => {
-    const originalEx = exercises[currentExIdx];
     setSwappedExercises(prev => ({
       ...prev,
       [currentExIdx]: { exerciseName: ex.name, muscleGroup: ex.muscleGroup, exerciseId: ex.id },
     }));
-    // Persist swap to workout log notes so coaches can see it
-    if (clientId && workoutLogId && originalEx) {
-      const swapMarker = `[swap:${currentExIdx}:${originalEx.exerciseName}->${ex.name}]`;
-      updateWorkoutLog.mutate({
-        clientId,
-        logId: workoutLogId,
-        data: { notes: swapMarker },
-      });
-    }
     setSwapModal(false);
   };
 
@@ -1340,13 +1194,7 @@ export function WorkoutPage() {
               {isAdjusted && (
                 <div className="mt-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3 py-2 flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300">
                   <Moon className="w-3.5 h-3.5 flex-shrink-0" />
-                  <span className="flex-1">Volume reduced {adjustPercent}% — sleep & energy recovery mode</span>
-                  <button
-                    onClick={() => { setIsAdjusted(false); initSets(exercises, false, adjustPercent, prevPerfMap); }}
-                    className="shrink-0 underline underline-offset-2 hover:no-underline whitespace-nowrap"
-                  >
-                    Train hard anyway
-                  </button>
+                  Volume reduced {adjustPercent}% — sleep & energy recovery mode
                 </div>
               )}
             </div>
@@ -1696,15 +1544,12 @@ export function WorkoutPage() {
           />
         )}
         {swapModal && (
-          <div className="fixed inset-0 z-[70] bg-background overflow-y-auto">
-            <div className="px-4 py-4">
-              <ExercisesPage
-                swapMode
-                onSwapSelect={(ex) => { handleSwap(ex); setSwapModal(false); }}
-                onCancelSwap={() => setSwapModal(false)}
-              />
-            </div>
-          </div>
+          <SwapModal
+            currentExercise={{ exerciseName: currentEx.exerciseName, muscleGroup: currentEx.muscleGroup }}
+            allExercises={allExercises ?? []}
+            onSelect={handleSwap}
+            onCancel={() => setSwapModal(false)}
+          />
         )}
 
         {/* Outer: clipping layer only */}
@@ -1731,34 +1576,11 @@ export function WorkoutPage() {
               <span className="text-xs text-muted-foreground font-medium">{selectedDay?.name}</span>
               <div className="w-16" />
             </div>
-            {showProgressBar && (
-              <div className="flex items-center gap-2 mt-1">
-                <div className="flex-1">
-                  {progressMode === "ratio" ? (
-                    <span className="text-sm font-bold tabular-nums">{completedExCount} / {exercises.length}</span>
-                  ) : (
-                    <ProgressBar value={completedExCount} total={exercises.length} />
-                  )}
-                </div>
-                <button
-                  onClick={() => setProgressMode(progressMode === "bar" ? "ratio" : "bar")}
-                  className="text-[11px] font-medium text-muted-foreground hover:text-foreground border border-border rounded-full px-2.5 py-1 shrink-0 transition-colors"
-                  title={progressMode === "bar" ? "Switch to ratio view" : "Switch to bar view"}
-                >
-                  {progressMode === "bar" ? `${completedExCount}/${exercises.length}` : "▬▬"}
-                </button>
-              </div>
-            )}
+            {showProgressBar && <ProgressBar value={currentExIdx} total={exercises.length} />}
             {isAdjusted && (
               <div className="mt-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3 py-2 flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300">
                 <Moon className="w-3.5 h-3.5 flex-shrink-0" />
-                <span className="flex-1">Volume reduced {adjustPercent}% — sleep & energy recovery mode</span>
-                <button
-                  onClick={() => { setIsAdjusted(false); initSets(exercises, false, adjustPercent, prevPerfMap); }}
-                  className="shrink-0 underline underline-offset-2 hover:no-underline whitespace-nowrap"
-                >
-                  Train hard anyway
-                </button>
+                Volume reduced {adjustPercent}% — sleep & energy recovery mode
               </div>
             )}
           </div>
@@ -1787,38 +1609,6 @@ export function WorkoutPage() {
                 </p>
               )}
             </div>
-
-            {/* Exercise video */}
-            {(currentEx as any).videoUrl && (() => {
-              const url: string = (currentEx as any).videoUrl;
-              const embedUrl = getYouTubeEmbedUrl(url);
-              return (
-                <div className="mb-5 rounded-xl overflow-hidden border border-border">
-                  {embedUrl ? (
-                    <iframe
-                      src={embedUrl}
-                      className="w-full aspect-video border-0"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                    />
-                  ) : (
-                    <video src={`/api/storage${url}`} controls className="w-full max-h-64 bg-black" />
-                  )}
-                </div>
-              );
-            })()}
-
-            {/* Coach cues */}
-            {(cuesByExId[currentEx.exerciseId] ?? []).length > 0 && (
-              <div className="mb-5 space-y-2">
-                {(cuesByExId[currentEx.exerciseId] ?? []).map(cue => (
-                  <div key={cue.id} className="flex items-start gap-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3.5 py-2.5">
-                    <span className="text-amber-500 mt-0.5 flex-shrink-0 text-sm">📋</span>
-                    <p className="text-xs text-amber-800 dark:text-amber-200 leading-relaxed">{cue.note}</p>
-                  </div>
-                ))}
-              </div>
-            )}
 
             {/* Set rows */}
             <div className="space-y-3 mb-6">
@@ -1939,7 +1729,7 @@ export function WorkoutPage() {
                               type="number"
                               value={s.weight}
                               onChange={e => updateWeight(i, e.target.value)}
-                              placeholder={prevPerfMap[currentEx.exerciseId]?.weight || "lbs"}
+                              placeholder="lbs"
                               className={cn("h-12 text-center text-base font-semibold rounded-xl", s.isPrevious && "text-muted-foreground italic")}
                             />
                           )}
@@ -1952,7 +1742,7 @@ export function WorkoutPage() {
                               {s.logged ? (
                                 <div className="h-12 rounded-xl bg-muted/40 flex items-center justify-center text-sm font-semibold text-muted-foreground">{s.leftReps || "—"}</div>
                               ) : (
-                                <Input type="number" value={s.leftReps} onChange={e => updateLeftReps(i, e.target.value)} placeholder={prevPerfMap[currentEx.exerciseId]?.reps || s.targetReps} className={cn("h-12 text-center text-base font-semibold rounded-xl", s.isPrevious && "text-muted-foreground italic")} />
+                                <Input type="number" value={s.leftReps} onChange={e => updateLeftReps(i, e.target.value)} placeholder={s.targetReps} className={cn("h-12 text-center text-base font-semibold rounded-xl", s.isPrevious && "text-muted-foreground italic")} />
                               )}
                             </div>
                             <div className="flex-1">
@@ -1960,7 +1750,7 @@ export function WorkoutPage() {
                               {s.logged ? (
                                 <div className="h-12 rounded-xl bg-muted/40 flex items-center justify-center text-sm font-semibold text-muted-foreground">{s.rightReps || "—"}</div>
                               ) : (
-                                <Input type="number" value={s.rightReps} onChange={e => updateRightReps(i, e.target.value)} placeholder={prevPerfMap[currentEx.exerciseId]?.reps || s.targetReps} className={cn("h-12 text-center text-base font-semibold rounded-xl", s.isPrevious && "text-muted-foreground italic")} />
+                                <Input type="number" value={s.rightReps} onChange={e => updateRightReps(i, e.target.value)} placeholder={s.targetReps} className={cn("h-12 text-center text-base font-semibold rounded-xl", s.isPrevious && "text-muted-foreground italic")} />
                               )}
                             </div>
                           </>
@@ -1976,7 +1766,7 @@ export function WorkoutPage() {
                                 type="number"
                                 value={s.reps}
                                 onChange={e => updateReps(i, e.target.value)}
-                                placeholder={prevPerfMap[currentEx.exerciseId]?.reps || s.targetReps}
+                                placeholder={s.targetReps}
                                 className={cn("h-12 text-center text-base font-semibold rounded-xl", s.isPrevious && "text-muted-foreground italic")}
                               />
                             )}

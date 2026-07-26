@@ -17,8 +17,6 @@ import {
   getListAssignmentsQueryKey,
   useListActiveTasks,
   getListActiveTasksQueryKey,
-  useListMeasurements,
-  getListMeasurementsQueryKey,
 } from "@workspace/api-client-react";
 import type {
   ProgramDetail,
@@ -29,7 +27,6 @@ import type {
   SleepLog,
   Assignment,
   ClientTask,
-  Measurement,
 } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
 import {
@@ -203,7 +200,7 @@ interface DayBlock {
   pulse?: boolean;
   isRestDay?: boolean;
   isCallBlock?: boolean;
-  blockType?: "workout" | "nutrition" | "sleep" | "assignment" | "task" | "call" | "measurement";
+  blockType?: "workout" | "nutrition" | "sleep" | "assignment" | "task" | "call";
 }
 
 // ─── DayCard ──────────────────────────────────────────────────────────────────
@@ -351,26 +348,8 @@ function FullCalendarOverlay({ today, buildBlocks, onClose, onSelectDate }: Full
   const todayDate = new Date(today + "T12:00:00");
   const [year, setYear] = useState(todayDate.getFullYear());
   const [month, setMonth] = useState(todayDate.getMonth());
-  const [slideDir, setSlideDir] = useState<"left" | "right" | null>(null);
 
   const gridDates = useMemo(() => getMonthGridDates(year, month), [year, month]);
-
-  // Swipe gesture tracking
-  const touchStartX = useRef<number | null>(null);
-  const SWIPE_THRESHOLD = 50;
-
-  function handleTouchStart(e: React.TouchEvent) {
-    touchStartX.current = e.touches[0].clientX;
-  }
-
-  function handleTouchEnd(e: React.TouchEvent) {
-    if (touchStartX.current === null) return;
-    const dx = e.changedTouches[0].clientX - touchStartX.current;
-    touchStartX.current = null;
-    if (Math.abs(dx) < SWIPE_THRESHOLD) return;
-    if (dx < 0) nextMonth();
-    else prevMonth();
-  }
 
   const monthLabel = new Date(year, month, 1).toLocaleDateString(undefined, {
     month: "long",
@@ -378,27 +357,13 @@ function FullCalendarOverlay({ today, buildBlocks, onClose, onSelectDate }: Full
   });
 
   function prevMonth() {
-    setSlideDir("right");
     if (month === 0) { setYear(y => y - 1); setMonth(11); }
     else setMonth(m => m - 1);
   }
   function nextMonth() {
-    setSlideDir("left");
     if (month === 11) { setYear(y => y + 1); setMonth(0); }
     else setMonth(m => m + 1);
   }
-
-  function goToToday() {
-    const targetYear = todayDate.getFullYear();
-    const targetMonth = todayDate.getMonth();
-    const isAfter = year > targetYear || (year === targetYear && month > targetMonth);
-    setSlideDir(isAfter ? "right" : month === targetMonth && year === targetYear ? null : "left");
-    setYear(targetYear);
-    setMonth(targetMonth);
-  }
-
-  const isViewingCurrentMonth =
-    year === todayDate.getFullYear() && month === todayDate.getMonth();
 
   const isCurrentMonth = (iso: string) => {
     const d = new Date(iso + "T12:00:00");
@@ -417,36 +382,23 @@ function FullCalendarOverlay({ today, buildBlocks, onClose, onSelectDate }: Full
           <ChevronLeft className="w-5 h-5" />
         </button>
         <h2 className="text-base font-bold">{monthLabel}</h2>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={nextMonth}
-            className="p-2 rounded-lg hover:bg-muted transition-colors"
-            aria-label="Next month"
-          >
-            <ChevronRight className="w-5 h-5" />
-          </button>
-          <button
-            onClick={goToToday}
-            disabled={isViewingCurrentMonth}
-            className={cn(
-              "px-2.5 py-1 text-xs font-semibold rounded-lg transition-colors",
-              isViewingCurrentMonth
-                ? "text-muted-foreground/40 cursor-default"
-                : "text-primary hover:bg-primary/10"
-            )}
-            aria-label="Go to today"
-          >
-            Today
-          </button>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-muted transition-colors"
-            aria-label="Close calendar"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+        <button
+          onClick={nextMonth}
+          className="p-2 rounded-lg hover:bg-muted transition-colors"
+          aria-label="Next month"
+        >
+          <ChevronRight className="w-5 h-5" />
+        </button>
       </div>
+
+      {/* Close button */}
+      <button
+        onClick={onClose}
+        className="absolute top-3 right-4 p-1.5 rounded-lg hover:bg-muted transition-colors z-10"
+        aria-label="Close calendar"
+      >
+        <X className="w-5 h-5" />
+      </button>
 
       {/* Day-of-week labels */}
       <div className="grid grid-cols-7 border-b border-border bg-muted/40 flex-shrink-0">
@@ -458,32 +410,8 @@ function FullCalendarOverlay({ today, buildBlocks, onClose, onSelectDate }: Full
       </div>
 
       {/* Calendar grid */}
-      <style>{`
-        @keyframes trak-slide-in-left {
-          from { transform: translateX(100%); }
-          to   { transform: translateX(0); }
-        }
-        @keyframes trak-slide-in-right {
-          from { transform: translateX(-100%); }
-          to   { transform: translateX(0); }
-        }
-      `}</style>
-      <div
-        className="flex-1 overflow-y-auto overflow-x-hidden"
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-      >
-        <div
-          key={`${year}-${month}`}
-          style={{
-            animation: slideDir === "left"
-              ? "trak-slide-in-left 250ms ease-out"
-              : slideDir === "right"
-              ? "trak-slide-in-right 250ms ease-out"
-              : undefined,
-          }}
-          className="grid grid-cols-7 divide-x divide-y divide-border border-b border-border"
-        >
+      <div className="flex-1 overflow-y-auto">
+        <div className="grid grid-cols-7 divide-x divide-y divide-border border-b border-border">
           {gridDates.map(date => {
             const inMonth = isCurrentMonth(date);
             const isToday = date === today;
@@ -633,7 +561,7 @@ export function CalendarPage() {
   }, [today]);
 
   // Fetch everything in parallel
-  const { data: assignment, isLoading: assignmentLoading } = useGetClientProgramAssignment(clientId!, {
+  const { data: assignment } = useGetClientProgramAssignment(clientId!, {
     query: { enabled: !!clientId, queryKey: getGetClientProgramAssignmentQueryKey(clientId!) },
   });
 
@@ -659,10 +587,6 @@ export function CalendarPage() {
 
   const { data: activeTasks } = useListActiveTasks(clientId!, {
     query: { enabled: !!clientId, queryKey: getListActiveTasksQueryKey(clientId!) },
-  });
-
-  const { data: measurements } = useListMeasurements(clientId!, {
-    query: { enabled: !!clientId, queryKey: getListMeasurementsQueryKey(clientId!) },
   });
 
   // Lookup maps
@@ -705,14 +629,6 @@ export function CalendarPage() {
     }
     return map;
   }, [assignments]);
-
-  const measurementsByDate = useMemo(() => {
-    const map = new Map<string, Measurement>();
-    for (const m of measurements ?? []) {
-      if (!map.has(m.date)) map.set(m.date, m);
-    }
-    return map;
-  }, [measurements]);
 
   // Build blocks for a given date
   const buildBlocks = useCallback((date: string): DayBlock[] => {
@@ -802,22 +718,6 @@ export function CalendarPage() {
       }
     }
 
-    // Measurements
-    const measurement = measurementsByDate.get(date);
-    if (measurement) {
-      const parts: string[] = [];
-      if (measurement.weight != null) parts.push(`${measurement.weight} ${measurement.unit === "metric" ? "kg" : "lbs"}`);
-      if (measurement.bodyFat != null) parts.push(`${measurement.bodyFat}% BF`);
-      blocks.push({
-        id: "measurement",
-        blockType: "measurement",
-        done: true,
-        label: "Measurements",
-        sublabel: parts.length > 0 ? parts.join(" · ") : "Logged",
-        href: "/",
-      });
-    }
-
     // Coaching call (today only)
     if (isToday && callActive) {
       blocks.push({
@@ -835,7 +735,7 @@ export function CalendarPage() {
     return blocks;
   }, [
     today, program, assignment, workoutLogsByDate, nutritionLogsByDate,
-    sleepLogsByDate, assignmentsByDate, activeTasks, callActive, measurementsByDate,
+    sleepLogsByDate, assignmentsByDate, activeTasks, callActive,
   ]);
 
   // Tap a full-calendar cell → close overlay, scroll to list card
@@ -898,13 +798,6 @@ export function CalendarPage() {
             </Select>
           </div>
         </div>
-
-        {/* No program banner */}
-        {!assignmentLoading && !assignment && (
-          <div className="mb-4 rounded-xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
-            No training program assigned yet — your coach will set one up for you.
-          </div>
-        )}
 
         {/* Day cards */}
         <div

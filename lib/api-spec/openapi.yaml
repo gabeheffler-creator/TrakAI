@@ -2150,74 +2150,6 @@ paths:
           description: Deleted
 
   # ── Call Logs ─────────────────────────────────────────────────────────────
-  /clients/{clientId}/exercise-cues:
-    get:
-      operationId: listExerciseCues
-      tags: [clients]
-      summary: List exercise cues for a client (coach and client)
-      parameters:
-        - name: clientId
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        "200":
-          description: Exercise cues ordered newest first
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/ExerciseCue"
-    post:
-      operationId: createExerciseCue
-      tags: [clients]
-      summary: Create an exercise cue for a client (coach only)
-      parameters:
-        - name: clientId
-          in: path
-          required: true
-          schema:
-            type: integer
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ExerciseCueInput"
-      responses:
-        "201":
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ExerciseCue"
-        "403":
-          description: Coach only
-
-  /clients/{clientId}/exercise-cues/{cueId}:
-    delete:
-      operationId: deleteExerciseCue
-      tags: [clients]
-      summary: Delete an exercise cue (coach only)
-      parameters:
-        - name: clientId
-          in: path
-          required: true
-          schema:
-            type: integer
-        - name: cueId
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        "204":
-          description: Deleted
-        "403":
-          description: Coach only
-
   /clients/{clientId}/call-logs:
     get:
       operationId: listCallLogs
@@ -2578,8 +2510,6 @@ components:
       properties:
         client:
           $ref: "#/components/schemas/Client"
-        coachName:
-          type: string
         currentProgram:
           $ref: "#/components/schemas/ProgramDetail"
         latestMeasurement:
@@ -2608,17 +2538,9 @@ components:
           type: number
 
     # ── Exercise Library ────────────────────────────────────────────────────
-    ExerciseEquipment:
-      type: string
-      enum: [Barbell, Dumbbell, Cable, Machine, Bodyweight, Bands, Other]
-
-    ExerciseDifficulty:
-      type: string
-      enum: [Beginner, Intermediate, Advanced]
-
     Exercise:
       type: object
-      required: [id, name, muscleGroup, isCompound, isUnilateral]
+      required: [id, name, muscleGroup, isCompound]
       properties:
         id:
           type: integer
@@ -2628,18 +2550,12 @@ components:
           type: string
         isCompound:
           type: boolean
-        isUnilateral:
-          type: boolean
         movementPattern:
           type: ["string", "null"]
         description:
           type: ["string", "null"]
         videoUrl:
           type: ["string", "null"]
-        equipment:
-          $ref: "#/components/schemas/ExerciseEquipment"
-        difficulty:
-          $ref: "#/components/schemas/ExerciseDifficulty"
         createdAt:
           type: string
           format: date-time
@@ -2656,18 +2572,12 @@ components:
           minLength: 1
         isCompound:
           type: boolean
-        isUnilateral:
-          type: boolean
         movementPattern:
           type: string
         description:
           type: string
         videoUrl:
           type: string
-        equipment:
-          $ref: "#/components/schemas/ExerciseEquipment"
-        difficulty:
-          $ref: "#/components/schemas/ExerciseDifficulty"
 
     ExercisePatch:
       type: object
@@ -2680,18 +2590,12 @@ components:
           minLength: 1
         isCompound:
           type: boolean
-        isUnilateral:
-          type: boolean
         movementPattern:
           type: ["string", "null"]
         description:
           type: ["string", "null"]
         videoUrl:
           type: ["string", "null"]
-        equipment:
-          $ref: "#/components/schemas/ExerciseEquipment"
-        difficulty:
-          $ref: "#/components/schemas/ExerciseDifficulty"
 
     # ── Program ─────────────────────────────────────────────────────────────
     Program:
@@ -3801,36 +3705,6 @@ components:
           minLength: 1
 
     # ── Upload ──────────────────────────────────────────────────────────────
-    ExerciseCue:
-      type: object
-      required: [id, clientId, exerciseId, note, createdAt]
-      properties:
-        id:
-          type: integer
-        clientId:
-          type: integer
-        exerciseId:
-          type: integer
-        callLogId:
-          type: integer
-          nullable: true
-        note:
-          type: string
-        createdAt:
-          type: string
-          format: date-time
-
-    ExerciseCueInput:
-      type: object
-      required: [exerciseId, note]
-      properties:
-        exerciseId:
-          type: integer
-        note:
-          type: string
-        callLogId:
-          type: integer
-
     UploadUrlRequest:
       type: object
       required: [filename, contentType]

@@ -1,15 +1,11 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { Home, Dumbbell, Moon, UtensilsCrossed, MessageCircle, TrendingUp, BookOpen, Settings, Menu, X, ShieldOff, CalendarDays } from "lucide-react";
+import { Home, Dumbbell, Ruler, Moon, UtensilsCrossed, ClipboardList, MessageCircle, TrendingUp, BookOpen, Settings, Menu, X, ShieldOff, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClientId } from "@/hooks/use-client-id";
 import { TrakLogo } from "@/components/trak-logo";
 import { LogoutButton } from "@/App";
-import {
-  useListMessages, getListMessagesQueryKey,
-  useListSleepLogs, getListSleepLogsQueryKey,
-  useListNutritionLogs, getListNutritionLogsQueryKey,
-} from "@workspace/api-client-react";
+import { useListMessages, getListMessagesQueryKey } from "@workspace/api-client-react";
 
 const navigation = [
   { name: "Home", href: "/", icon: Home },
@@ -19,6 +15,7 @@ const navigation = [
   { name: "Nutrition", href: "/nutrition", icon: UtensilsCrossed },
   { name: "Stats", href: "/stats", icon: TrendingUp },
   { name: "Sleep", href: "/sleep", icon: Moon },
+  { name: "Tasks", href: "/assignments", icon: ClipboardList },
   { name: "Messages", href: "/messages", icon: MessageCircle },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
@@ -35,7 +32,7 @@ function useIsMobile() {
   return isMobile;
 }
 
-function NavLinks({ unread, calendarDot, onNav }: { unread: number; calendarDot: boolean; onNav?: () => void }) {
+function NavLinks({ unread, onNav }: { unread: number; onNav?: () => void }) {
   const [location] = useLocation();
   return (
     <>
@@ -55,9 +52,6 @@ function NavLinks({ unread, calendarDot, onNav }: { unread: number; calendarDot:
           >
             <span className="relative mr-3 flex-shrink-0">
               <item.icon className={cn("h-4 w-4", isActive ? "text-primary-foreground" : "text-muted-foreground")} />
-              {item.name === "Calendar" && calendarDot && (
-                <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-500" />
-              )}
             </span>
             {item.name}
             {item.name === "Messages" && unread > 0 && (
@@ -85,17 +79,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
     },
   });
   const unreadCount = messages?.filter(m => m.sender === "coach" && !m.readAt).length ?? 0;
-
-  const todayISO = new Date().toISOString().split("T")[0];
-  const { data: sleepLogs } = useListSleepLogs(clientId!, {
-    query: { enabled: !!clientId, queryKey: getListSleepLogsQueryKey(clientId!), staleTime: 60_000 },
-  });
-  const { data: nutritionLogs } = useListNutritionLogs(clientId!, {
-    query: { enabled: !!clientId, queryKey: getListNutritionLogsQueryKey(clientId!), staleTime: 60_000 },
-  });
-  const hasTodaySleep = (sleepLogs ?? []).some(l => l.date === todayISO);
-  const hasTodayNutrition = (nutritionLogs ?? []).some(l => l.date === todayISO && l.imageUrl !== "water_only");
-  const calendarDot = !!clientId && !!(sleepLogs !== undefined || nutritionLogs !== undefined) && (!hasTodaySleep || !hasTodayNutrition);
 
   const [location] = useLocation();
   useEffect(() => { setDrawerOpen(false); }, [location]);
@@ -132,7 +115,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <TrakLogo />
       </div>
       <nav className="flex-1 px-3 space-y-1">
-        <NavLinks unread={unreadCount} calendarDot={calendarDot} onNav={() => setDrawerOpen(false)} />
+        <NavLinks unread={unreadCount} onNav={() => setDrawerOpen(false)} />
       </nav>
       <div className="px-3 pt-2 border-t border-sidebar-border">
         <LogoutButton className="w-full justify-start text-sidebar-foreground hover:text-sidebar-accent-foreground" />

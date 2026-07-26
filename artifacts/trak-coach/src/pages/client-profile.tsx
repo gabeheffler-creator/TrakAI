@@ -35,9 +35,6 @@ import {
   useCreateCallLog,
   useUpdateCallLog,
   useDeleteCallLog,
-  useListExerciseCues,
-  useCreateExerciseCue,
-  useDeleteExerciseCue,
   useGenerateInviteLink,
   useCreateClientGoal,
   useListClientGoalHistory,
@@ -55,7 +52,6 @@ import {
   getListExercisesQueryKey,
   getListCoachNotesQueryKey,
   getListCallLogsQueryKey,
-  getListExerciseCuesQueryKey,
   getListClientGoalHistoryQueryKey,
   getListClientProgramAssignmentHistoryQueryKey,
   getListClientTasksQueryKey,
@@ -76,14 +72,12 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import { Copy, Send, Plus, CheckCircle, Circle, Trash2, ArrowLeft, ChevronDown, ChevronRight, Dumbbell, Pencil, X, Check, Phone, StickyNote, Clock, Video, Target, Sparkles, Loader2, ImageOff, Moon } from "lucide-react";
+import { Copy, Send, Plus, CheckCircle, Circle, Trash2, ArrowLeft, ChevronDown, ChevronRight, Dumbbell, Pencil, X, Check, Phone, StickyNote, Clock, Video, Target, Sparkles, Loader2, ImageOff } from "lucide-react";
 import { Link as WLink } from "wouter";
 import { format, parseISO } from "date-fns";
 import { QueryErrorState } from "@/components/query-error-state";
 import { VideoCall } from "@/components/video-call";
-import { CallNoteReviewSheet } from "@/components/call-note-review-sheet";
 import { ClientMeasurementsTab } from "@/components/client-measurements-tab";
-import { useCallPrefs } from "@/hooks/use-call-prefs";
 
 // ── Vertical drum / scroll picker ────────────────────────────
 const ITEM_H = 44;
@@ -360,11 +354,6 @@ function ExpandableWorkoutCard({ log, clientId }: { log: { id: number; date: str
                 >
                   {log.status === "early_exit" ? "Finished early" : log.status}
                 </Badge>
-                {log.notes?.includes("[sleep-adjusted]") && (
-                  <Badge variant="outline" className="text-xs border-amber-400 text-amber-700 dark:text-amber-300 gap-1">
-                    <Moon className="w-3 h-3" /> Sleep-adjusted
-                  </Badge>
-                )}
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">{log.date}{log.durationMinutes ? ` · ${log.durationMinutes} min` : ""}</p>
             </div>
@@ -377,17 +366,7 @@ function ExpandableWorkoutCard({ log, clientId }: { log: { id: number; date: str
           {log.status === "early_exit" && log.notes && (
             <div className="mb-3 rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2">
               <p className="text-xs font-medium text-destructive mb-0.5">Reason for finishing early</p>
-              <p className="text-xs text-foreground">{log.notes.replace(/\[swap:[^\]]*\]/g, "").replace(/\[sleep-adjusted\]/g, "").trim()}</p>
-            </div>
-          )}
-          {log.notes && /\[swap:\d+:[^\]]+\]/.test(log.notes) && (
-            <div className="mb-3 rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 px-3 py-2">
-              <p className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-1">Exercise swaps</p>
-              {Array.from(log.notes.matchAll(/\[swap:\d+:([^\]]+)->([^\]]+)\]/g)).map((m, i) => (
-                <p key={i} className="text-xs text-foreground">
-                  <span className="line-through text-muted-foreground">{m[1]}</span>{" → "}{m[2]}
-                </p>
-              ))}
+              <p className="text-xs text-foreground">{log.notes}</p>
             </div>
           )}
           {isLoading && <p className="text-xs text-muted-foreground">Loading sets…</p>}
@@ -515,263 +494,6 @@ function EditableExerciseRow({
         <Trash2 className="w-3.5 h-3.5" />
       </button>
     </div>
-  );
-}
-
-// ─── Shared add-cue form ─────────────────────────────────────────────────────
-
-function ExerciseCueForm({
-  clientId,
-  exercises,
-  callLogId,
-}: {
-  clientId: number;
-  exercises: { id: number; name: string; muscleGroup: string }[];
-  callLogId?: number;
-}) {
-  const [exSearch, setExSearch] = useState("");
-  const [selectedExId, setSelectedExId] = useState<number | null>(null);
-  const [cueNote, setCueNote] = useState("");
-  const createCue = useCreateExerciseCue();
-  const qc = useQueryClient();
-  const { toast } = useToast();
-
-  const filteredExercises = exercises
-    .filter(e => e.name.toLowerCase().includes(exSearch.toLowerCase()))
-    .slice(0, 8);
-  const selectedEx = exercises.find(e => e.id === selectedExId);
-
-  const handleAdd = () => {
-    if (!selectedExId || !cueNote.trim()) return;
-    createCue.mutate(
-      { clientId, data: { exerciseId: selectedExId, note: cueNote.trim(), ...(callLogId != null ? { callLogId } : {}) } },
-      {
-        onSuccess: () => {
-          qc.invalidateQueries({ queryKey: getListExerciseCuesQueryKey(clientId) });
-          setSelectedExId(null);
-          setExSearch("");
-          setCueNote("");
-        },
-        onError: () => toast({ title: "Failed to add cue", variant: "destructive" }),
-      }
-    );
-  };
-
-  return (
-    <div className="space-y-2">
-      {selectedEx ? (
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-medium bg-primary/10 text-primary px-2 py-1 rounded-full flex-1 truncate">
-            {selectedEx.name}
-          </span>
-          <button
-            onClick={() => { setSelectedExId(null); setExSearch(""); }}
-            className="text-muted-foreground hover:text-foreground flex-shrink-0"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      ) : (
-        <div className="relative">
-          <Input
-            placeholder="Search exercise…"
-            value={exSearch}
-            onChange={e => setExSearch(e.target.value)}
-            className="h-8 text-xs"
-          />
-          {exSearch && filteredExercises.length > 0 && (
-            <div className="absolute top-full left-0 right-0 z-50 bg-popover border border-border rounded-md shadow-md mt-1 max-h-40 overflow-y-auto">
-              {filteredExercises.map(ex => (
-                <button
-                  key={ex.id}
-                  className="w-full text-left px-3 py-2 text-xs hover:bg-muted transition-colors"
-                  onClick={() => { setSelectedExId(ex.id); setExSearch(""); }}
-                >
-                  <span className="font-medium">{ex.name}</span>
-                  <span className="text-muted-foreground ml-1.5">{ex.muscleGroup}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-      <Textarea
-        placeholder="Coaching cue (e.g. keep arms at 45°)…"
-        value={cueNote}
-        onChange={e => setCueNote(e.target.value)}
-        className="resize-none min-h-[56px] text-xs"
-      />
-      <Button
-        size="sm"
-        onClick={handleAdd}
-        disabled={!selectedExId || !cueNote.trim() || createCue.isPending}
-        className="h-7 text-xs"
-      >
-        <Plus className="w-3 h-3 mr-1" />
-        {createCue.isPending ? "Adding…" : "Add Cue"}
-      </Button>
-    </div>
-  );
-}
-
-// ─── Per-call cues panel (collapsible, inside call log card) ─────────────────
-
-function CallExerciseCues({
-  callId,
-  clientId,
-  cues,
-  exercises,
-}: {
-  callId: number;
-  clientId: number;
-  cues: { id: number; exerciseId: number; note: string }[];
-  exercises: { id: number; name: string; muscleGroup: string }[];
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const deleteCue = useDeleteExerciseCue();
-  const qc = useQueryClient();
-  const { toast } = useToast();
-
-  const handleDelete = (cueId: number) => {
-    deleteCue.mutate(
-      { clientId, cueId },
-      {
-        onSuccess: () => qc.invalidateQueries({ queryKey: getListExerciseCuesQueryKey(clientId) }),
-        onError: () => toast({ title: "Failed to remove cue", variant: "destructive" }),
-      }
-    );
-  };
-
-  return (
-    <div className="mt-3 border-t border-border/50 pt-2.5">
-      <button
-        onClick={() => setExpanded(e => !e)}
-        className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors w-full"
-      >
-        <Dumbbell className="w-3.5 h-3.5" />
-        Exercise Cues
-        {cues.length > 0 && (
-          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 ml-1">{cues.length}</Badge>
-        )}
-        {expanded ? <ChevronDown className="w-3 h-3 ml-auto" /> : <ChevronRight className="w-3 h-3 ml-auto" />}
-      </button>
-      {expanded && (
-        <div className="mt-2 space-y-2">
-          {cues.map(cue => {
-            const ex = exercises.find(e => e.id === cue.exerciseId);
-            return (
-              <div key={cue.id} className="flex items-start gap-2 bg-muted/40 rounded-lg px-3 py-2">
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-foreground">{ex?.name ?? `Exercise #${cue.exerciseId}`}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{cue.note}</p>
-                </div>
-                <button
-                  onClick={() => handleDelete(cue.id)}
-                  disabled={deleteCue.isPending}
-                  className="p-1 text-muted-foreground hover:text-destructive transition-colors flex-shrink-0 mt-0.5"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            );
-          })}
-          <div className="pt-1">
-            <ExerciseCueForm clientId={clientId} exercises={exercises} callLogId={callId} />
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Standalone cues card (Notes tab, no call required) ──────────────────────
-
-function StandaloneExerciseCues({
-  clientId,
-  cues,
-  exercises,
-}: {
-  clientId: number;
-  cues: { id: number; exerciseId: number; note: string; callLogId?: number | null }[];
-  exercises: { id: number; name: string; muscleGroup: string }[];
-}) {
-  const deleteCue = useDeleteExerciseCue();
-  const qc = useQueryClient();
-  const { toast } = useToast();
-
-  const handleDelete = (cueId: number) => {
-    deleteCue.mutate(
-      { clientId, cueId },
-      {
-        onSuccess: () => qc.invalidateQueries({ queryKey: getListExerciseCuesQueryKey(clientId) }),
-        onError: () => toast({ title: "Failed to remove cue", variant: "destructive" }),
-      }
-    );
-  };
-
-  // Group by exercise
-  const grouped = new Map<number, typeof cues>();
-  cues.forEach(c => {
-    if (!grouped.has(c.exerciseId)) grouped.set(c.exerciseId, []);
-    grouped.get(c.exerciseId)!.push(c);
-  });
-
-  return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-sm font-medium flex items-center gap-2">
-          <Dumbbell className="w-4 h-4" /> Exercise Cues
-          {cues.length > 0 && (
-            <Badge variant="secondary" className="text-xs font-normal">{cues.length} active</Badge>
-          )}
-        </CardTitle>
-        <p className="text-xs text-muted-foreground">
-          Shown to the client above each exercise during workouts. Not tied to a specific call.
-        </p>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Grouped cue list */}
-        {grouped.size > 0 && (
-          <div className="space-y-3">
-            {Array.from(grouped.entries()).map(([exId, exCues]) => {
-              const ex = exercises.find(e => e.id === exId);
-              return (
-                <div key={exId} className="space-y-1.5">
-                  <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-primary inline-block" />
-                    {ex?.name ?? `Exercise #${exId}`}
-                    <span className="text-muted-foreground font-normal">{ex?.muscleGroup}</span>
-                  </p>
-                  {exCues.map(cue => (
-                    <div key={cue.id} className="flex items-start gap-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2 ml-3">
-                      <p className="text-xs text-amber-800 dark:text-amber-200 leading-relaxed flex-1">{cue.note}</p>
-                      <button
-                        onClick={() => handleDelete(cue.id)}
-                        disabled={deleteCue.isPending}
-                        className="p-0.5 text-amber-600 hover:text-destructive transition-colors flex-shrink-0 mt-0.5"
-                        title="Remove cue"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {cues.length === 0 && (
-          <p className="text-xs text-muted-foreground italic">No cues yet — add one below.</p>
-        )}
-
-        {/* Add new cue (no call association) */}
-        <div className="border-t border-border/50 pt-3">
-          <p className="text-xs font-medium text-muted-foreground mb-2">Add a cue</p>
-          <ExerciseCueForm clientId={clientId} exercises={exercises} />
-        </div>
-      </CardContent>
-    </Card>
   );
 }
 
@@ -1055,8 +777,6 @@ export function ClientProfile() {
   const { data: programAssignment } = useGetClientProgramAssignment(clientId, { query: { enabled: !!clientId, queryKey: getGetClientProgramAssignmentQueryKey(clientId) } });
   const { data: coachNotes, refetch: refetchNotes } = useListCoachNotes(clientId, { query: { enabled: !!clientId, queryKey: getListCoachNotesQueryKey(clientId) } });
   const { data: callLogs, refetch: refetchCallLogs } = useListCallLogs(clientId, { query: { enabled: !!clientId, queryKey: getListCallLogsQueryKey(clientId) } });
-  const { data: exerciseCues } = useListExerciseCues(clientId, { query: { enabled: !!clientId, queryKey: getListExerciseCuesQueryKey(clientId) } });
-  const { data: allExercisesForCues } = useListExercises({ query: { queryKey: getListExercisesQueryKey() } });
   const { data: fullProgram } = useGetProgram(programAssignment?.programId ?? 0, { query: { enabled: !!programAssignment?.programId, queryKey: getGetProgramQueryKey(programAssignment?.programId ?? 0) } });
   const { data: programs } = useListPrograms();
   const { data: programHistory } = useListClientProgramAssignmentHistory(clientId, { query: { enabled: !!clientId, queryKey: getListClientProgramAssignmentHistoryQueryKey(clientId) } });
@@ -1093,8 +813,6 @@ export function ClientProfile() {
 
   // Video call state
   const [videoCallOpen, setVideoCallOpen] = useState(false);
-  const [noteReview, setNoteReview] = useState<{ callLogId: number; date: string } | null>(null);
-  const { autoCallNotes, reviewCallNotes } = useCallPrefs();
 
   const handleStartVideoCall = async () => {
     try { await fetch(`/api/clients/${clientId}/video-call/start`, { method: "POST" }); } catch { /* ignore */ }
@@ -1102,39 +820,8 @@ export function ClientProfile() {
   };
 
   const handleEndVideoCall = async () => {
-    let callLogId: number | null = null;
-    let callDate: string = new Date().toISOString().split("T")[0];
-    try {
-      const resp = await fetch(`/api/clients/${clientId}/video-call/end`, { method: "POST" });
-      if (resp.ok) {
-        const data = await resp.json();
-        callLogId = data.callLogId ?? null;
-        // Use today's date as the call date
-      }
-    } catch { /* ignore */ }
+    try { await fetch(`/api/clients/${clientId}/video-call/end`, { method: "POST" }); } catch { /* ignore */ }
     setVideoCallOpen(false);
-    if (autoCallNotes && reviewCallNotes && callLogId !== null) {
-      setNoteReview({ callLogId, date: callDate });
-    } else {
-      refetchCallLogs();
-    }
-  };
-
-  const handleNoteReviewApprove = async (note: string) => {
-    if (!noteReview) return;
-    await fetch(`/api/clients/${clientId}/call-logs/${noteReview.callLogId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ notes: note || null }),
-    });
-    setNoteReview(null);
-    refetchCallLogs();
-  };
-
-  const handleNoteReviewDelete = async () => {
-    if (!noteReview) return;
-    await fetch(`/api/clients/${clientId}/call-logs/${noteReview.callLogId}`, { method: "DELETE" });
-    setNoteReview(null);
     refetchCallLogs();
   };
 
@@ -1389,18 +1076,6 @@ export function ClientProfile() {
         />
       )}
 
-      {noteReview && (
-        <CallNoteReviewSheet
-          open={!!noteReview}
-          clientName={client.name}
-          date={noteReview.date}
-          callLogId={noteReview.callLogId}
-          onApprove={handleNoteReviewApprove}
-          onDelete={handleNoteReviewDelete}
-          onClose={() => { setNoteReview(null); refetchCallLogs(); }}
-        />
-      )}
-
       <div className="flex items-center gap-4">
         <WLink href="/clients" className="text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="w-5 h-5" />
@@ -1438,7 +1113,7 @@ export function ClientProfile() {
               <p className="text-sm"><span className="font-medium">Goal: </span>{client.goal}</p>
               {client.goalTargetDate && (
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Due {format(new Date(client.goalTargetDate + "T12:00:00"), "MMM d, yyyy")}
+                  Due {format(new Date(client.goalTargetDate), "MMM d, yyyy")}
                 </p>
               )}
             </div>
@@ -1590,7 +1265,7 @@ export function ClientProfile() {
       </Dialog>
 
       <Tabs defaultValue={initialTab}>
-        <div className="overflow-x-auto overflow-y-hidden -mx-4 px-4 scrollbar-none border-b border-border">
+        <div className="overflow-x-auto -mx-4 px-4 scrollbar-none border-b border-border">
           <TabsList className="flex w-max h-auto bg-transparent p-0 gap-0">
             {[
               { value: "overview", label: "Overview" },
@@ -1704,7 +1379,7 @@ export function ClientProfile() {
             <>
               <Card>
                 <CardContent className="pt-4 pb-4">
-                  <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="flex items-start justify-between gap-4">
                     <div>
                       <p className="font-bold text-lg">{fullProgram?.name ?? programAssignment.programName}</p>
                       {fullProgram?.description && <p className="text-sm text-muted-foreground mt-0.5">{fullProgram.description}</p>}
@@ -2438,13 +2113,6 @@ export function ClientProfile() {
         {/* Notes — private + auto-logged calls + manual calls */}
         <TabsContent value="notes" className="mt-4 space-y-4">
 
-          {/* Exercise cues — standalone, not tied to a call */}
-          <StandaloneExerciseCues
-            clientId={clientId}
-            cues={exerciseCues ?? []}
-            exercises={allExercisesForCues ?? []}
-          />
-
           {/* Add private note */}
           <Card>
             <CardHeader className="pb-3">
@@ -2609,12 +2277,6 @@ export function ClientProfile() {
                         </div>
                       </div>
                     )}
-                    <CallExerciseCues
-                      callId={entry.id}
-                      clientId={clientId}
-                      cues={(exerciseCues ?? []).filter(c => c.callLogId === entry.id)}
-                      exercises={allExercisesForCues ?? []}
-                    />
                   </CardContent>
                 </Card>
               );

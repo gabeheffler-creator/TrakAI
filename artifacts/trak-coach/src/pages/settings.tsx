@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Moon, Sun, Bug, MessageSquare, ChevronRight, CheckCircle,
-  Save, Ruler, ClipboardList, FileText, Upload, Loader2, ImageIcon, Timer,
+  Save, Ruler, ClipboardList, FileText, Upload, Loader2, ImageIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -100,31 +100,11 @@ function SectionHeader({ title }: { title: string }) {
 export function SettingsPage() {
   const { dark, toggle } = useDarkMode();
   const { units, setUnits } = useUnitSystem();
-  const { autoCallLog, autoCallNotes, reviewCallNotes, setAutoCallLog, setAutoCallNotes, setReviewCallNotes } = useCallPrefs();
+  const { autoCallLog, autoCallNotes, setAutoCallLog, setAutoCallNotes } = useCallPrefs();
   const { toast } = useToast();
 
   const [brand, setBrand] = useState<BrandSettings>(() => readBrand());
   const [brandSaved, setBrandSaved] = useState(false);
-
-  const [defaultRestSeconds, setDefaultRestSeconds] = useState<string>("none");
-  const [restSaved, setRestSaved] = useState(false);
-
-  useEffect(() => {
-    fetchAppSettings().then((s: Record<string, unknown>) => {
-      if (s.defaultRestSeconds != null) setDefaultRestSeconds(String(s.defaultRestSeconds));
-    }).catch(() => {});
-  }, []);
-
-  const handleSaveRestDefault = async () => {
-    const value = defaultRestSeconds === "none" ? null : Number(defaultRestSeconds);
-    try {
-      await patchAppSettings({ defaultRestSeconds: value });
-      setRestSaved(true);
-      setTimeout(() => setRestSaved(false), 2000);
-    } catch {
-      toast({ title: "Failed to save rest default", variant: "destructive" });
-    }
-  };
 
   const handleSaveBrand = async () => {
     saveBrand(brand);
@@ -357,62 +337,6 @@ export function SettingsPage() {
             <Switch checked={autoCallNotes} onCheckedChange={setAutoCallNotes} />
           </SettingRow>
         </div>
-        <div className={["px-4", !autoCallNotes && "opacity-50 pointer-events-none"].filter(Boolean).join(" ")}>
-          <SettingRow
-            icon={<FileText className="w-4 h-4" />}
-            label="Review notes before saving"
-            description={autoCallNotes ? "Show a review dialog after each call so you can approve, edit, or delete the note" : "Requires Auto call notes"}
-          >
-            <Switch
-              checked={reviewCallNotes && autoCallNotes}
-              onCheckedChange={setReviewCallNotes}
-              disabled={!autoCallNotes}
-            />
-          </SettingRow>
-        </div>
-      </div>
-
-      {/* ── Workout Defaults ───────────────────────────────────────── */}
-      <SectionHeader title="Workout Defaults" />
-      <div className="rounded-2xl border border-border bg-card p-4 space-y-4">
-        <p className="text-xs text-muted-foreground dark:text-gray-200">
-          Applied to exercises that don't have a specific rest time set in the program.
-        </p>
-        <div className="space-y-1.5">
-          <label className="text-xs font-medium text-muted-foreground dark:text-gray-200 uppercase tracking-wide block">
-            Default rest between sets
-          </label>
-          <Select value={defaultRestSeconds} onValueChange={setDefaultRestSeconds}>
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="No default (timer hidden)" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">No default — timer hidden</SelectItem>
-              <SelectItem value="30">30 seconds</SelectItem>
-              <SelectItem value="45">45 seconds</SelectItem>
-              <SelectItem value="60">60 seconds</SelectItem>
-              <SelectItem value="90">90 seconds</SelectItem>
-              <SelectItem value="120">2 minutes</SelectItem>
-              <SelectItem value="180">3 minutes</SelectItem>
-              <SelectItem value="240">4 minutes</SelectItem>
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-muted-foreground dark:text-gray-200">
-            Clients will see a rest timer with this duration after each set, unless the exercise already has a rest time configured.
-          </p>
-        </div>
-        <Button
-          size="sm"
-          className="w-full"
-          onClick={handleSaveRestDefault}
-          variant={restSaved ? "outline" : "default"}
-        >
-          {restSaved ? (
-            <><CheckCircle className="w-4 h-4 mr-2 text-green-500" /> Saved!</>
-          ) : (
-            <><Timer className="w-4 h-4 mr-2" /> Save Rest Default</>
-          )}
-        </Button>
       </div>
 
       {/* ── Support ────────────────────────────────────────────────── */}

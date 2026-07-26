@@ -120,8 +120,7 @@ router.get("/clients/:clientId/tasks/history", requireClientOwnership(), async (
     const clientId = Number(req.params.clientId);
     const tasks = await db.select().from(clientTasksTable)
       .where(eq(clientTasksTable.clientId, clientId))
-      .orderBy(desc(clientTasksTable.createdAt))
-      .limit(200);
+      .orderBy(desc(clientTasksTable.createdAt));
     res.json(tasks.map(serializeTask));
   } catch (err) {
     req.log.error(err);
@@ -364,7 +363,7 @@ Suggest exactly 3 concise alternative tasks the coach could assign instead.
 Return ONLY a JSON array of 3 strings, no markdown, no explanations. Example: ["Walk 20 min daily", "Do 10 bodyweight squats", "Stretch for 5 minutes"]`;
 
     const aiRes = await openai.chat.completions.create({
-      model: "gpt-5.4-mini",
+      model: "gpt-4o-mini",
       max_completion_tokens: 512,
       response_format: { type: "json_object" },
       messages: [

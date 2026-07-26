@@ -281,7 +281,7 @@ Guidelines:
 - dayNumber starts at 1`;
 
     const aiResponse = await openai.chat.completions.create({
-      model: "gpt-5.4-mini",
+      model: "gpt-4o-mini",
       max_completion_tokens: 4096,
       response_format: { type: "json_object" },
       messages: [
@@ -420,9 +420,6 @@ router.get("/programs/:programId", requireCoachAuth, async (req, res) => {
           exerciseId: programExercisesTable.exerciseId,
           exerciseName: exercisesTable.name,
           muscleGroup: exercisesTable.muscleGroup,
-          isCompound: exercisesTable.isCompound,
-          isUnilateral: exercisesTable.isUnilateral,
-          videoUrl: exercisesTable.videoUrl,
           sets: programExercisesTable.sets,
           reps: programExercisesTable.reps,
           order: programExercisesTable.order,
@@ -837,9 +834,6 @@ router.get("/clients/:clientId/program", requireClientOwnership(), async (req, r
           exerciseId: programExercisesTable.exerciseId,
           exerciseName: exercisesTable.name,
           muscleGroup: exercisesTable.muscleGroup,
-          isCompound: exercisesTable.isCompound,
-          isUnilateral: exercisesTable.isUnilateral,
-          videoUrl: exercisesTable.videoUrl,
           sets: programExercisesTable.sets,
           reps: programExercisesTable.reps,
           order: programExercisesTable.order,

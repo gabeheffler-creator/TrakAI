@@ -2,7 +2,6 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import {
   clientsTable,
-  coachesTable,
   workoutLogsTable,
   measurementsTable,
   programAssignmentsTable,
@@ -48,11 +47,6 @@ router.get("/dashboard/coach", requireCoachAuth, async (req, res) => {
         .from(messagesTable)
         .where(and(eq(messagesTable.clientId, c.id), eq(messagesTable.sender, "client")));
 
-      const [{ rejCount }] = await db
-        .select({ rejCount: count() })
-        .from(clientTasksTable)
-        .where(and(eq(clientTasksTable.clientId, c.id), eq(clientTasksTable.status, "rejected")));
-
       return {
         clientId: c.id,
         name: c.name,
@@ -60,7 +54,6 @@ router.get("/dashboard/coach", requireCoachAuth, async (req, res) => {
         lastCheckin: null,
         assignmentsDue: Number(dueCount),
         unreadMessages: Number(msgCount),
-        hasUnreviewedRejection: Number(rejCount) > 0,
       };
     }));
 
@@ -153,8 +146,6 @@ router.get("/dashboard/client/:clientId", requireClientOwnership(), async (req, 
     const [client] = await db.select().from(clientsTable).where(eq(clientsTable.id, clientId));
     if (!client) { res.status(404).json({ error: "Client not found" }); return; }
 
-    const [coach] = await db.select({ name: coachesTable.name }).from(coachesTable).where(eq(coachesTable.id, client.coachId));
-
     const recentWorkouts = await db.select().from(workoutLogsTable)
       .where(eq(workoutLogsTable.clientId, clientId))
       .orderBy(desc(workoutLogsTable.createdAt))
@@ -194,7 +185,6 @@ router.get("/dashboard/client/:clientId", requireClientOwnership(), async (req, 
 
     res.json({
       client: { ...client, createdAt: client.createdAt.toISOString() },
-      coachName: coach?.name ?? null,
       latestMeasurement: latestMeasurement ? {
         ...latestMeasurement,
         weight: latestMeasurement.weight ? Number(latestMeasurement.weight) : null,

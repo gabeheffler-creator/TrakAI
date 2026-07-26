@@ -18,54 +18,19 @@ import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import {
   Plus, Search, LayoutGrid, List, X, ChevronRight,
-  Dumbbell, Pencil, Upload, Video, Loader2, Link2, Trash2,
+  Dumbbell, Pencil, Upload, Video, Loader2,
 } from "lucide-react";
 import { QueryErrorState } from "@/components/query-error-state";
 
-// ─── YouTube helpers ─────────────────────────────────────────────────────────
-
-function getYouTubeVideoId(url: string): string | null {
-  try {
-    const u = new URL(url);
-    if (u.hostname === "youtu.be") return u.pathname.slice(1).split("?")[0] || null;
-    if (u.hostname.includes("youtube.com")) {
-      if (u.pathname === "/watch") return u.searchParams.get("v");
-      if (u.pathname.startsWith("/embed/")) return u.pathname.split("/embed/")[1]?.split("?")[0] || null;
-      if (u.pathname.startsWith("/shorts/")) return u.pathname.split("/shorts/")[1]?.split("?")[0] || null;
-    }
-  } catch { /* not a URL */ }
-  return null;
-}
-
-function isYouTubeUrl(url: string): boolean {
-  return getYouTubeVideoId(url) !== null;
-}
-
-function getYouTubeEmbedUrl(url: string): string | null {
-  const id = getYouTubeVideoId(url);
-  return id ? `https://www.youtube.com/embed/${id}?rel=0` : null;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-
 type SortMode = "target" | "compound" | "movement" | "cardio" | "mobility" | "strength";
 type ViewMode = "grid" | "list";
-
-const EQUIPMENT_OPTIONS = ["Barbell", "Dumbbell", "Cable", "Machine", "Bodyweight", "Bands", "Other"] as const;
-type Equipment = typeof EQUIPMENT_OPTIONS[number];
-
-const DIFFICULTY_OPTIONS = ["Beginner", "Intermediate", "Advanced"] as const;
-type Difficulty = typeof DIFFICULTY_OPTIONS[number];
 
 const exerciseSchema = z.object({
   name: z.string().min(1),
   muscleGroup: z.string().min(1),
   isCompound: z.boolean().optional(),
-  isUnilateral: z.boolean().optional(),
   movementPattern: z.string().optional(),
   description: z.string().optional(),
-  equipment: z.enum(EQUIPMENT_OPTIONS).optional(),
-  difficulty: z.enum(DIFFICULTY_OPTIONS).optional(),
 });
 
 const MUSCLE_GROUPS = [
@@ -88,12 +53,9 @@ type Exercise = {
   name: string;
   muscleGroup: string;
   isCompound: boolean;
-  isUnilateral: boolean;
   movementPattern?: string | null;
   description?: string | null;
   videoUrl?: string | null;
-  equipment?: Equipment | null;
-  difficulty?: Difficulty | null;
 };
 
 function capitalize(s: string) {
@@ -161,12 +123,6 @@ function ExerciseBadges({ exercise, size = "sm" }: { exercise: Exercise; size?: 
         <Badge variant="outline" className={cls}>
           {capitalize(exercise.movementPattern)}
         </Badge>
-      )}
-      {exercise.equipment && exercise.equipment !== "Other" && (
-        <Badge variant="outline" className={cls}>{exercise.equipment}</Badge>
-      )}
-      {exercise.difficulty && (
-        <Badge variant="secondary" className={cls}>{exercise.difficulty}</Badge>
       )}
     </div>
   );
@@ -273,71 +229,19 @@ function ExerciseDetailPanel({
   const [editName, setEditName] = useState(exercise.name);
   const [editMuscleGroup, setEditMuscleGroup] = useState(exercise.muscleGroup);
   const [editIsCompound, setEditIsCompound] = useState(exercise.isCompound);
-  const [editIsUnilateral, setEditIsUnilateral] = useState(exercise.isUnilateral);
   const [editMovement, setEditMovement] = useState(exercise.movementPattern ?? "");
   const [editDescription, setEditDescription] = useState(exercise.description ?? "");
-  const [editEquipment, setEditEquipment] = useState<Equipment>(exercise.equipment ?? "Other");
-  const [editDifficulty, setEditDifficulty] = useState<Difficulty>(exercise.difficulty ?? "Intermediate");
-
-  const [ytInput, setYtInput] = useState("");
-  const [savingYt, setSavingYt] = useState(false);
 
   const updateExercise = useUpdateExercise();
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  function handleSaveYouTubeUrl() {
-    const videoId = getYouTubeVideoId(ytInput.trim());
-    if (!videoId) {
-      toast({ title: "Not a valid YouTube URL", variant: "destructive" });
-      return;
-    }
-    setSavingYt(true);
-    updateExercise.mutate(
-      { exerciseId: exercise.id, data: { videoUrl: ytInput.trim() } },
-      {
-        onSuccess: (updated) => {
-          const refreshed = { ...exercise, ...updated };
-          setExercise(refreshed);
-          onUpdate(refreshed);
-          setYtInput("");
-          qc.invalidateQueries({ queryKey: getListExercisesQueryKey() });
-          toast({ title: "YouTube video linked" });
-          setSavingYt(false);
-        },
-        onError: () => {
-          toast({ title: "Failed to save URL", variant: "destructive" });
-          setSavingYt(false);
-        },
-      }
-    );
-  }
-
-  function handleRemoveVideo() {
-    updateExercise.mutate(
-      { exerciseId: exercise.id, data: { videoUrl: null } },
-      {
-        onSuccess: (updated) => {
-          const refreshed = { ...exercise, ...updated };
-          setExercise(refreshed);
-          onUpdate(refreshed);
-          qc.invalidateQueries({ queryKey: getListExercisesQueryKey() });
-          toast({ title: "Video removed" });
-        },
-        onError: () => toast({ title: "Failed to remove video", variant: "destructive" }),
-      }
-    );
-  }
-
   function startEdit() {
     setEditName(exercise.name);
     setEditMuscleGroup(exercise.muscleGroup);
     setEditIsCompound(exercise.isCompound);
-    setEditIsUnilateral(exercise.isUnilateral);
     setEditMovement(exercise.movementPattern ?? "");
     setEditDescription(exercise.description ?? "");
-    setEditEquipment(exercise.equipment ?? "Other");
-    setEditDifficulty(exercise.difficulty ?? "Intermediate");
     setEditing(true);
   }
 
@@ -349,11 +253,8 @@ function ExerciseDetailPanel({
           name: editName,
           muscleGroup: editMuscleGroup,
           isCompound: editIsCompound,
-          isUnilateral: editIsUnilateral,
           movementPattern: editMovement || null,
           description: editDescription || null,
-          equipment: editEquipment,
-          difficulty: editDifficulty,
         },
       },
       {
@@ -478,22 +379,6 @@ function ExerciseDetailPanel({
             </div>
 
             <div>
-              <p className="text-sm font-medium mb-2">Laterality</p>
-              <div className="flex gap-2">
-                {[{ label: "Bilateral", val: false }, { label: "Unilateral", val: true }].map(opt => (
-                  <button
-                    key={opt.label}
-                    type="button"
-                    onClick={() => setEditIsUnilateral(opt.val)}
-                    className={`flex-1 text-sm px-3 py-2 rounded border transition-colors ${editIsUnilateral === opt.val ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
               <p className="text-sm font-medium mb-2">Movement Pattern</p>
               <div className="flex gap-2">
                 {["bilateral", "unilateral"].map(mp => (
@@ -504,40 +389,6 @@ function ExerciseDetailPanel({
                     className={`flex-1 text-sm px-3 py-2 rounded border transition-colors ${editMovement === mp ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}
                   >
                     {capitalize(mp)}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <p className="text-sm font-medium mb-2">Equipment</p>
-              <div className="flex flex-wrap gap-2">
-                {EQUIPMENT_OPTIONS.map(eq => (
-                  <button
-                    key={eq}
-                    type="button"
-                    onClick={() => setEditEquipment(eq)}
-                    className={`text-sm px-3 py-2 rounded border transition-colors ${editEquipment === eq ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}
-                    data-testid={`button-equipment-${eq.toLowerCase()}`}
-                  >
-                    {eq}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <p className="text-sm font-medium mb-2">Difficulty</p>
-              <div className="flex gap-2">
-                {DIFFICULTY_OPTIONS.map(d => (
-                  <button
-                    key={d}
-                    type="button"
-                    onClick={() => setEditDifficulty(d)}
-                    className={`flex-1 text-sm px-3 py-2 rounded border transition-colors ${editDifficulty === d ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}
-                    data-testid={`button-difficulty-${d.toLowerCase()}`}
-                  >
-                    {d}
                   </button>
                 ))}
               </div>
@@ -558,34 +409,21 @@ function ExerciseDetailPanel({
               </p>
             </div>
             <div className="rounded-xl border bg-card p-4">
-              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">Laterality</p>
-              <p className="font-semibold text-base">{exercise.isUnilateral ? "Unilateral" : "Bilateral"}</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                {exercise.isUnilateral
-                  ? "Each side works independently"
-                  : "Both sides of the body work together"}
-              </p>
-            </div>
-            <div className="rounded-xl border bg-card p-4">
               <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">Movement</p>
               <p className="font-semibold text-base">
                 {exercise.movementPattern ? capitalize(exercise.movementPattern) : "—"}
               </p>
               <p className="text-sm text-muted-foreground mt-1">
-                {exercise.movementPattern ? `${capitalize(exercise.movementPattern)} movement` : "Movement pattern not specified"}
+                {exercise.movementPattern === "bilateral"
+                  ? "Both sides of the body work together"
+                  : exercise.movementPattern === "unilateral"
+                  ? "Each side works independently"
+                  : "Movement pattern not specified"}
               </p>
             </div>
             <div className="rounded-xl border bg-card p-4">
               <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">Target Area</p>
               <p className="font-semibold text-base">{exercise.muscleGroup}</p>
-            </div>
-            <div className="rounded-xl border bg-card p-4">
-              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">Equipment</p>
-              <p className="font-semibold text-base">{exercise.equipment ?? "Other"}</p>
-            </div>
-            <div className="rounded-xl border bg-card p-4">
-              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">Difficulty</p>
-              <p className="font-semibold text-base">{exercise.difficulty ?? "Intermediate"}</p>
             </div>
             <div className="rounded-xl border bg-card p-4">
               <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">Category</p>
@@ -624,55 +462,12 @@ function ExerciseDetailPanel({
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
               <Video className="w-3.5 h-3.5" /> Video
             </p>
-            <div className="flex items-center gap-2">
-              <VideoUploadButton exerciseId={exercise.id} onUploadComplete={handleVideoUploaded} />
-              {exercise.videoUrl && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-destructive hover:text-destructive h-8 px-2"
-                  onClick={handleRemoveVideo}
-                  title="Remove video"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </Button>
-              )}
-            </div>
-          </div>
-
-          {/* YouTube URL paste row */}
-          <div className="flex gap-2 mb-3">
-            <div className="relative flex-1">
-              <Link2 className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
-              <Input
-                placeholder="Or paste a YouTube URL…"
-                value={ytInput}
-                onChange={e => setYtInput(e.target.value)}
-                onKeyDown={e => { if (e.key === "Enter") handleSaveYouTubeUrl(); }}
-                className="pl-8 text-sm h-9"
-              />
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleSaveYouTubeUrl}
-              disabled={!ytInput.trim() || savingYt}
-              className="h-9 shrink-0"
-            >
-              {savingYt ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Link"}
-            </Button>
-          </div>
-
-          {/* Video player */}
-          {exercise.videoUrl && isYouTubeUrl(exercise.videoUrl) ? (
-            <iframe
-              src={getYouTubeEmbedUrl(exercise.videoUrl)!}
-              className="w-full rounded-lg aspect-video border-0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-              data-testid="exercise-video-player"
+            <VideoUploadButton
+              exerciseId={exercise.id}
+              onUploadComplete={handleVideoUploaded}
             />
-          ) : videoSrc ? (
+          </div>
+          {videoSrc ? (
             <video
               key={videoSrc}
               src={videoSrc}
@@ -681,7 +476,7 @@ function ExerciseDetailPanel({
               data-testid="exercise-video-player"
             />
           ) : (
-            <p className="text-sm text-muted-foreground italic">No video yet — upload a file or paste a YouTube URL above.</p>
+            <p className="text-sm text-muted-foreground italic">No video yet — upload one using the button above.</p>
           )}
         </div>
 
@@ -724,10 +519,7 @@ export function Exercises() {
 
   const form = useForm<z.infer<typeof exerciseSchema>>({
     resolver: zodResolver(exerciseSchema),
-    defaultValues: {
-      name: "", muscleGroup: "", isCompound: false, isUnilateral: false,
-      movementPattern: "", description: "", equipment: "Other", difficulty: "Intermediate",
-    },
+    defaultValues: { name: "", muscleGroup: "", isCompound: false, movementPattern: "", description: "" },
   });
 
   const onSubmit = (values: z.infer<typeof exerciseSchema>) => {
@@ -736,11 +528,8 @@ export function Exercises() {
         name: values.name,
         muscleGroup: values.muscleGroup,
         isCompound: values.isCompound,
-        isUnilateral: values.isUnilateral,
         movementPattern: values.movementPattern || undefined,
         description: values.description || undefined,
-        equipment: values.equipment,
-        difficulty: values.difficulty,
       }
     }, {
       onSuccess: () => {
@@ -806,19 +595,6 @@ export function Exercises() {
                       </div>
                     </FormItem>
                   )} />
-                  <FormField control={form.control} name="isUnilateral" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Laterality</FormLabel>
-                      <div className="flex gap-2">
-                        {[{ label: "Bilateral", val: false }, { label: "Unilateral", val: true }].map(opt => (
-                          <button key={opt.label} type="button"
-                            onClick={() => form.setValue("isUnilateral", opt.val)}
-                            className={`flex-1 text-sm px-3 py-2 rounded border transition-colors ${field.value === opt.val ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}
-                          >{opt.label}</button>
-                        ))}
-                      </div>
-                    </FormItem>
-                  )} />
                   <FormField control={form.control} name="movementPattern" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Movement Pattern</FormLabel>
@@ -828,32 +604,6 @@ export function Exercises() {
                             onClick={() => form.setValue("movementPattern", field.value === mp ? "" : mp)}
                             className={`flex-1 text-sm px-3 py-2 rounded border transition-colors ${field.value === mp ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}
                           >{capitalize(mp)}</button>
-                        ))}
-                      </div>
-                    </FormItem>
-                  )} />
-                  <FormField control={form.control} name="equipment" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Equipment</FormLabel>
-                      <div className="flex flex-wrap gap-2">
-                        {EQUIPMENT_OPTIONS.map(eq => (
-                          <button key={eq} type="button"
-                            onClick={() => form.setValue("equipment", eq)}
-                            className={`text-sm px-3 py-2 rounded border transition-colors ${field.value === eq ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}
-                          >{eq}</button>
-                        ))}
-                      </div>
-                    </FormItem>
-                  )} />
-                  <FormField control={form.control} name="difficulty" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Difficulty</FormLabel>
-                      <div className="flex gap-2">
-                        {DIFFICULTY_OPTIONS.map(d => (
-                          <button key={d} type="button"
-                            onClick={() => form.setValue("difficulty", d)}
-                            className={`flex-1 text-sm px-3 py-2 rounded border transition-colors ${field.value === d ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}
-                          >{d}</button>
                         ))}
                       </div>
                     </FormItem>

@@ -8,9 +8,12 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Moon, Sun, Ruler, Dumbbell, BarChart2, Bug, MessageSquare, ChevronRight, CheckCircle, FileDown } from "lucide-react";
+import { Moon, Sun, Ruler, Dumbbell, BarChart2, Bug, MessageSquare, ChevronRight, CheckCircle, FlaskConical, FileDown } from "lucide-react";
 import { Link } from "wouter";
 
+const BETA_MODE_KEY = "trak_beta_mode";
+function readBetaMode() { return localStorage.getItem(BETA_MODE_KEY) === "true"; }
+function saveBetaMode(v: boolean) { localStorage.setItem(BETA_MODE_KEY, String(v)); }
 
 function SettingRow({
   icon,
@@ -74,8 +77,11 @@ async function submitFeedback(type: "bug" | "feedback", content: string, from: "
 export function SettingsPage() {
   const { dark, toggle } = useDarkMode();
   const { units, setUnits } = useUnitSystem();
-  const { workoutView, setWorkoutView, showProgressBar, setShowProgressBar, progressMode, setProgressMode } = useWorkoutPrefs();
+  const { workoutView, setWorkoutView, showProgressBar, setShowProgressBar } = useWorkoutPrefs();
   const { toast } = useToast();
+  const [betaMode, setBetaModeState] = useState(() => readBetaMode());
+
+  const toggleBetaMode = (v: boolean) => { saveBetaMode(v); setBetaModeState(v); };
 
   const [bugSheetOpen, setBugSheetOpen] = useState(false);
   const [bugText, setBugText] = useState("");
@@ -195,21 +201,18 @@ export function SettingsPage() {
             <Switch checked={showProgressBar} onCheckedChange={setShowProgressBar} />
           </SettingRow>
         </div>
+      </div>
+
+      {/* ── Beta ───────────────────────────────── */}
+      <SectionHeader title="Beta Features" />
+      <div className="rounded-2xl border border-border bg-card divide-y divide-border">
         <div className="px-4">
           <SettingRow
-            icon={<BarChart2 className="w-4 h-4" />}
-            label="Set progress style"
-            description="How completed sets are shown per exercise"
+            icon={<FlaskConical className="w-4 h-4" />}
+            label="Beta mode"
+            description="Enable experimental features before public release"
           >
-            <Select value={progressMode} onValueChange={v => setProgressMode(v as "bar" | "ratio")}>
-              <SelectTrigger className="w-[120px] text-xs h-8">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="bar">Progress bar</SelectItem>
-                <SelectItem value="ratio">Ratio (2/4)</SelectItem>
-              </SelectContent>
-            </Select>
+            <Switch checked={betaMode} onCheckedChange={toggleBetaMode} />
           </SettingRow>
         </div>
       </div>
