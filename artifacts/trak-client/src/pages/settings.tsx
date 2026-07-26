@@ -77,7 +77,7 @@ async function submitFeedback(type: "bug" | "feedback", content: string, from: "
 export function SettingsPage() {
   const { dark, toggle } = useDarkMode();
   const { units, setUnits } = useUnitSystem();
-  const { workoutView, setWorkoutView, showProgressBar, setShowProgressBar } = useWorkoutPrefs();
+  const { workoutView, setWorkoutView, showProgressBar, setShowProgressBar, progressMode, setProgressMode } = useWorkoutPrefs();
   const { toast } = useToast();
   const [betaMode, setBetaModeState] = useState(() => readBetaMode());
 
@@ -201,6 +201,28 @@ export function SettingsPage() {
             <Switch checked={showProgressBar} onCheckedChange={setShowProgressBar} />
           </SettingRow>
         </div>
+        {showProgressBar && (
+          <div className="px-4">
+            <SettingRow
+              icon={<BarChart2 className="w-4 h-4 opacity-0" />}
+              label="Progress style"
+              description="How progress is displayed during a workout"
+            >
+              <Select
+                value={progressMode}
+                onValueChange={v => setProgressMode(v as "bar" | "ratio")}
+              >
+                <SelectTrigger className="w-[140px] text-xs h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="bar">Progress bar</SelectItem>
+                  <SelectItem value="ratio">Ratio (e.g. 4 / 5)</SelectItem>
+                </SelectContent>
+              </Select>
+            </SettingRow>
+          </div>
+        )}
       </div>
 
       {/* ── Beta ───────────────────────────────── */}

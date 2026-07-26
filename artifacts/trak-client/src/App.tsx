@@ -21,6 +21,7 @@ import { DataImportPage } from "@/pages/data-import";
 import { GoalHistoryPage } from "@/pages/goal-history";
 import { TasksPage } from "@/pages/tasks";
 import { CalendarPage } from "@/pages/calendar";
+import { AssignmentsPage } from "@/pages/assignments";
 import NotFound from "@/pages/not-found";
 import { LoginPage } from "@/pages/login";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
@@ -94,6 +95,7 @@ function AppRouter() {
       <Route path="/goal-history"><Protected><GoalHistoryPage /></Protected></Route>
       <Route path="/tasks"><Protected><TasksPage /></Protected></Route>
       <Route path="/calendar"><Protected><CalendarPage /></Protected></Route>
+      <Route path="/assignments"><Protected><AssignmentsPage /></Protected></Route>
       <Route><Protected><NotFound /></Protected></Route>
     </Switch>
   );
