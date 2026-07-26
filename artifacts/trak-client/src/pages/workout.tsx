@@ -33,6 +33,28 @@ import type { Exercise } from "@workspace/api-client-react";
 import { QueryErrorState } from "@/components/query-error-state";
 import { ExercisesPage } from "@/pages/exercises";
 
+// ─── YouTube helpers ─────────────────────────────────────────────────────────
+
+function getYouTubeVideoId(url: string): string | null {
+  try {
+    const u = new URL(url);
+    if (u.hostname === "youtu.be") return u.pathname.slice(1).split("?")[0] || null;
+    if (u.hostname.includes("youtube.com")) {
+      if (u.pathname === "/watch") return u.searchParams.get("v");
+      if (u.pathname.startsWith("/embed/")) return u.pathname.split("/embed/")[1]?.split("?")[0] || null;
+      if (u.pathname.startsWith("/shorts/")) return u.pathname.split("/shorts/")[1]?.split("?")[0] || null;
+    }
+  } catch { /* not a URL */ }
+  return null;
+}
+
+function getYouTubeEmbedUrl(url: string): string | null {
+  const id = getYouTubeVideoId(url);
+  return id ? `https://www.youtube.com/embed/${id}?rel=0` : null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 type Mode = "select" | "checkin" | "overview" | "active" | "upload" | "done" | "early-exit-done";
 
 interface SetState {
@@ -1765,6 +1787,26 @@ export function WorkoutPage() {
                 </p>
               )}
             </div>
+
+            {/* Exercise video */}
+            {(currentEx as any).videoUrl && (() => {
+              const url: string = (currentEx as any).videoUrl;
+              const embedUrl = getYouTubeEmbedUrl(url);
+              return (
+                <div className="mb-5 rounded-xl overflow-hidden border border-border">
+                  {embedUrl ? (
+                    <iframe
+                      src={embedUrl}
+                      className="w-full aspect-video border-0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  ) : (
+                    <video src={`/api/storage${url}`} controls className="w-full max-h-64 bg-black" />
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Coach cues */}
             {(cuesByExId[currentEx.exerciseId] ?? []).length > 0 && (
