@@ -350,13 +350,25 @@ export default function WorkoutPage({ clientId, clientName }: WorkoutPageProps) 
         {error && <p style={{ fontSize: 12, color: "#f87171", marginTop: 6 }}>{error}</p>}
       </div>
 
-      {/* Rest day */}
+      {/* Rest day banner (non-blocking) */}
       {!today && !loading && (
-        <div style={S.restDay}>
-          <div style={{ fontSize: 48 }}>🌙</div>
-          <div style={{ fontSize: 20, fontWeight: 800 }}>Rest Day</div>
-          <div style={{ fontSize: 14, color: "#94a3b8", lineHeight: 1.5 }}>
-            No workout scheduled today. Recover well — your next session is coming up.
+        <div style={S.scroll}>
+          <div style={{
+            background: "#1e293b",
+            border: "1px solid #334155",
+            borderRadius: 14,
+            padding: "20px 20px",
+            display: "flex",
+            alignItems: "center",
+            gap: 14,
+          }}>
+            <span style={{ fontSize: 28, flexShrink: 0 }}>🌙</span>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#f1f5f9", marginBottom: 4 }}>Rest Day</div>
+              <div style={{ fontSize: 13, color: "#94a3b8", lineHeight: 1.5 }}>
+                No workout scheduled today. Recover well.
+              </div>
+            </div>
           </div>
         </div>
       )}
