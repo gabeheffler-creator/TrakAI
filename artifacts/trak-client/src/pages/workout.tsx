@@ -24,7 +24,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle, ChevronRight, Dumbbell, X, Trophy, ArrowRight, RefreshCw, Upload, FolderOpen, ImageIcon, Pencil, RotateCcw, Check, Moon } from "lucide-react";
+import { CheckCircle, ChevronRight, Dumbbell, X, Trophy, ArrowRight, RefreshCw, Upload, FolderOpen, ImageIcon, Pencil, RotateCcw, Check, Moon, ArrowLeft, Search, LayoutGrid, List, SlidersHorizontal } from "lucide-react";
 import { useLocation, Link } from "wouter";
 import { cn } from "@/lib/utils";
 import type { Exercise } from "@workspace/api-client-react";
@@ -38,10 +38,11 @@ interface SetState {
   reps: string;
   leftReps: string;
   rightReps: string;
+  prevWeight: string;
+  prevReps: string;
   isUnilateral: boolean;
   logged: boolean;
   rpe: number | null;
-  isPrevious: boolean;
 }
 
 function decodeExMeta(raw: string | null | undefined): { laterality: string; equipment: string; grip: string } {
@@ -249,65 +250,274 @@ function RpeBottomSheet({ open, onSelect, onCancel }: { open: boolean; onSelect:
   );
 }
 
-function SwapModal({
-  currentExercise,
+const SWAP_CARDIO_GROUPS = new Set(["Cardio", "HIIT"]);
+const SWAP_MOBILITY_GROUPS = new Set(["Mobility"]);
+const SWAP_HIIT_GROUPS = new Set(["HIIT"]);
+const SWAP_GROUP_ORDER: Record<string, number> = {
+  Chest: 1, Back: 2, Shoulders: 3, Biceps: 4, Triceps: 5, Traps: 6,
+  Legs: 7, Glutes: 8, Core: 9, "Full Body": 10,
+  Cardio: 97, HIIT: 98, Mobility: 99,
+};
+const SWAP_CATEGORY_CHIPS = [
+  { id: "all" as const, label: "All" },
+  { id: "strength" as const, label: "Strength" },
+  { id: "cardio" as const, label: "Cardio" },
+  { id: "mobility" as const, label: "Mobility" },
+  { id: "hiit" as const, label: "HIIT" },
+];
+type SwapCategory = "all" | "strength" | "cardio" | "mobility" | "hiit";
+type SwapSort = "target" | "name" | "compound" | "isolation";
+type SwapView = "grid" | "list";
+
+function matchesSwapCategory(e: Exercise, cat: SwapCategory): boolean {
+  if (cat === "all") return true;
+  if (cat === "cardio") return SWAP_CARDIO_GROUPS.has(e.muscleGroup);
+  if (cat === "hiit") return SWAP_HIIT_GROUPS.has(e.muscleGroup);
+  if (cat === "mobility") return SWAP_MOBILITY_GROUPS.has(e.muscleGroup);
+  return !SWAP_CARDIO_GROUPS.has(e.muscleGroup) && !SWAP_MOBILITY_GROUPS.has(e.muscleGroup);
+}
+
+function SwapBrowser({
+  currentExerciseName,
   allExercises,
   onSelect,
   onCancel,
 }: {
-  currentExercise: { exerciseName: string; muscleGroup: string };
+  currentExerciseName: string;
   allExercises: Exercise[];
   onSelect: (ex: Exercise) => void;
   onCancel: () => void;
 }) {
-  const isCompoundName = (name: string) => {
-    const compounds = ["squat", "deadlift", "bench press", "bent over row", "overhead press", "pull-up", "chin-up"];
-    const lower = name.toLowerCase();
-    return compounds.some(c => lower.includes(c));
-  };
+  const [search, setSearch] = useState("");
+  const [sortMode, setSortMode] = useState<SwapSort>("target");
+  const [viewMode, setViewMode] = useState<SwapView>(
+    () => (localStorage.getItem("trak-exercises-view") as SwapView | null) ?? "grid"
+  );
+  const [category, setCategory] = useState<SwapCategory>("all");
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [pendingSort, setPendingSort] = useState<SwapSort>("target");
+  const [pendingCategory, setPendingCategory] = useState<SwapCategory>("all");
 
-  const currentIsCompound = isCompoundName(currentExercise.exerciseName);
-  const currentBase = currentExercise.exerciseName.toLowerCase()
-    .replace(/barbell|dumbbell|incline|decline|flat|sumo|romanian|conventional|front|back|close grip|wide grip/g, "")
-    .trim();
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    return allExercises.filter(e =>
+      e.name !== currentExerciseName &&
+      matchesSwapCategory(e, category) &&
+      (
+        e.name.toLowerCase().includes(q) ||
+        e.muscleGroup.toLowerCase().includes(q) ||
+        (e.description ?? "").toLowerCase().includes(q)
+      )
+    );
+  }, [allExercises, search, category, currentExerciseName]);
 
-  const swappable = allExercises.filter(ex => {
-    if (ex.name === currentExercise.exerciseName) return false;
-    if (currentIsCompound) {
-      // Only show variations of the same lift
-      const exBase = ex.name.toLowerCase()
-        .replace(/barbell|dumbbell|incline|decline|flat|sumo|romanian|conventional|front|back|close grip|wide grip/g, "")
-        .trim();
-      return exBase.split(" ").some(word => currentBase.split(" ").includes(word) && word.length > 3);
-    }
-    // For accessories, show same muscle group
-    return ex.muscleGroup === currentExercise.muscleGroup;
-  });
+  const isGrouped = sortMode === "target";
 
-  return (
-    <div className="fixed inset-0 z-[70] bg-background/95 backdrop-blur-sm flex flex-col">
-      <div className="flex items-center justify-between px-4 py-4 border-b border-border">
-        <div>
-          <h2 className="text-lg font-bold">Swap Exercise</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {currentIsCompound ? "Showing variations of this lift" : `Showing ${currentExercise.muscleGroup} exercises`}
+  const grouped = useMemo(() => {
+    if (!isGrouped) return null;
+    return filtered.reduce<Record<string, Exercise[]>>((acc, e) => {
+      (acc[e.muscleGroup] ??= []).push(e);
+      return acc;
+    }, {});
+  }, [filtered, isGrouped]);
+
+  const flat = useMemo(() => {
+    if (isGrouped) return null;
+    const arr = [...filtered];
+    if (sortMode === "name") arr.sort((a, b) => a.name.localeCompare(b.name));
+    else if (sortMode === "compound") arr.sort((a, b) => (a.isCompound ? 0 : 1) - (b.isCompound ? 0 : 1) || a.name.localeCompare(b.name));
+    else if (sortMode === "isolation") arr.sort((a, b) => (a.isCompound ? 1 : 0) - (b.isCompound ? 1 : 0) || a.name.localeCompare(b.name));
+    return arr;
+  }, [filtered, sortMode, isGrouped]);
+
+  const renderExercise = (e: Exercise) =>
+    viewMode === "grid" ? (
+      <button
+        key={e.id}
+        onClick={() => onSelect(e)}
+        className="w-full text-left p-4 rounded-2xl border-2 border-purple-500/40 hover:border-purple-500/70 bg-card transition-colors cursor-pointer"
+      >
+        <p className="font-semibold text-base">{e.name}</p>
+        <p className="text-xs text-muted-foreground mt-1">
+          {e.muscleGroup}{e.isCompound !== undefined && ` · ${e.isCompound ? "Compound" : "Isolation"}`}
+        </p>
+      </button>
+    ) : (
+      <button
+        key={e.id}
+        onClick={() => onSelect(e)}
+        className="w-full text-left flex items-center gap-3 px-4 py-3 rounded-lg border border-border hover:bg-muted/50 transition-colors"
+      >
+        <div className="flex-1 min-w-0">
+          <p className="font-medium text-sm truncate">{e.name}</p>
+          <p className="text-xs text-muted-foreground truncate">
+            {e.muscleGroup}{e.isCompound !== undefined && ` · ${e.isCompound ? "Compound" : "Isolation"}`}
           </p>
         </div>
-        <button onClick={onCancel} className="p-2 text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
-      </div>
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
-        {swappable.length === 0 ? (
-          <p className="text-center text-muted-foreground py-8 text-sm">No alternatives found in your exercise library.</p>
-        ) : swappable.map(ex => (
-          <button
-            key={ex.id}
-            onClick={() => onSelect(ex)}
-            className="w-full p-4 rounded-2xl border border-border bg-card text-left hover:border-primary/50 hover:bg-accent transition-colors"
+        <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+      </button>
+    );
+
+  return (
+    <div className="fixed inset-0 z-[70] bg-background flex flex-col">
+      {/* Header */}
+      <div className="px-4 py-4 border-b border-border flex items-center gap-3">
+        <button
+          onClick={onCancel}
+          className="text-muted-foreground hover:text-foreground transition-colors p-1 -ml-1"
+          aria-label="Go back"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <div className="flex-1">
+          <h2 className="text-lg font-bold">Swap Exercise</h2>
+          <p className="text-xs text-muted-foreground">{filtered.length} exercises</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant={viewMode === "grid" ? "default" : "outline"}
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => setViewMode("grid")}
+            aria-label="Grid view"
           >
-            <p className="font-semibold text-sm">{ex.name}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">{ex.muscleGroup}</p>
-          </button>
-        ))}
+            <LayoutGrid className="w-4 h-4" />
+          </Button>
+          <Button
+            variant={viewMode === "list" ? "default" : "outline"}
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => setViewMode("list")}
+            aria-label="List view"
+          >
+            <List className="w-4 h-4" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Search + Filter button */}
+      <div className="px-4 pt-3 pb-3 flex gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search exercises..."
+            className="pl-9"
+          />
+        </div>
+        <button
+          onClick={() => { setPendingSort(sortMode); setPendingCategory(category); setFilterOpen(true); }}
+          className={cn(
+            "shrink-0 flex items-center gap-1.5 px-3 h-10 rounded-lg border text-sm font-medium transition-colors",
+            (sortMode !== "target" || category !== "all")
+              ? "border-violet-500 bg-violet-50 dark:bg-violet-950/30 text-violet-700 dark:text-violet-400"
+              : "border-border text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <SlidersHorizontal className="w-4 h-4" />
+          Filter
+          {(sortMode !== "target" || category !== "all") && (
+            <span className="w-1.5 h-1.5 rounded-full bg-violet-500 ml-0.5" />
+          )}
+        </button>
+      </div>
+
+      {/* Filter sheet */}
+      {filterOpen && (
+        <div
+          className="fixed inset-0 z-[80] flex flex-col"
+          onClick={() => setFilterOpen(false)}
+        >
+          <div className="flex-1" />
+          <div
+            className="bg-background border-t border-border rounded-t-3xl pb-10 px-5 pt-5 space-y-5 animate-in slide-in-from-bottom duration-200"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold">Filter & Sort</h3>
+              <button onClick={() => setFilterOpen(false)} className="p-1 text-muted-foreground hover:text-foreground">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="space-y-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Sort by</p>
+              {(["target", "name", "compound", "isolation"] as const).map(opt => {
+                const labels: Record<string, string> = { target: "Target muscle", name: "Name A–Z", compound: "Compound first", isolation: "Isolation first" };
+                return (
+                  <button
+                    key={opt}
+                    onClick={() => setPendingSort(opt)}
+                    className={cn(
+                      "w-full flex items-center justify-between px-3 py-2.5 rounded-xl border text-sm transition-colors",
+                      pendingSort === opt ? "border-primary bg-primary/5 font-medium" : "border-border hover:bg-muted/50"
+                    )}
+                  >
+                    {labels[opt]}
+                    {pendingSort === opt && <Check className="w-4 h-4 text-primary" />}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="space-y-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Category</p>
+              <div className="flex flex-wrap gap-2">
+                {SWAP_CATEGORY_CHIPS.map(chip => (
+                  <button
+                    key={chip.id}
+                    onClick={() => setPendingCategory(chip.id)}
+                    className={cn(
+                      "px-3 py-1.5 rounded-full text-sm font-medium border transition-colors",
+                      pendingCategory === chip.id
+                        ? "bg-violet-600 text-white border-violet-600"
+                        : "border-border text-muted-foreground hover:border-violet-400 hover:text-foreground"
+                    )}
+                  >
+                    {chip.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3 pt-1">
+              <button
+                onClick={() => setFilterOpen(false)}
+                className="py-3 rounded-2xl border border-border text-sm font-semibold hover:bg-muted/50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => { setSortMode(pendingSort); setCategory(pendingCategory); setFilterOpen(false); }}
+                className="py-3 rounded-2xl bg-foreground text-background text-sm font-semibold hover:opacity-90 transition-opacity"
+              >
+                Sort
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Exercise list */}
+      <div className="flex-1 overflow-y-auto px-4 pt-2 pb-8">
+        {isGrouped && grouped ? (
+          <div className="space-y-6">
+            {Object.entries(grouped)
+              .sort(([a], [b]) => (SWAP_GROUP_ORDER[a] ?? 50) - (SWAP_GROUP_ORDER[b] ?? 50))
+              .map(([group, exs]) => (
+                <div key={group}>
+                  <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">{group}</h2>
+                  <div className={viewMode === "grid" ? "grid gap-3 sm:grid-cols-2" : "space-y-2"}>
+                    {exs.map(e => renderExercise(e))}
+                  </div>
+                </div>
+              ))}
+          </div>
+        ) : flat && flat.length > 0 ? (
+          <div className={viewMode === "grid" ? "grid gap-3 sm:grid-cols-2" : "space-y-2"}>
+            {flat.map(e => renderExercise(e))}
+          </div>
+        ) : (
+          <p className="text-center text-muted-foreground py-8 text-sm">No exercises match your search.</p>
+        )}
       </div>
     </div>
   );
@@ -464,6 +674,8 @@ export function WorkoutPage() {
   const [energy, setEnergy] = useState<number | null>(null);
   const [isAdjusted, setIsAdjusted] = useState(false);
   const [adjustPercent, setAdjustPercent] = useState(20);
+  const [setAdjustPct, setSetAdjustPct] = useState(0);
+  const [adjustTier, setAdjustTier] = useState<"heavy" | "moderate" | "none">("none");
   const [effectiveRestSeconds, setEffectiveRestSeconds] = useState<(number | null)[]>([]);
   const [showRestTimer, setShowRestTimer] = useState(false);
   const [restSecondsLeft, setRestSecondsLeft] = useState(0);
@@ -568,32 +780,33 @@ export function WorkoutPage() {
     };
   }, []);
 
-  const initSets = useCallback((dayExercises: typeof exercises, applyAdjust: boolean, adjustPct: number, prevPerf: Record<number, { weight: string; reps: string }> = {}) => {
+  const initSets = useCallback((dayExercises: typeof exercises, applyAdjust: boolean, setAdjustPct: number, restAdjustPct: number, prevPerf: Record<number, { weight: string; reps: string }> = {}) => {
     const initial: SetState[][] = dayExercises.map(ex => {
       const reps = ex.reps.includes("-") ? ex.reps.split("-")[1] : ex.reps;
       const meta = decodeExMeta(ex.notes);
       const isUnilateral = meta.laterality === "unilateral";
       const setCount = applyAdjust
-        ? Math.max(1, Math.round(ex.sets * (1 - adjustPct / 100)))
+        ? Math.max(1, Math.round(ex.sets * (1 - setAdjustPct / 100)))
         : ex.sets;
       const prev = prevPerf[ex.exerciseId];
       return Array.from({ length: setCount }, () => ({
         targetReps: reps,
-        weight: prev?.weight !== undefined ? prev.weight : (ex.weight ?? ""),
-        reps: prev?.reps !== undefined ? prev.reps : reps,
-        leftReps: prev && isUnilateral ? (prev.reps ?? "") : "",
-        rightReps: prev && isUnilateral ? (prev.reps ?? "") : "",
+        weight: "",
+        reps: "",
+        leftReps: "",
+        rightReps: "",
+        prevWeight: prev?.weight ?? (ex.weight ?? ""),
+        prevReps: prev?.reps ?? reps,
         isUnilateral,
         logged: false,
         rpe: null,
-        isPrevious: !!prev,
       }));
     });
     setSets(initial);
     setEffectiveRestSeconds(dayExercises.map(ex => {
       if (!ex.restSeconds) return null;
       return applyAdjust
-        ? Math.round(ex.restSeconds * (1 + adjustPct / 100))
+        ? Math.round(ex.restSeconds * (1 + restAdjustPct / 100))
         : ex.restSeconds;
     }));
   }, []);
@@ -601,12 +814,32 @@ export function WorkoutPage() {
   const handleBeginWorkout = () => {
     if (!clientId || !selectedDay) return;
 
+    const e = energy ?? 10;
+    const basePct = program?.sleepAdjustPercent ?? 20;
     const poorSleep = latestSleepLog?.quality === "poor" || latestSleepLog?.quality === "fair";
-    const lowEnergy = (energy ?? 10) <= 5;
-    const pct = program?.sleepAdjustPercent ?? 20;
-    const shouldAdjust = (program?.sleepAdjustEnabled !== false) && poorSleep && lowEnergy;
+    const adjustEnabled = program?.sleepAdjustEnabled !== false;
+
+    let tier: "heavy" | "moderate" | "none" = "none";
+    let sAdjust = 0;
+    let rAdjust = 0;
+
+    if (adjustEnabled) {
+      if (e <= 3) {
+        tier = "heavy";
+        sAdjust = 50;
+        rAdjust = poorSleep ? Math.min(50, Math.round(basePct * 1.5)) : basePct;
+      } else if (e <= 6) {
+        tier = "moderate";
+        sAdjust = 25;
+        rAdjust = poorSleep ? Math.min(40, Math.round(basePct * 0.75)) : Math.round(basePct / 2);
+      }
+    }
+
+    const shouldAdjust = tier !== "none";
     setIsAdjusted(shouldAdjust);
-    setAdjustPercent(pct);
+    setAdjustPercent(rAdjust);
+    setSetAdjustPct(sAdjust);
+    setAdjustTier(tier);
 
     createWorkoutLog.mutate({
       clientId,
@@ -616,7 +849,7 @@ export function WorkoutPage() {
         setWorkoutLogId(log.id);
         setCurrentExIdx(0);
         setSwappedExercises({});
-        initSets(exercises, shouldAdjust, pct, prevPerfMap);
+        initSets(exercises, shouldAdjust, sAdjust, rAdjust, prevPerfMap);
         setMode("active");
       },
       onError: () => toast({ title: "Failed to start workout", variant: "destructive" })
@@ -650,11 +883,17 @@ export function WorkoutPage() {
     const s = sets[exIdx]?.[setIdx];
     if (!ex || !s) return;
 
+    // Resolve effective values: typed entry takes priority, ghost placeholder (prev perf) is the fallback
+    const effectiveWeight = s.weight || s.prevWeight;
+    const effectiveReps = s.reps || s.prevReps;
+    const effectiveLeftReps = s.leftReps || s.prevReps;
+    const effectiveRightReps = s.rightReps || s.prevReps;
+
     const repsToLog = s.isUnilateral
-      ? (Math.max(parseInt(s.leftReps) || 0, parseInt(s.rightReps) || 0) || parseInt(s.targetReps) || 0)
-      : (parseInt(s.reps) || parseInt(s.targetReps) || 0);
-    const lateralNotes = s.isUnilateral && (s.leftReps || s.rightReps)
-      ? `L: ${s.leftReps || 0} / R: ${s.rightReps || 0}`
+      ? (Math.max(parseInt(effectiveLeftReps) || 0, parseInt(effectiveRightReps) || 0) || parseInt(s.targetReps) || 0)
+      : (parseInt(effectiveReps) || parseInt(s.targetReps) || 0);
+    const lateralNotes = s.isUnilateral && (effectiveLeftReps || effectiveRightReps)
+      ? `L: ${effectiveLeftReps || 0} / R: ${effectiveRightReps || 0}`
       : undefined;
 
     logSet.mutate({
@@ -664,24 +903,33 @@ export function WorkoutPage() {
         exerciseId: ex.exerciseId,
         setNumber: setIdx + 1,
         reps: repsToLog,
-        weight: s.weight ? parseFloat(s.weight) : undefined,
-        weightUnit: s.weight ? "lbs" : undefined,
+        weight: effectiveWeight ? parseFloat(effectiveWeight) : undefined,
+        weightUnit: effectiveWeight ? "lbs" : undefined,
         rpe,
         notes: lateralNotes,
       }
     });
 
+    // Write resolved values back so the locked display shows actual numbers
     setSets(prev => {
       const next = prev.map(arr => [...arr]);
       next[exIdx] = next[exIdx].map((item, i) =>
-        i === setIdx ? { ...item, logged: true, rpe } : item
+        i === setIdx ? {
+          ...item,
+          logged: true,
+          rpe,
+          weight: item.weight || item.prevWeight,
+          reps: item.reps || item.prevReps,
+          leftReps: item.leftReps || item.prevReps,
+          rightReps: item.rightReps || item.prevReps,
+        } : item
       );
       return next;
     });
 
     const prev = prevPerfMap[ex.exerciseId];
     if (prev) {
-      const loggedWeight = s.weight ? parseFloat(s.weight) : 0;
+      const loggedWeight = effectiveWeight ? parseFloat(effectiveWeight) : 0;
       const prevWeight = prev.weight ? parseFloat(prev.weight) : 0;
       const prevReps = parseInt(prev.reps) || 0;
       const isPR = loggedWeight > prevWeight || (loggedWeight >= prevWeight && repsToLog > prevReps);
@@ -706,7 +954,7 @@ export function WorkoutPage() {
   const updateWeight = (setIdx: number, value: string) => {
     setSets(prev => {
       const next = prev.map(arr => [...arr]);
-      next[currentExIdx] = next[currentExIdx].map((s, i) => i === setIdx ? { ...s, weight: value, isPrevious: false } : s);
+      next[currentExIdx] = next[currentExIdx].map((s, i) => i === setIdx ? { ...s, weight: value } : s);
       return next;
     });
   };
@@ -714,7 +962,7 @@ export function WorkoutPage() {
   const updateReps = (setIdx: number, value: string) => {
     setSets(prev => {
       const next = prev.map(arr => [...arr]);
-      next[currentExIdx] = next[currentExIdx].map((s, i) => i === setIdx ? { ...s, reps: value, isPrevious: false } : s);
+      next[currentExIdx] = next[currentExIdx].map((s, i) => i === setIdx ? { ...s, reps: value } : s);
       return next;
     });
   };
@@ -722,7 +970,7 @@ export function WorkoutPage() {
   const updateLeftReps = (setIdx: number, value: string) => {
     setSets(prev => {
       const next = prev.map(arr => [...arr]);
-      next[currentExIdx] = next[currentExIdx].map((s, i) => i === setIdx ? { ...s, leftReps: value, isPrevious: false } : s);
+      next[currentExIdx] = next[currentExIdx].map((s, i) => i === setIdx ? { ...s, leftReps: value } : s);
       return next;
     });
   };
@@ -730,7 +978,7 @@ export function WorkoutPage() {
   const updateRightReps = (setIdx: number, value: string) => {
     setSets(prev => {
       const next = prev.map(arr => [...arr]);
-      next[currentExIdx] = next[currentExIdx].map((s, i) => i === setIdx ? { ...s, rightReps: value, isPrevious: false } : s);
+      next[currentExIdx] = next[currentExIdx].map((s, i) => i === setIdx ? { ...s, rightReps: value } : s);
       return next;
     });
   };
@@ -780,7 +1028,7 @@ export function WorkoutPage() {
   const updateWeightForEx = (exIdx: number, setIdx: number, value: string) => {
     setSets(prev => {
       const next = prev.map(arr => [...arr]);
-      next[exIdx] = next[exIdx].map((s, i) => i === setIdx ? { ...s, weight: value, isPrevious: false } : s);
+      next[exIdx] = next[exIdx].map((s, i) => i === setIdx ? { ...s, weight: value } : s);
       return next;
     });
   };
@@ -788,7 +1036,7 @@ export function WorkoutPage() {
   const updateRepsForEx = (exIdx: number, setIdx: number, value: string) => {
     setSets(prev => {
       const next = prev.map(arr => [...arr]);
-      next[exIdx] = next[exIdx].map((s, i) => i === setIdx ? { ...s, reps: value, isPrevious: false } : s);
+      next[exIdx] = next[exIdx].map((s, i) => i === setIdx ? { ...s, reps: value } : s);
       return next;
     });
   };
@@ -796,7 +1044,7 @@ export function WorkoutPage() {
   const updateLeftRepsForEx = (exIdx: number, setIdx: number, value: string) => {
     setSets(prev => {
       const next = prev.map(arr => [...arr]);
-      next[exIdx] = next[exIdx].map((s, i) => i === setIdx ? { ...s, leftReps: value, isPrevious: false } : s);
+      next[exIdx] = next[exIdx].map((s, i) => i === setIdx ? { ...s, leftReps: value } : s);
       return next;
     });
   };
@@ -804,7 +1052,7 @@ export function WorkoutPage() {
   const updateRightRepsForEx = (exIdx: number, setIdx: number, value: string) => {
     setSets(prev => {
       const next = prev.map(arr => [...arr]);
-      next[exIdx] = next[exIdx].map((s, i) => i === setIdx ? { ...s, rightReps: value, isPrevious: false } : s);
+      next[exIdx] = next[exIdx].map((s, i) => i === setIdx ? { ...s, rightReps: value } : s);
       return next;
     });
   };
@@ -916,7 +1164,14 @@ export function WorkoutPage() {
       });
     }
     setShowEarlyExit(false);
-    setMode("early-exit-done");
+    // If at least one set was logged, send to video upload; otherwise just exit
+    const anyLogged = sets.some(exSets => exSets.some(s => s.logged));
+    if (anyLogged) {
+      qc.invalidateQueries({ queryKey: getListWorkoutLogsQueryKey(clientId!) });
+      setMode("upload");
+    } else {
+      setMode("early-exit-done");
+    }
   };
 
   useEffect(() => {
@@ -1194,7 +1449,7 @@ export function WorkoutPage() {
               {isAdjusted && (
                 <div className="mt-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3 py-2 flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300">
                   <Moon className="w-3.5 h-3.5 flex-shrink-0" />
-                  Volume reduced {adjustPercent}% — sleep & energy recovery mode
+                  {adjustTier === "heavy" ? `Recovery mode — sets ×½, rest +${adjustPercent}%` : `Light recovery — sets ×¾, rest +${adjustPercent}%`}
                 </div>
               )}
             </div>
@@ -1227,7 +1482,7 @@ export function WorkoutPage() {
                         <div className="ml-6 mt-1.5 inline-flex items-center gap-1.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg px-2 py-1">
                           <Moon className="w-3 h-3 text-amber-500 flex-shrink-0" />
                           <span className="text-[11px] font-medium text-amber-700 dark:text-amber-300">
-                            Today: {Math.max(1, Math.round(ex.sets * (1 - adjustPercent / 100)))} × {ex.reps}
+                            Today: {Math.max(1, Math.round(ex.sets * (1 - setAdjustPct / 100)))} × {ex.reps}
                             {effectiveRestSeconds[exIdx] != null ? ` · ${effectiveRestSeconds[exIdx]}s rest` : ""}
                           </span>
                         </div>
@@ -1343,8 +1598,8 @@ export function WorkoutPage() {
                                       type="number"
                                       value={s.weight}
                                       onChange={e => updateWeightForEx(exIdx, i, e.target.value)}
-                                      placeholder="lbs"
-                                      className={cn("h-10 text-center text-sm font-semibold rounded-xl", s.isPrevious && "text-muted-foreground italic")}
+                                      placeholder={s.prevWeight || "lbs"}
+                                      className="h-10 text-center text-sm font-semibold rounded-xl"
                                     />
                                   )}
                                 </div>
@@ -1357,7 +1612,7 @@ export function WorkoutPage() {
                                           {s.leftReps || "—"}
                                         </div>
                                       ) : (
-                                        <Input type="number" value={s.leftReps} onChange={e => updateLeftRepsForEx(exIdx, i, e.target.value)} placeholder={s.targetReps} className={cn("h-10 text-center text-sm font-semibold rounded-xl", s.isPrevious && "text-muted-foreground italic")} />
+                                        <Input type="number" value={s.leftReps} onChange={e => updateLeftRepsForEx(exIdx, i, e.target.value)} placeholder={s.prevReps || s.targetReps} className="h-10 text-center text-sm font-semibold rounded-xl" />
                                       )}
                                     </div>
                                     <div className="flex-1">
@@ -1367,7 +1622,7 @@ export function WorkoutPage() {
                                           {s.rightReps || "—"}
                                         </div>
                                       ) : (
-                                        <Input type="number" value={s.rightReps} onChange={e => updateRightRepsForEx(exIdx, i, e.target.value)} placeholder={s.targetReps} className={cn("h-10 text-center text-sm font-semibold rounded-xl", s.isPrevious && "text-muted-foreground italic")} />
+                                        <Input type="number" value={s.rightReps} onChange={e => updateRightRepsForEx(exIdx, i, e.target.value)} placeholder={s.prevReps || s.targetReps} className="h-10 text-center text-sm font-semibold rounded-xl" />
                                       )}
                                     </div>
                                   </>
@@ -1383,8 +1638,8 @@ export function WorkoutPage() {
                                         type="number"
                                         value={s.reps}
                                         onChange={e => updateRepsForEx(exIdx, i, e.target.value)}
-                                        placeholder={s.targetReps}
-                                        className={cn("h-10 text-center text-sm font-semibold rounded-xl", s.isPrevious && "text-muted-foreground italic")}
+                                        placeholder={s.prevReps || s.targetReps}
+                                        className="h-10 text-center text-sm font-semibold rounded-xl"
                                       />
                                     )}
                                   </div>
@@ -1544,8 +1799,8 @@ export function WorkoutPage() {
           />
         )}
         {swapModal && (
-          <SwapModal
-            currentExercise={{ exerciseName: currentEx.exerciseName, muscleGroup: currentEx.muscleGroup }}
+          <SwapBrowser
+            currentExerciseName={currentEx.exerciseName}
             allExercises={allExercises ?? []}
             onSelect={handleSwap}
             onCancel={() => setSwapModal(false)}
@@ -1580,7 +1835,7 @@ export function WorkoutPage() {
             {isAdjusted && (
               <div className="mt-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3 py-2 flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300">
                 <Moon className="w-3.5 h-3.5 flex-shrink-0" />
-                Volume reduced {adjustPercent}% — sleep & energy recovery mode
+                {adjustTier === "heavy" ? `Recovery mode — sets ×½, rest +${adjustPercent}%` : `Light recovery — sets ×¾, rest +${adjustPercent}%`}
               </div>
             )}
           </div>
@@ -1599,7 +1854,7 @@ export function WorkoutPage() {
                 <div className="mt-2 inline-flex items-center gap-1.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg px-2.5 py-1.5">
                   <Moon className="w-3 h-3 text-amber-500 flex-shrink-0" />
                   <span className="text-[11px] font-medium text-amber-700 dark:text-amber-300">
-                    Today: {Math.max(1, Math.round(currentEx.sets * (1 - adjustPercent / 100)))} × {currentEx.reps}
+                    Today: {Math.max(1, Math.round(currentEx.sets * (1 - setAdjustPct / 100)))} × {currentEx.reps}
                     {effectiveRestSeconds[currentExIdx] != null ? ` · ${effectiveRestSeconds[currentExIdx]}s rest` : ""}
                   </span>
                 </div>
@@ -1729,8 +1984,8 @@ export function WorkoutPage() {
                               type="number"
                               value={s.weight}
                               onChange={e => updateWeight(i, e.target.value)}
-                              placeholder="lbs"
-                              className={cn("h-12 text-center text-base font-semibold rounded-xl", s.isPrevious && "text-muted-foreground italic")}
+                              placeholder={s.prevWeight || "lbs"}
+                              className="h-12 text-center text-base font-semibold rounded-xl"
                             />
                           )}
                         </div>
@@ -1742,7 +1997,7 @@ export function WorkoutPage() {
                               {s.logged ? (
                                 <div className="h-12 rounded-xl bg-muted/40 flex items-center justify-center text-sm font-semibold text-muted-foreground">{s.leftReps || "—"}</div>
                               ) : (
-                                <Input type="number" value={s.leftReps} onChange={e => updateLeftReps(i, e.target.value)} placeholder={s.targetReps} className={cn("h-12 text-center text-base font-semibold rounded-xl", s.isPrevious && "text-muted-foreground italic")} />
+                                <Input type="number" value={s.leftReps} onChange={e => updateLeftReps(i, e.target.value)} placeholder={s.prevReps || s.targetReps} className="h-12 text-center text-base font-semibold rounded-xl" />
                               )}
                             </div>
                             <div className="flex-1">
@@ -1750,7 +2005,7 @@ export function WorkoutPage() {
                               {s.logged ? (
                                 <div className="h-12 rounded-xl bg-muted/40 flex items-center justify-center text-sm font-semibold text-muted-foreground">{s.rightReps || "—"}</div>
                               ) : (
-                                <Input type="number" value={s.rightReps} onChange={e => updateRightReps(i, e.target.value)} placeholder={s.targetReps} className={cn("h-12 text-center text-base font-semibold rounded-xl", s.isPrevious && "text-muted-foreground italic")} />
+                                <Input type="number" value={s.rightReps} onChange={e => updateRightReps(i, e.target.value)} placeholder={s.prevReps || s.targetReps} className="h-12 text-center text-base font-semibold rounded-xl" />
                               )}
                             </div>
                           </>
@@ -1766,8 +2021,8 @@ export function WorkoutPage() {
                                 type="number"
                                 value={s.reps}
                                 onChange={e => updateReps(i, e.target.value)}
-                                placeholder={s.targetReps}
-                                className={cn("h-12 text-center text-base font-semibold rounded-xl", s.isPrevious && "text-muted-foreground italic")}
+                                placeholder={s.prevReps || s.targetReps}
+                                className="h-12 text-center text-base font-semibold rounded-xl"
                               />
                             )}
                           </div>

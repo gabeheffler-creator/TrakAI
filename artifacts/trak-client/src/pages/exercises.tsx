@@ -4,15 +4,9 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Search, ArrowLeft, ExternalLink, LayoutGrid, List } from "lucide-react";
+import { Search, ArrowLeft, ExternalLink, LayoutGrid, List, SlidersHorizontal, Check, X } from "lucide-react";
 import { QueryErrorState } from "@/components/query-error-state";
+import { cn } from "@/lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -196,6 +190,9 @@ export function ExercisesPage() {
   );
   const [category, setCategory] = useState<CategoryFilter>("all");
   const [selected, setSelected] = useState<Exercise | null>(null);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [pendingSort, setPendingSort] = useState<SortMode>("target");
+  const [pendingCategory, setPendingCategory] = useState<CategoryFilter>("all");
 
   const { data: exercises, isLoading, isError, refetch, isFetching } = useListExercises();
 
@@ -291,7 +288,7 @@ export function ExercisesPage() {
           </div>
         </div>
 
-        {/* Search + sort row */}
+        {/* Search + Filter button */}
         <div className="flex gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -302,35 +299,95 @@ export function ExercisesPage() {
               className="pl-9"
             />
           </div>
-          <Select value={sortMode} onValueChange={v => setSortMode(v as SortMode)}>
-            <SelectTrigger className="w-44 shrink-0">
-              <SelectValue placeholder="Sort by" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="target">Target muscle</SelectItem>
-              <SelectItem value="name">Name A–Z</SelectItem>
-              <SelectItem value="compound">Compound first</SelectItem>
-              <SelectItem value="isolation">Isolation first</SelectItem>
-            </SelectContent>
-          </Select>
+          <button
+            onClick={() => { setPendingSort(sortMode); setPendingCategory(category); setFilterOpen(true); }}
+            className={cn(
+              "shrink-0 flex items-center gap-1.5 px-3 h-10 rounded-lg border text-sm font-medium transition-colors",
+              (sortMode !== "target" || category !== "all")
+                ? "border-violet-500 bg-violet-50 dark:bg-violet-950/30 text-violet-700 dark:text-violet-400"
+                : "border-border text-muted-foreground hover:text-foreground hover:border-border/80"
+            )}
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+            Filter
+            {(sortMode !== "target" || category !== "all") && (
+              <span className="w-1.5 h-1.5 rounded-full bg-violet-500 ml-0.5" />
+            )}
+          </button>
         </div>
 
-        {/* Category filter chips */}
-        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-          {CATEGORY_CHIPS.map(chip => (
-            <button
-              key={chip.id}
-              onClick={() => setCategory(chip.id)}
-              className={`shrink-0 px-3 py-1 rounded-full text-sm font-medium border transition-colors ${
-                category === chip.id
-                  ? "bg-violet-600 text-white border-violet-600"
-                  : "border-border text-muted-foreground hover:border-violet-400 hover:text-foreground"
-              }`}
+        {/* Filter sheet */}
+        {filterOpen && (
+          <div
+            className="fixed inset-0 z-50 flex flex-col"
+            onClick={() => setFilterOpen(false)}
+          >
+            <div className="flex-1" />
+            <div
+              className="bg-background border-t border-border rounded-t-3xl pb-10 px-5 pt-5 space-y-5 animate-in slide-in-from-bottom duration-200"
+              onClick={e => e.stopPropagation()}
             >
-              {chip.label}
-            </button>
-          ))}
-        </div>
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-bold">Filter & Sort</h3>
+                <button onClick={() => setFilterOpen(false)} className="p-1 text-muted-foreground hover:text-foreground">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="space-y-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Sort by</p>
+                {(["target", "name", "compound", "isolation"] as const).map(opt => {
+                  const labels: Record<string, string> = { target: "Target muscle", name: "Name A–Z", compound: "Compound first", isolation: "Isolation first" };
+                  return (
+                    <button
+                      key={opt}
+                      onClick={() => setPendingSort(opt)}
+                      className={cn(
+                        "w-full flex items-center justify-between px-3 py-2.5 rounded-xl border text-sm transition-colors",
+                        pendingSort === opt ? "border-primary bg-primary/5 font-medium text-foreground" : "border-border text-foreground hover:bg-muted/50"
+                      )}
+                    >
+                      {labels[opt]}
+                      {pendingSort === opt && <Check className="w-4 h-4 text-primary" />}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="space-y-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Category</p>
+                <div className="flex flex-wrap gap-2">
+                  {CATEGORY_CHIPS.map(chip => (
+                    <button
+                      key={chip.id}
+                      onClick={() => setPendingCategory(chip.id)}
+                      className={cn(
+                        "px-3 py-1.5 rounded-full text-sm font-medium border transition-colors",
+                        pendingCategory === chip.id
+                          ? "bg-violet-600 text-white border-violet-600"
+                          : "border-border text-muted-foreground hover:border-violet-400 hover:text-foreground"
+                      )}
+                    >
+                      {chip.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <button
+                  onClick={() => setFilterOpen(false)}
+                  className="py-3 rounded-2xl border border-border text-sm font-semibold text-foreground hover:bg-muted/50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => { setSortMode(pendingSort); setCategory(pendingCategory); setFilterOpen(false); }}
+                  className="py-3 rounded-2xl bg-foreground text-background text-sm font-semibold hover:opacity-90 transition-opacity"
+                >
+                  Sort
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* States */}
         {isLoading && <p className="text-muted-foreground text-sm">Loading...</p>}

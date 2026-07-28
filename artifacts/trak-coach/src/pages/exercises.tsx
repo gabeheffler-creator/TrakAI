@@ -18,8 +18,9 @@ import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import {
   Plus, Search, LayoutGrid, List, X, ChevronRight,
-  Dumbbell, Pencil, Upload, Video, Loader2,
+  Dumbbell, Pencil, Upload, Video, Loader2, SlidersHorizontal, Check,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { QueryErrorState } from "@/components/query-error-state";
 
 type SortMode = "target" | "compound" | "movement" | "cardio" | "mobility" | "strength";
@@ -514,6 +515,8 @@ export function Exercises() {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortMode>("target");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [pendingSort, setPendingSort] = useState<SortMode>("target");
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -630,19 +633,79 @@ export function Exercises() {
               data-testid="input-search-exercise"
             />
           </div>
-          <Select value={sortBy} onValueChange={v => setSortBy(v as SortMode)}>
-            <SelectTrigger className="w-[200px]" data-testid="select-sort-by">
-              <SelectValue placeholder="Sort by" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="target">Target area</SelectItem>
-              <SelectItem value="compound">Compound vs. Isolation</SelectItem>
-              <SelectItem value="movement">Unilateral vs. Bilateral</SelectItem>
-              <SelectItem value="cardio">Cardio</SelectItem>
-              <SelectItem value="mobility">Mobility</SelectItem>
-              <SelectItem value="strength">Strength</SelectItem>
-            </SelectContent>
-          </Select>
+          <button
+            onClick={() => { setPendingSort(sortBy); setFilterOpen(true); }}
+            data-testid="button-filter-exercises"
+            className={cn(
+              "flex items-center gap-1.5 px-3 h-10 rounded-md border text-sm font-medium transition-colors",
+              sortBy !== "target"
+                ? "border-violet-500 bg-violet-50 dark:bg-violet-950/30 text-violet-700 dark:text-violet-400"
+                : "border-input bg-background text-foreground hover:bg-accent hover:text-accent-foreground"
+            )}
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+            Sort
+            {sortBy !== "target" && <span className="w-1.5 h-1.5 rounded-full bg-violet-500 ml-0.5" />}
+          </button>
+
+          {/* Filter sheet */}
+          {filterOpen && (
+            <div
+              className="fixed inset-0 z-50 bg-black/40 flex items-end"
+              onClick={() => setFilterOpen(false)}
+            >
+              <div
+                className="w-full bg-background border-t border-border rounded-t-3xl pb-10 px-5 pt-5 space-y-4 animate-in slide-in-from-bottom duration-200"
+                onClick={e => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-bold">Sort exercises</h3>
+                  <button onClick={() => setFilterOpen(false)} className="p-1 text-muted-foreground hover:text-foreground">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {(["target","compound","movement","cardio","mobility","strength"] as SortMode[]).map(val => {
+                    const labels: Record<SortMode, string> = {
+                      target: "Target area",
+                      compound: "Compound vs. Isolation",
+                      movement: "Unilateral vs. Bilateral",
+                      cardio: "Cardio",
+                      mobility: "Mobility",
+                      strength: "Strength",
+                    };
+                    return (
+                      <button
+                        key={val}
+                        onClick={() => setPendingSort(val)}
+                        className={cn(
+                          "w-full flex items-center justify-between px-3 py-2.5 rounded-xl border text-sm transition-colors",
+                          pendingSort === val ? "border-primary bg-primary/5 font-medium" : "border-border hover:bg-muted/50"
+                        )}
+                      >
+                        {labels[val]}
+                        {pendingSort === val && <Check className="w-4 h-4 text-primary" />}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  <button
+                    onClick={() => setFilterOpen(false)}
+                    className="py-3 rounded-2xl border border-border text-sm font-semibold hover:bg-muted/50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => { setSortBy(pendingSort); setFilterOpen(false); }}
+                    className="py-3 rounded-2xl bg-foreground text-background text-sm font-semibold hover:opacity-90 transition-opacity"
+                  >
+                    Sort
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
           <Select value={viewMode} onValueChange={v => setViewMode(v as ViewMode)}>
             <SelectTrigger className="w-[130px]" data-testid="select-view-mode">
               <SelectValue />
