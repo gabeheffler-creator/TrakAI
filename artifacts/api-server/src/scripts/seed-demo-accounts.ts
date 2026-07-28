@@ -862,7 +862,7 @@ async function seed() {
 
   // 3. Nutrition logs
   const nutritionRows = NUTRITION_LOGS(alexId);
-  await db.insert(nutritionLogsTable).values(nutritionRows);
+  await db.insert(nutritionLogsTable).values(nutritionRows as any);
   console.log(`  ✓ ${nutritionRows.length} nutrition logs`);
 
   // 4. Messages
@@ -955,7 +955,7 @@ async function seed() {
 
   await db.insert(nutritionGoalsTable).values(SAM_NUTRITION_GOALS(samId));
   const samNutritionRows = SAM_NUTRITION_LOGS(samId);
-  await db.insert(nutritionLogsTable).values(samNutritionRows);
+  await db.insert(nutritionLogsTable).values(samNutritionRows as any);
   console.log(`  ✓ ${SAM_NUTRITION_GOALS(samId).length} nutrition goals, ${samNutritionRows.length} logs`);
 
   await db.insert(messagesTable).values(SAM_MESSAGES(samId) as any);
@@ -1026,7 +1026,7 @@ async function seed() {
 
   await db.insert(nutritionGoalsTable).values(JORDAN_NUTRITION_GOALS(jordanId));
   const jordanNutritionRows = JORDAN_NUTRITION_LOGS(jordanId);
-  await db.insert(nutritionLogsTable).values(jordanNutritionRows);
+  await db.insert(nutritionLogsTable).values(jordanNutritionRows as any);
   console.log(`  ✓ ${JORDAN_NUTRITION_GOALS(jordanId).length} nutrition goals, ${jordanNutritionRows.length} logs`);
 
   await db.insert(messagesTable).values(JORDAN_MESSAGES(jordanId) as any);

@@ -668,7 +668,7 @@ export function WorkoutPage() {
   const [listEditWeight, setListEditWeight] = useState("");
   const [listEditReps, setListEditReps] = useState("");
   const [listEditRpe, setListEditRpe] = useState<number | null>(null);
-  const { workoutView, showProgressBar } = useWorkoutPrefs();
+  const { workoutView, showProgressBar, progressMode } = useWorkoutPrefs();
 
   // Pre-workout checkin
   const [energy, setEnergy] = useState<number | null>(null);
@@ -1440,11 +1440,18 @@ export function WorkoutPage() {
                 <div className="w-16" />
               </div>
               {showProgressBar && (
-                <ProgressBar
-                  value={loggedSets}
-                  total={totalSets}
-                  label={`${loggedSets} of ${totalSets} sets`}
-                />
+                progressMode === "ratio" ? (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Sets</span>
+                    <span className="font-semibold tabular-nums">{loggedSets} / {totalSets}</span>
+                  </div>
+                ) : (
+                  <ProgressBar
+                    value={loggedSets}
+                    total={totalSets}
+                    label={`${loggedSets} of ${totalSets} sets`}
+                  />
+                )
               )}
               {isAdjusted && (
                 <div className="mt-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3 py-2 flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300">
@@ -1831,7 +1838,16 @@ export function WorkoutPage() {
               <span className="text-xs text-muted-foreground font-medium">{selectedDay?.name}</span>
               <div className="w-16" />
             </div>
-            {showProgressBar && <ProgressBar value={currentExIdx} total={exercises.length} />}
+            {showProgressBar && (
+              progressMode === "ratio" ? (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Exercise</span>
+                  <span className="font-semibold tabular-nums">{currentExIdx + 1} / {exercises.length}</span>
+                </div>
+              ) : (
+                <ProgressBar value={currentExIdx} total={exercises.length} />
+              )
+            )}
             {isAdjusted && (
               <div className="mt-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3 py-2 flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300">
                 <Moon className="w-3.5 h-3.5 flex-shrink-0" />
