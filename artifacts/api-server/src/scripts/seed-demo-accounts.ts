@@ -774,6 +774,47 @@ const JORDAN_CLIENT_TASKS = (id: number) => [
   { clientId: id, text: "Record a new squat video for coach review", status: "pending", dueDate: "2026-07-30" },
 ];
 
+// ── MFP screenshot seed data ──────────────────────────────────────────────────
+// imageFile references files in attached_assets/seed/
+// macros reflect AI-extracted values shown by the screenshot
+interface MfpScreenshotEntry {
+  date: string;
+  imageFile: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  notes?: string;
+}
+
+// Alex — muscle building, PPL program (~2800 kcal training / ~2400 rest)
+const ALEX_MFP_SCREENSHOTS: MfpScreenshotEntry[] = [
+  { date: "2026-02-03", imageFile: "mfp-day1.png", calories: 2820, protein: 212, carbs: 298, fat: 67, notes: "Training day — full diary" },
+  { date: "2026-03-03", imageFile: "mfp-day2.png", calories: 2762, protein: 207, carbs: 292, fat: 65, notes: "Training day — full diary" },
+  { date: "2026-04-07", imageFile: "mfp-day3.png", calories: 2795, protein: 210, carbs: 295, fat: 68, notes: "Training day — full diary" },
+  { date: "2026-05-19", imageFile: "mfp-day4.png", calories: 2800, protein: 208, carbs: 298, fat: 66, notes: "Training day — full diary" },
+  { date: "2026-06-04", imageFile: "mfp-day2.png", calories: 2835, protein: 214, carbs: 303, fat: 67, notes: "Training day — full diary" },
+];
+
+// Sam — fat loss / cardio, lower-calorie deficit (~1800 training / ~1600 rest)
+const SAM_MFP_SCREENSHOTS: MfpScreenshotEntry[] = [
+  { date: "2026-02-06", imageFile: "mfp-day5.png", calories: 1803, protein: 143, carbs: 191, fat: 52, notes: "Training day — calorie deficit" },
+  { date: "2026-03-03", imageFile: "mfp-day5.png", calories: 1820, protein: 146, carbs: 195, fat: 53, notes: "Training day — full diary" },
+  { date: "2026-03-17", imageFile: "mfp-day5.png", calories: 1809, protein: 144, carbs: 192, fat: 52, notes: "Training day — full diary" },
+  { date: "2026-04-07", imageFile: "mfp-day5.png", calories: 1796, protein: 142, carbs: 188, fat: 51, notes: "Training day — full diary" },
+  { date: "2026-05-05", imageFile: "mfp-day5.png", calories: 1812, protein: 145, carbs: 193, fat: 53, notes: "Training day — full diary" },
+  { date: "2026-05-28", imageFile: "mfp-day5.png", calories: 1798, protein: 141, carbs: 187, fat: 51, notes: "Training day — full diary" },
+];
+
+// Jordan — athletic performance (~2600 kcal training / ~2400 rest)
+const JORDAN_MFP_SCREENSHOTS: MfpScreenshotEntry[] = [
+  { date: "2026-02-03", imageFile: "mfp-day4.png", calories: 2592, protein: 194, carbs: 289, fat: 80, notes: "Training day — full diary" },
+  { date: "2026-03-17", imageFile: "mfp-day4.png", calories: 2607, protein: 196, carbs: 292, fat: 80, notes: "Training day — full diary" },
+  { date: "2026-04-21", imageFile: "mfp-day4.png", calories: 2618, protein: 195, carbs: 293, fat: 80, notes: "Training day — full diary" },
+  { date: "2026-05-19", imageFile: "mfp-day1.png", calories: 2599, protein: 193, carbs: 287, fat: 79, notes: "Training day — full diary" },
+  { date: "2026-06-02", imageFile: "mfp-day3.png", calories: 2415, protein: 191, carbs: 252, fat: 80, notes: "Rest day — full diary" },
+];
+
 // ── Photo upload helper ───────────────────────────────────────────────────────
 async function uploadSeedPhoto(filePath: string): Promise<string> {
   const buffer = fs.readFileSync(filePath);
@@ -789,6 +830,18 @@ async function uploadSeedPhoto(filePath: string): Promise<string> {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 async function seed() {
+  // Shared seed directory and MFP image upload cache
+  const seedDir = path.resolve(process.cwd(), "../../attached_assets/seed");
+  const mfpImageCache = new Map<string, string>();
+  async function uploadMfpImage(filename: string): Promise<string> {
+    if (mfpImageCache.has(filename)) return mfpImageCache.get(filename)!;
+    const filePath = path.join(seedDir, filename);
+    if (!fs.existsSync(filePath)) throw new Error(`MFP seed image not found: ${filePath}`);
+    const url = await uploadSeedPhoto(filePath);
+    mfpImageCache.set(filename, url);
+    return url;
+  }
+
   console.log("Wiping all existing coaches and clients...");
   await db.delete(programAssignmentHistoryTable);
   await db.delete(programAssignmentsTable);
@@ -865,6 +918,30 @@ async function seed() {
   await db.insert(nutritionLogsTable).values(nutritionRows as any);
   console.log(`  ✓ ${nutritionRows.length} nutrition logs`);
 
+  // 3b. MFP screenshot entries for Alex
+  {
+    let mfpCount = 0;
+    for (const entry of ALEX_MFP_SCREENSHOTS) {
+      try {
+        const imageUrl = await uploadMfpImage(entry.imageFile);
+        await db.insert(nutritionLogsTable).values({
+          clientId: alexId,
+          date: entry.date,
+          imageUrl,
+          calories: entry.calories,
+          protein: String(entry.protein),
+          carbs: String(entry.carbs),
+          fat: String(entry.fat),
+          notes: entry.notes ?? null,
+        });
+        mfpCount++;
+      } catch (err) {
+        console.warn(`  ⚠ MFP screenshot failed for Alex ${entry.date}:`, err);
+      }
+    }
+    console.log(`  ✓ ${mfpCount}/${ALEX_MFP_SCREENSHOTS.length} MFP screenshot entries`);
+  }
+
   // 4. Messages
   await db.insert(messagesTable).values(MESSAGES(alexId) as any);
   console.log(`  ✓ ${MESSAGES(alexId).length} messages`);
@@ -912,7 +989,6 @@ async function seed() {
   }
 
   // Progress photos
-  const seedDir = path.resolve(process.cwd(), "../../attached_assets/seed");
   let photoCount = 0;
   for (const { file, date, notes } of PHOTO_FILES) {
     const filePath = path.join(seedDir, file);
@@ -957,6 +1033,30 @@ async function seed() {
   const samNutritionRows = SAM_NUTRITION_LOGS(samId);
   await db.insert(nutritionLogsTable).values(samNutritionRows as any);
   console.log(`  ✓ ${SAM_NUTRITION_GOALS(samId).length} nutrition goals, ${samNutritionRows.length} logs`);
+
+  // MFP screenshot entries for Sam
+  {
+    let mfpCount = 0;
+    for (const entry of SAM_MFP_SCREENSHOTS) {
+      try {
+        const imageUrl = await uploadMfpImage(entry.imageFile);
+        await db.insert(nutritionLogsTable).values({
+          clientId: samId,
+          date: entry.date,
+          imageUrl,
+          calories: entry.calories,
+          protein: String(entry.protein),
+          carbs: String(entry.carbs),
+          fat: String(entry.fat),
+          notes: entry.notes ?? null,
+        });
+        mfpCount++;
+      } catch (err) {
+        console.warn(`  ⚠ MFP screenshot failed for Sam ${entry.date}:`, err);
+      }
+    }
+    console.log(`  ✓ ${mfpCount}/${SAM_MFP_SCREENSHOTS.length} MFP screenshot entries`);
+  }
 
   await db.insert(messagesTable).values(SAM_MESSAGES(samId) as any);
   console.log(`  ✓ ${SAM_MESSAGES(samId).length} messages`);
@@ -1028,6 +1128,30 @@ async function seed() {
   const jordanNutritionRows = JORDAN_NUTRITION_LOGS(jordanId);
   await db.insert(nutritionLogsTable).values(jordanNutritionRows as any);
   console.log(`  ✓ ${JORDAN_NUTRITION_GOALS(jordanId).length} nutrition goals, ${jordanNutritionRows.length} logs`);
+
+  // MFP screenshot entries for Jordan
+  {
+    let mfpCount = 0;
+    for (const entry of JORDAN_MFP_SCREENSHOTS) {
+      try {
+        const imageUrl = await uploadMfpImage(entry.imageFile);
+        await db.insert(nutritionLogsTable).values({
+          clientId: jordanId,
+          date: entry.date,
+          imageUrl,
+          calories: entry.calories,
+          protein: String(entry.protein),
+          carbs: String(entry.carbs),
+          fat: String(entry.fat),
+          notes: entry.notes ?? null,
+        });
+        mfpCount++;
+      } catch (err) {
+        console.warn(`  ⚠ MFP screenshot failed for Jordan ${entry.date}:`, err);
+      }
+    }
+    console.log(`  ✓ ${mfpCount}/${JORDAN_MFP_SCREENSHOTS.length} MFP screenshot entries`);
+  }
 
   await db.insert(messagesTable).values(JORDAN_MESSAGES(jordanId) as any);
   console.log(`  ✓ ${JORDAN_MESSAGES(jordanId).length} messages`);
