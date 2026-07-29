@@ -181,7 +181,7 @@ router.post("/exercises", requireCoachAuth, async (req, res) => {
 
 router.patch("/exercises/:exerciseId", requireCoachAuth, async (req, res) => {
   try {
-    const exerciseId = parseInt(req.params.exerciseId, 10);
+    const exerciseId = parseInt(String(req.params.exerciseId), 10);
     if (isNaN(exerciseId)) {
       res.status(400).json({ error: "Invalid exercise ID" });
       return;

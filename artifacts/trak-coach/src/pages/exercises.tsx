@@ -63,54 +63,74 @@ function capitalize(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-function groupExercises(exercises: Exercise[], sortBy: SortMode): [string, Exercise[]][] {
-  switch (sortBy) {
-    case "target": {
-      const map: Record<string, Exercise[]> = {};
-      for (const e of exercises) (map[e.muscleGroup] ??= []).push(e);
-      return Object.entries(map).sort(([a], [b]) => groupOrder(a) - groupOrder(b));
-    }
-    case "compound": {
-      const compound: Exercise[] = [], isolation: Exercise[] = [];
-      for (const e of exercises) (e.isCompound ? compound : isolation).push(e);
-      const result: [string, Exercise[]][] = [];
-      if (compound.length) result.push(["Compound", compound]);
-      if (isolation.length) result.push(["Isolation", isolation]);
-      return result;
-    }
-    case "movement": {
-      const bilateral: Exercise[] = [], unilateral: Exercise[] = [], other: Exercise[] = [];
-      for (const e of exercises) {
-        const mp = e.movementPattern?.toLowerCase();
-        if (mp === "bilateral") bilateral.push(e);
-        else if (mp === "unilateral") unilateral.push(e);
-        else other.push(e);
-      }
-      const result: [string, Exercise[]][] = [];
-      if (bilateral.length) result.push(["Bilateral", bilateral]);
-      if (unilateral.length) result.push(["Unilateral", unilateral]);
-      if (other.length) result.push(["Other", other]);
-      return result;
-    }
-    case "cardio": {
-      const cardio = exercises.filter(e => CARDIO_GROUPS.has(e.muscleGroup));
-      const map: Record<string, Exercise[]> = {};
-      for (const e of cardio) (map[e.muscleGroup] ??= []).push(e);
-      return Object.entries(map).sort(([a], [b]) => groupOrder(a) - groupOrder(b));
-    }
-    case "mobility": {
-      const mobility = exercises.filter(e => MOBILITY_GROUPS.has(e.muscleGroup));
-      const map: Record<string, Exercise[]> = {};
-      for (const e of mobility) (map[e.muscleGroup] ??= []).push(e);
-      return Object.entries(map).sort(([a], [b]) => groupOrder(a) - groupOrder(b));
-    }
-    case "strength": {
-      const strength = exercises.filter(e => !CARDIO_GROUPS.has(e.muscleGroup) && !MOBILITY_GROUPS.has(e.muscleGroup));
-      const map: Record<string, Exercise[]> = {};
-      for (const e of strength) (map[e.muscleGroup] ??= []).push(e);
-      return Object.entries(map).sort(([a], [b]) => groupOrder(a) - groupOrder(b));
-    }
+function groupExercises(exercises: Exercise[], sortBy: SortMode[]): [string, Exercise[]][] {
+  const criteria = sortBy.length === 0 ? ["target" as SortMode] : sortBy;
+
+  // 1. Filter criteria narrow the pool (union — show all selected categories)
+  const filterModes = criteria.filter(m => m === "cardio" || m === "mobility" || m === "strength");
+  let pool = exercises;
+  if (filterModes.length > 0) {
+    pool = exercises.filter(e =>
+      filterModes.some(mode => {
+        if (mode === "cardio") return CARDIO_GROUPS.has(e.muscleGroup);
+        if (mode === "mobility") return MOBILITY_GROUPS.has(e.muscleGroup);
+        if (mode === "strength") return !CARDIO_GROUPS.has(e.muscleGroup) && !MOBILITY_GROUPS.has(e.muscleGroup);
+        return false;
+      })
+    );
   }
+
+  // 2. Primary grouping = first grouping-type criterion (target/compound/movement)
+  const groupModes = criteria.filter(m => m === "target" || m === "compound" || m === "movement");
+  const primaryGroup: SortMode = groupModes[0] ?? (filterModes.length === 0 ? "target" : null as any);
+
+  let groups: [string, Exercise[]][];
+  if (!primaryGroup || primaryGroup === "target") {
+    const map: Record<string, Exercise[]> = {};
+    for (const e of pool) (map[e.muscleGroup] ??= []).push(e);
+    groups = Object.entries(map).sort(([a], [b]) => groupOrder(a) - groupOrder(b));
+  } else if (primaryGroup === "compound") {
+    const compound: Exercise[] = [], isolation: Exercise[] = [];
+    for (const e of pool) (e.isCompound ? compound : isolation).push(e);
+    groups = [];
+    if (compound.length) groups.push(["Compound", compound]);
+    if (isolation.length) groups.push(["Isolation", isolation]);
+  } else if (primaryGroup === "movement") {
+    const bilateral: Exercise[] = [], unilateral: Exercise[] = [], other: Exercise[] = [];
+    for (const e of pool) {
+      const mp = e.movementPattern?.toLowerCase();
+      if (mp === "bilateral") bilateral.push(e);
+      else if (mp === "unilateral") unilateral.push(e);
+      else other.push(e);
+    }
+    groups = [];
+    if (bilateral.length) groups.push(["Bilateral", bilateral]);
+    if (unilateral.length) groups.push(["Unilateral", unilateral]);
+    if (other.length) groups.push(["Other", other]);
+  } else {
+    groups = [["All", pool]];
+  }
+
+  // 3. Secondary grouping criteria are applied as intra-group sort
+  const secondaryCriteria = groupModes.slice(1);
+  if (secondaryCriteria.length > 0) {
+    groups = groups.map(([name, exs]) => {
+      let sorted = [...exs];
+      for (const sec of secondaryCriteria) {
+        if (sec === "compound") {
+          sorted.sort((a, b) => (a.isCompound ? 0 : 1) - (b.isCompound ? 0 : 1));
+        } else if (sec === "movement") {
+          const ord: Record<string, number> = { bilateral: 0, unilateral: 1 };
+          sorted.sort((a, b) => (ord[a.movementPattern?.toLowerCase() ?? ""] ?? 2) - (ord[b.movementPattern?.toLowerCase() ?? ""] ?? 2));
+        } else if (sec === "target") {
+          sorted.sort((a, b) => groupOrder(a.muscleGroup) - groupOrder(b.muscleGroup) || a.name.localeCompare(b.name));
+        }
+      }
+      return [name, sorted] as [string, Exercise[]];
+    });
+  }
+
+  return groups;
 }
 
 function ExerciseBadges({ exercise, size = "sm" }: { exercise: Exercise; size?: "sm" | "xs" }) {
@@ -513,10 +533,10 @@ export function Exercises() {
   const qc = useQueryClient();
   const { toast } = useToast();
   const [search, setSearch] = useState("");
-  const [sortBy, setSortBy] = useState<SortMode>("target");
+  const [sortBy, setSortBy] = useState<SortMode[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [filterOpen, setFilterOpen] = useState(false);
-  const [pendingSort, setPendingSort] = useState<SortMode>("target");
+  const [pendingSort, setPendingSort] = useState<SortMode[]>([]);
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -550,6 +570,7 @@ export function Exercises() {
   ) as Exercise[] | undefined;
 
   const groups = filtered ? groupExercises(filtered, sortBy) : [];
+  const isFiltered = sortBy.length > 0;
 
   return (
     <>
@@ -638,14 +659,18 @@ export function Exercises() {
             data-testid="button-filter-exercises"
             className={cn(
               "flex items-center gap-1.5 px-3 h-10 rounded-md border text-sm font-medium transition-colors",
-              sortBy !== "target"
+              isFiltered
                 ? "border-violet-500 bg-violet-50 dark:bg-violet-950/30 text-violet-700 dark:text-violet-400"
                 : "border-input bg-background text-foreground hover:bg-accent hover:text-accent-foreground"
             )}
           >
             <SlidersHorizontal className="w-4 h-4" />
             Sort
-            {sortBy !== "target" && <span className="w-1.5 h-1.5 rounded-full bg-violet-500 ml-0.5" />}
+            {isFiltered && (
+              <span className="ml-0.5 min-w-[18px] h-[18px] rounded-full bg-violet-500 text-white text-[10px] font-bold flex items-center justify-center px-1">
+                {sortBy.length}
+              </span>
+            )}
           </button>
 
           {/* Filter sheet */}
@@ -665,42 +690,52 @@ export function Exercises() {
                   </button>
                 </div>
                 <div className="space-y-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Sort by — select multiple</p>
                   {(["target","compound","movement","cardio","mobility","strength"] as SortMode[]).map(val => {
                     const labels: Record<SortMode, string> = {
                       target: "Target area",
                       compound: "Compound vs. Isolation",
                       movement: "Unilateral vs. Bilateral",
-                      cardio: "Cardio",
-                      mobility: "Mobility",
-                      strength: "Strength",
+                      cardio: "Cardio only",
+                      mobility: "Mobility only",
+                      strength: "Strength only",
                     };
+                    const idx = pendingSort.indexOf(val);
+                    const isSelected = idx >= 0;
                     return (
                       <button
                         key={val}
-                        onClick={() => setPendingSort(val)}
+                        onClick={() => {
+                          if (isSelected) setPendingSort(pendingSort.filter(v => v !== val));
+                          else setPendingSort([...pendingSort, val]);
+                        }}
                         className={cn(
                           "w-full flex items-center justify-between px-3 py-2.5 rounded-xl border text-sm transition-colors",
-                          pendingSort === val ? "border-primary bg-primary/5 font-medium" : "border-border hover:bg-muted/50"
+                          isSelected ? "border-primary bg-primary/5 font-medium" : "border-border hover:bg-muted/50"
                         )}
                       >
                         {labels[val]}
-                        {pendingSort === val && <Check className="w-4 h-4 text-primary" />}
+                        {isSelected && (
+                          <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center flex-shrink-0">
+                            {idx + 1}
+                          </span>
+                        )}
                       </button>
                     );
                   })}
                 </div>
                 <div className="grid grid-cols-2 gap-3 pt-1">
                   <button
-                    onClick={() => setFilterOpen(false)}
+                    onClick={() => { setPendingSort([]); setSortBy([]); setFilterOpen(false); }}
                     className="py-3 rounded-2xl border border-border text-sm font-semibold hover:bg-muted/50 transition-colors"
                   >
-                    Cancel
+                    Clear
                   </button>
                   <button
                     onClick={() => { setSortBy(pendingSort); setFilterOpen(false); }}
                     className="py-3 rounded-2xl bg-foreground text-background text-sm font-semibold hover:opacity-90 transition-opacity"
                   >
-                    Sort
+                    Apply
                   </button>
                 </div>
               </div>
@@ -739,7 +774,7 @@ export function Exercises() {
               <span className="ml-2 font-normal normal-case tracking-normal">({exs.length})</span>
             </h2>
             {viewMode === "grid" ? (
-              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-3 grid-cols-2 lg:grid-cols-3">
                 {exs.map(e => (
                   <Card
                     key={e.id}

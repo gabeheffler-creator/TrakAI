@@ -9,6 +9,7 @@ import {
   programAssignmentsTable,
   programAssignmentHistoryTable,
   programNutritionGoalsTable,
+  programNutritionPeriodsTable,
   clientsTable,
   measurementsTable,
   pushSubscriptionsTable,
@@ -1188,6 +1189,106 @@ router.post("/programs/:programId/sync-to-clients", requireCoachAuth, requireCoa
   } catch (err) {
     req.log.error(err);
     res.status(400).json({ error: "Failed to sync program to clients" });
+  }
+});
+
+// ── Program Nutrition Periods ─────────────────────────────────────────────
+
+const NutritionPeriodBody = z.object({
+  startDate: z.string().min(1),
+  endDate: z.string().min(1),
+  label: z.string().optional(),
+  calories: z.number().nullish(),
+  protein: z.number().nullish(),
+  carbs: z.number().nullish(),
+  fat: z.number().nullish(),
+});
+
+router.get("/programs/:programId/nutrition-periods", requireCoachAuth, async (req, res) => {
+  try {
+    const programId = Number(req.params.programId);
+    if (!(await programBelongsToCoach(programId, coachIdOf(req)))) {
+      res.status(404).json({ error: "Program not found" }); return;
+    }
+    const periods = await db
+      .select()
+      .from(programNutritionPeriodsTable)
+      .where(eq(programNutritionPeriodsTable.programId, programId))
+      .orderBy(asc(programNutritionPeriodsTable.startDate));
+    res.json(periods);
+  } catch (err) {
+    req.log.error(err);
+    res.status(500).json({ error: "Failed to list nutrition periods" });
+  }
+});
+
+router.post("/programs/:programId/nutrition-periods", requireCoachAuth, async (req, res) => {
+  try {
+    const programId = Number(req.params.programId);
+    if (!(await programBelongsToCoach(programId, coachIdOf(req)))) {
+      res.status(404).json({ error: "Program not found" }); return;
+    }
+    const body = NutritionPeriodBody.parse(req.body);
+    const [period] = await db.insert(programNutritionPeriodsTable).values({
+      programId,
+      startDate: body.startDate,
+      endDate: body.endDate,
+      label: body.label ?? null,
+      calories: body.calories ?? null,
+      protein: body.protein ?? null,
+      carbs: body.carbs ?? null,
+      fat: body.fat ?? null,
+    }).returning();
+    res.status(201).json(period);
+  } catch (err) {
+    req.log.error(err);
+    res.status(400).json({ error: "Failed to create nutrition period" });
+  }
+});
+
+router.put("/programs/:programId/nutrition-periods/:periodId", requireCoachAuth, async (req, res) => {
+  try {
+    const programId = Number(req.params.programId);
+    const periodId = Number(req.params.periodId);
+    if (!(await programBelongsToCoach(programId, coachIdOf(req)))) {
+      res.status(404).json({ error: "Program not found" }); return;
+    }
+    const body = NutritionPeriodBody.parse(req.body);
+    const [updated] = await db
+      .update(programNutritionPeriodsTable)
+      .set({
+        startDate: body.startDate,
+        endDate: body.endDate,
+        label: body.label ?? null,
+        calories: body.calories ?? null,
+        protein: body.protein ?? null,
+        carbs: body.carbs ?? null,
+        fat: body.fat ?? null,
+      })
+      .where(and(eq(programNutritionPeriodsTable.id, periodId), eq(programNutritionPeriodsTable.programId, programId)))
+      .returning();
+    if (!updated) { res.status(404).json({ error: "Period not found" }); return; }
+    res.json(updated);
+  } catch (err) {
+    req.log.error(err);
+    res.status(400).json({ error: "Failed to update nutrition period" });
+  }
+});
+
+router.delete("/programs/:programId/nutrition-periods/:periodId", requireCoachAuth, async (req, res) => {
+  try {
+    const programId = Number(req.params.programId);
+    const periodId = Number(req.params.periodId);
+    if (!(await programBelongsToCoach(programId, coachIdOf(req)))) {
+      res.status(404).json({ error: "Program not found" }); return;
+    }
+    await db
+      .delete(programNutritionPeriodsTable)
+      .where(and(eq(programNutritionPeriodsTable.id, periodId), eq(programNutritionPeriodsTable.programId, programId)));
+    res.status(204).send();
+  } catch (err) {
+    req.log.error(err);
+    res.status(500).json({ error: "Failed to delete nutrition period" });
   }
 });
 

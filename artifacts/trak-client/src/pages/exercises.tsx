@@ -184,14 +184,14 @@ const LS_VIEW_KEY = "trak-exercises-view";
 
 export function ExercisesPage() {
   const [search, setSearch] = useState("");
-  const [sortMode, setSortMode] = useState<SortMode>("target");
+  const [sortMode, setSortMode] = useState<SortMode[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>(
     () => (localStorage.getItem(LS_VIEW_KEY) as ViewMode | null) ?? "grid"
   );
   const [category, setCategory] = useState<CategoryFilter>("all");
   const [selected, setSelected] = useState<Exercise | null>(null);
   const [filterOpen, setFilterOpen] = useState(false);
-  const [pendingSort, setPendingSort] = useState<SortMode>("target");
+  const [pendingSort, setPendingSort] = useState<SortMode[]>([]);
   const [pendingCategory, setPendingCategory] = useState<CategoryFilter>("all");
 
   const { data: exercises, isLoading, isError, refetch, isFetching } = useListExercises();
@@ -216,34 +216,47 @@ export function ExercisesPage() {
   }, [exercises, search, category]);
 
   // 2. sort / group
-  const isGrouped = sortMode === "target";
+  const isGrouped = sortMode.length === 0 || sortMode[0] === "target";
 
   const grouped = useMemo(() => {
     if (!isGrouped) return null;
-    return filtered.reduce<Record<string, Exercise[]>>((acc, e) => {
+    const groups = filtered.reduce<Record<string, Exercise[]>>((acc, e) => {
       (acc[e.muscleGroup] ??= []).push(e as Exercise);
       return acc;
     }, {});
-  }, [filtered, isGrouped]);
+    // Apply secondary sort within each group
+    const secondaryCriteria = sortMode.filter(m => m !== "target");
+    if (secondaryCriteria.length > 0) {
+      for (const exs of Object.values(groups)) {
+        exs.sort((a, b) => {
+          for (const crit of secondaryCriteria) {
+            let cmp = 0;
+            if (crit === "name") cmp = a.name.localeCompare(b.name);
+            else if (crit === "compound") cmp = (a.isCompound ? 0 : 1) - (b.isCompound ? 0 : 1);
+            else if (crit === "isolation") cmp = (a.isCompound ? 1 : 0) - (b.isCompound ? 1 : 0);
+            if (cmp !== 0) return cmp;
+          }
+          return 0;
+        });
+      }
+    }
+    return groups;
+  }, [filtered, isGrouped, sortMode]);
 
   const flat = useMemo(() => {
     if (isGrouped) return null;
     const arr = [...filtered] as Exercise[];
-    if (sortMode === "name") {
-      arr.sort((a, b) => a.name.localeCompare(b.name));
-    } else if (sortMode === "compound") {
-      arr.sort((a, b) => {
-        const ac = a.isCompound ? 0 : 1;
-        const bc = b.isCompound ? 0 : 1;
-        return ac - bc || a.name.localeCompare(b.name);
-      });
-    } else if (sortMode === "isolation") {
-      arr.sort((a, b) => {
-        const ac = a.isCompound ? 1 : 0;
-        const bc = b.isCompound ? 1 : 0;
-        return ac - bc || a.name.localeCompare(b.name);
-      });
-    }
+    arr.sort((a, b) => {
+      for (const crit of sortMode) {
+        let cmp = 0;
+        if (crit === "name") cmp = a.name.localeCompare(b.name);
+        else if (crit === "compound") cmp = (a.isCompound ? 0 : 1) - (b.isCompound ? 0 : 1);
+        else if (crit === "isolation") cmp = (a.isCompound ? 1 : 0) - (b.isCompound ? 1 : 0);
+        else if (crit === "target") cmp = groupOrder(a.muscleGroup) - groupOrder(b.muscleGroup);
+        if (cmp !== 0) return cmp;
+      }
+      return a.name.localeCompare(b.name);
+    });
     return arr;
   }, [filtered, sortMode, isGrouped]);
 
@@ -303,15 +316,17 @@ export function ExercisesPage() {
             onClick={() => { setPendingSort(sortMode); setPendingCategory(category); setFilterOpen(true); }}
             className={cn(
               "shrink-0 flex items-center gap-1.5 px-3 h-10 rounded-lg border text-sm font-medium transition-colors",
-              (sortMode !== "target" || category !== "all")
+              (sortMode.length > 0 || category !== "all")
                 ? "border-violet-500 bg-violet-50 dark:bg-violet-950/30 text-violet-700 dark:text-violet-400"
                 : "border-border text-muted-foreground hover:text-foreground hover:border-border/80"
             )}
           >
             <SlidersHorizontal className="w-4 h-4" />
             Filter
-            {(sortMode !== "target" || category !== "all") && (
-              <span className="w-1.5 h-1.5 rounded-full bg-violet-500 ml-0.5" />
+            {(sortMode.length > 0 || category !== "all") && (
+              <span className="ml-0.5 min-w-[18px] h-[18px] rounded-full bg-violet-500 text-white text-[10px] font-bold flex items-center justify-center px-1">
+                {sortMode.length + (category !== "all" ? 1 : 0)}
+              </span>
             )}
           </button>
         </div>
@@ -334,20 +349,29 @@ export function ExercisesPage() {
                 </button>
               </div>
               <div className="space-y-2">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Sort by</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Sort by — select multiple</p>
                 {(["target", "name", "compound", "isolation"] as const).map(opt => {
-                  const labels: Record<string, string> = { target: "Target muscle", name: "Name A–Z", compound: "Compound first", isolation: "Isolation first" };
+                  const labels: Record<string, string> = { target: "Target muscle group", name: "Name A–Z", compound: "Compound first", isolation: "Isolation first" };
+                  const idx = pendingSort.indexOf(opt);
+                  const isSelected = idx >= 0;
                   return (
                     <button
                       key={opt}
-                      onClick={() => setPendingSort(opt)}
+                      onClick={() => {
+                        if (isSelected) setPendingSort(pendingSort.filter(v => v !== opt));
+                        else setPendingSort([...pendingSort, opt]);
+                      }}
                       className={cn(
                         "w-full flex items-center justify-between px-3 py-2.5 rounded-xl border text-sm transition-colors",
-                        pendingSort === opt ? "border-primary bg-primary/5 font-medium text-foreground" : "border-border text-foreground hover:bg-muted/50"
+                        isSelected ? "border-primary bg-primary/5 font-medium text-foreground" : "border-border text-foreground hover:bg-muted/50"
                       )}
                     >
                       {labels[opt]}
-                      {pendingSort === opt && <Check className="w-4 h-4 text-primary" />}
+                      {isSelected && (
+                        <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center flex-shrink-0">
+                          {idx + 1}
+                        </span>
+                      )}
                     </button>
                   );
                 })}
@@ -373,16 +397,16 @@ export function ExercisesPage() {
               </div>
               <div className="grid grid-cols-2 gap-3 pt-1">
                 <button
-                  onClick={() => setFilterOpen(false)}
+                  onClick={() => { setPendingSort([]); setSortMode([]); setCategory("all"); setPendingCategory("all"); setFilterOpen(false); }}
                   className="py-3 rounded-2xl border border-border text-sm font-semibold text-foreground hover:bg-muted/50 transition-colors"
                 >
-                  Cancel
+                  Clear
                 </button>
                 <button
                   onClick={() => { setSortMode(pendingSort); setCategory(pendingCategory); setFilterOpen(false); }}
                   className="py-3 rounded-2xl bg-foreground text-background text-sm font-semibold hover:opacity-90 transition-opacity"
                 >
-                  Sort
+                  Apply
                 </button>
               </div>
             </div>

@@ -59,6 +59,21 @@ export const programNutritionGoalsTable = pgTable("program_nutrition_goals", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const programNutritionPeriodsTable = pgTable("program_nutrition_periods", {
+  id: serial("id").primaryKey(),
+  programId: integer("program_id").notNull().references(() => programsTable.id, { onDelete: "cascade" }),
+  startDate: text("start_date").notNull(),
+  endDate: text("end_date").notNull(),
+  label: text("label"),
+  calories: integer("calories"),
+  protein: integer("protein"),
+  carbs: integer("carbs"),
+  fat: integer("fat"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type ProgramNutritionPeriod = typeof programNutritionPeriodsTable.$inferSelect;
+
 export const programAssignmentsTable = pgTable("program_assignments", {
   id: serial("id").primaryKey(),
   clientId: integer("client_id").notNull().unique(),

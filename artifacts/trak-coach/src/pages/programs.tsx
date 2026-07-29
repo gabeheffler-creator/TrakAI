@@ -325,7 +325,7 @@ export function Programs() {
         </div>
       )}
 
-      <div className={viewMode === "grid" ? "grid gap-4 md:grid-cols-2 lg:grid-cols-3" : "space-y-2"}>
+      <div className={viewMode === "grid" ? "grid gap-4 grid-cols-2 lg:grid-cols-3" : "space-y-2"}>
         {programs?.map(p => (
           <Link key={p.id} href={`/programs/${p.id}`} data-testid={`card-program-${p.id}`}>
             <Card className="hover:shadow-md transition-shadow cursor-pointer group">

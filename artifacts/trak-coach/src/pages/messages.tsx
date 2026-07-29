@@ -401,10 +401,10 @@ function ConversationPanel({ clientId, clientName, onBack }: { clientId: number;
 
           if ((mt === "task_assigned" || mt === "task_alternative") && task) {
             return (
-              <div key={m.id} className="flex justify-start">
-                <div className="space-y-1">
+              <div key={m.id} className="flex justify-end">
+                <div className="space-y-1 items-end flex flex-col">
                   <TaskCard task={task} messageType={mt} content={m.content} />
-                  <p className="text-[10px] text-muted-foreground pl-1">
+                  <p className="text-[10px] text-muted-foreground pr-1">
                     {formatDistanceToNow(parseISO(m.createdAt), { addSuffix: true })}
                   </p>
                 </div>

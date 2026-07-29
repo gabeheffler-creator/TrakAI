@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams } from "wouter";
 import {
   useGetProgram,
@@ -21,6 +21,12 @@ import {
   useSyncProgramToClients,
   useListClients,
   getListClientsQueryKey,
+  useListNutritionPeriods,
+  useCreateNutritionPeriod,
+  useUpdateNutritionPeriod,
+  useDeleteNutritionPeriod,
+  getListNutritionPeriodsQueryKey,
+  type NutritionPeriod,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link as WLink, useLocation } from "wouter";
@@ -35,10 +41,13 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, ArrowLeft, GripVertical, Layers, Pencil, Apple, LayoutGrid, List, Users, Save, Moon } from "lucide-react";
+import { Plus, Trash2, ArrowLeft, GripVertical, Layers, Pencil, Apple, LayoutGrid, List, Users, Save, Moon, CalendarIcon, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { QueryErrorState } from "@/components/query-error-state";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format, parseISO, isAfter, isBefore, isValid } from "date-fns";
 
 const WEEK_OPTIONS = [1, 2, 3, 4, 5, 6, 8, 10, 12, 16];
 const DAYS_PER_WEEK_OPTIONS = [1, 2, 3, 4, 5, 6, 7];
@@ -57,6 +66,16 @@ const daySchema = z.object({
 });
 
 const nutritionGoalSchema = z.object({
+  calories: z.coerce.number().min(0).optional(),
+  protein: z.coerce.number().min(0).optional(),
+  carbs: z.coerce.number().min(0).optional(),
+  fat: z.coerce.number().min(0).optional(),
+});
+
+const nutritionPeriodSchema = z.object({
+  label: z.string().optional(),
+  startDate: z.string().min(1, "Start date is required"),
+  endDate: z.string().min(1, "End date is required"),
   calories: z.coerce.number().min(0).optional(),
   protein: z.coerce.number().min(0).optional(),
   carbs: z.coerce.number().min(0).optional(),
@@ -162,6 +181,13 @@ export function ProgramBuilder() {
   const [sleepAdjustEnabled, setSleepAdjustEnabled] = useState<boolean | null>(null);
   const [sleepAdjustPercent, setSleepAdjustPercent] = useState<number | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  // Auto-enter edit mode for brand-new (phaseless) template programs
+  useEffect(() => {
+    if (program && !program.clientId && program.phases.length === 0) {
+      setIsEditing(true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [program?.id]);
   const [assignOpen, setAssignOpen] = useState(false);
   const [propagateOpen, setPropagateOpen] = useState(false);
   const [selectedAssignIds, setSelectedAssignIds] = useState<number[]>([]);
@@ -170,6 +196,12 @@ export function ProgramBuilder() {
   const { data: allClients } = useListClients({ query: { queryKey: getListClientsQueryKey() } });
   const bulkAssign = useBulkAssignProgram();
   const syncToClients = useSyncProgramToClients();
+  const { data: nutritionPeriods, refetch: refetchPeriods } = useListNutritionPeriods(programId);
+  const createPeriod = useCreateNutritionPeriod();
+  const updatePeriod = useUpdateNutritionPeriod();
+  const deletePeriod = useDeleteNutritionPeriod();
+  const [periodDialogOpen, setPeriodDialogOpen] = useState(false);
+  const [editingPeriod, setEditingPeriod] = useState<NutritionPeriod | null>(null);
   const { data: assignedClients, refetch: refetchAssigned } = useGetProgramAssignedClients(programId, {
     query: { enabled: !!programId, queryKey: getGetProgramAssignedClientsQueryKey(programId) },
   });
@@ -189,6 +221,10 @@ export function ProgramBuilder() {
   const nutritionForm = useForm<z.infer<typeof nutritionGoalSchema>>({
     resolver: zodResolver(nutritionGoalSchema),
     defaultValues: { calories: undefined, protein: undefined, carbs: undefined, fat: undefined },
+  });
+  const periodForm = useForm<z.infer<typeof nutritionPeriodSchema>>({
+    resolver: zodResolver(nutritionPeriodSchema),
+    defaultValues: { label: "", startDate: "", endDate: "", calories: undefined, protein: undefined, carbs: undefined, fat: undefined },
   });
   const exForm = useForm<z.infer<typeof exerciseSchema>>({
     resolver: zodResolver(exerciseSchema),
@@ -331,6 +367,52 @@ export function ProgramBuilder() {
     }
   };
 
+  const openAddPeriod = () => {
+    setEditingPeriod(null);
+    periodForm.reset({ label: "", startDate: "", endDate: "", calories: undefined, protein: undefined, carbs: undefined, fat: undefined });
+    setPeriodDialogOpen(true);
+  };
+
+  const openEditPeriod = (p: NutritionPeriod) => {
+    setEditingPeriod(p);
+    periodForm.reset({
+      label: p.label ?? "",
+      startDate: p.startDate,
+      endDate: p.endDate,
+      calories: p.calories ?? undefined,
+      protein: p.protein ?? undefined,
+      carbs: p.carbs ?? undefined,
+      fat: p.fat ?? undefined,
+    });
+    setPeriodDialogOpen(true);
+  };
+
+  const handleSavePeriod = (values: z.infer<typeof nutritionPeriodSchema>) => {
+    const data = {
+      label: values.label || undefined,
+      startDate: values.startDate,
+      endDate: values.endDate,
+      calories: values.calories ?? null,
+      protein: values.protein ?? null,
+      carbs: values.carbs ?? null,
+      fat: values.fat ?? null,
+    };
+    const onSuccess = () => { refetchPeriods(); setPeriodDialogOpen(false); };
+    const onError = () => toast({ title: "Failed to save nutrition period", variant: "destructive" });
+    if (editingPeriod) {
+      updatePeriod.mutate({ programId, periodId: editingPeriod.id, data }, { onSuccess, onError });
+    } else {
+      createPeriod.mutate({ programId, data }, { onSuccess, onError });
+    }
+  };
+
+  const handleDeletePeriod = (periodId: number) => {
+    deletePeriod.mutate({ programId, periodId }, {
+      onSuccess: () => refetchPeriods(),
+      onError: () => toast({ title: "Failed to delete period", variant: "destructive" }),
+    });
+  };
+
   const handleClearDayOverride = (phaseId: number, dayId: number) => {
     deleteDayNutritionGoal.mutate({ programId, phaseId, dayId }, {
       onSuccess: invalidate,
@@ -404,9 +486,12 @@ export function ProgramBuilder() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
-          <WLink href="/programs" className="text-muted-foreground hover:text-foreground transition-colors">
+          <button
+            onClick={() => isEditing ? setIsEditing(false) : setLocation("/programs")}
+            className="text-muted-foreground hover:text-foreground transition-colors"
+          >
             <ArrowLeft className="w-5 h-5" />
-          </WLink>
+          </button>
           <div>
             <h1 className="text-2xl font-bold">{program.name}</h1>
             {program.description && <p className="text-sm text-muted-foreground">{program.description}</p>}
@@ -414,12 +499,8 @@ export function ProgramBuilder() {
         </div>
         {isTemplate && !isEditing && (
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => setLocation("/programs")}>Cancel</Button>
             <Button variant="outline" onClick={() => setIsEditing(true)}>
               <Pencil className="w-4 h-4 mr-1.5" /> Edit program
-            </Button>
-            <Button onClick={() => { setAssignOpen(true); setSelectedAssignIds([]); }}>
-              <Users className="w-4 h-4 mr-1.5" /> Assign program
             </Button>
           </div>
         )}
@@ -479,6 +560,74 @@ export function ProgramBuilder() {
               </div>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Nutrition Periods */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Apple className="w-4 h-4 text-muted-foreground" /> Nutrition Periods
+            </CardTitle>
+            {canEdit && (
+              <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={openAddPeriod}>
+                <Plus className="w-3.5 h-3.5" /> Add Period
+              </Button>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Set macro targets for specific date windows. Applied after per-day overrides but before phase defaults.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-2 p-3 pt-0">
+          {(() => {
+            const periods = nutritionPeriods ?? [];
+            if (periods.length === 0) {
+              return <p className="text-xs text-muted-foreground text-center py-3">No nutrition periods set</p>;
+            }
+            // Detect overlaps
+            const overlapping = new Set<number>();
+            for (let i = 0; i < periods.length; i++) {
+              for (let j = i + 1; j < periods.length; j++) {
+                const a = periods[i], b = periods[j];
+                if (a.startDate <= b.endDate && b.startDate <= a.endDate) {
+                  overlapping.add(a.id);
+                  overlapping.add(b.id);
+                }
+              }
+            }
+            return periods.map((p: NutritionPeriod) => (
+              <div key={p.id} className={`flex items-start gap-3 px-3 py-2.5 rounded-md group ${overlapping.has(p.id) ? "bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800" : "bg-muted/50"}`}>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {overlapping.has(p.id) && <AlertTriangle className="w-3 h-3 text-amber-500 flex-shrink-0" />}
+                    <span className="text-sm font-medium truncate">
+                      {p.label || `${p.startDate} → ${p.endDate}`}
+                    </span>
+                    <span className="text-xs text-muted-foreground">{p.startDate} – {p.endDate}</span>
+                  </div>
+                  <div className="flex gap-2 mt-0.5 flex-wrap text-xs text-muted-foreground">
+                    {p.calories != null && <span>{p.calories} cal</span>}
+                    {p.protein != null && <span>{p.protein}g protein</span>}
+                    {p.carbs != null && <span>{p.carbs}g carbs</span>}
+                    {p.fat != null && <span>{p.fat}g fat</span>}
+                    {overlapping.has(p.id) && <span className="text-amber-600 dark:text-amber-400 font-medium">Overlapping window</span>}
+                  </div>
+                </div>
+                {canEdit && (
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => openEditPeriod(p)} className="p-1 text-muted-foreground hover:text-foreground" title="Edit">
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    <button onClick={() => handleDeletePeriod(p.id)} className="p-1 text-muted-foreground hover:text-destructive" title="Delete">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            ));
+          })()}
         </CardContent>
       </Card>
 
@@ -919,8 +1068,10 @@ export function ProgramBuilder() {
                         setAssignOpen(false);
                         refetchAssigned();
                         toast({
-                          title: `Assigned to ${result.assigned.length} client${result.assigned.length !== 1 ? "s" : ""}`,
-                          description: result.skipped.length > 0 ? `${result.skipped.length} already assigned` : undefined,
+                          title: result.skipped.length > 0
+                            ? `Assigned to ${result.assigned.length} client${result.assigned.length !== 1 ? "s" : ""} · ${result.skipped.length} already assigned`
+                            : `Assigned to ${result.assigned.length} client${result.assigned.length !== 1 ? "s" : ""}`,
+                          duration: 2000,
                         });
                       },
                       onError: () => toast({ title: "Failed to assign program", variant: "destructive" }),
@@ -1132,6 +1283,109 @@ export function ProgramBuilder() {
         </DialogContent>
       </Dialog>
 
+      {/* Nutrition Period Dialog */}
+      <Dialog open={periodDialogOpen} onOpenChange={open => { if (!open) setPeriodDialogOpen(false); }}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingPeriod ? "Edit Nutrition Period" : "Add Nutrition Period"}</DialogTitle>
+          </DialogHeader>
+          <Form {...periodForm}>
+            <form onSubmit={periodForm.handleSubmit(handleSavePeriod)} className="space-y-4">
+              <FormField control={periodForm.control} name="label" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Label <span className="text-muted-foreground">(optional)</span></FormLabel>
+                  <FormControl><Input {...field} placeholder="e.g. Cut phase, Maintenance, Bulking" /></FormControl>
+                </FormItem>
+              )} />
+              <div className="grid grid-cols-2 gap-3">
+                <FormField control={periodForm.control} name="startDate" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Start date</FormLabel>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <button type="button" className={`w-full flex items-center gap-2 px-3 h-10 rounded-md border text-sm text-left ${field.value ? "text-foreground" : "text-muted-foreground"} border-input bg-background hover:bg-accent hover:text-accent-foreground`}>
+                            <CalendarIcon className="w-4 h-4 flex-shrink-0" />
+                            {field.value ? format(parseISO(field.value), "MMM d, yyyy") : "Pick a date"}
+                          </button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={field.value && isValid(parseISO(field.value)) ? parseISO(field.value) : undefined}
+                          onSelect={date => field.onChange(date ? format(date, "yyyy-MM-dd") : "")}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={periodForm.control} name="endDate" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>End date</FormLabel>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <button type="button" className={`w-full flex items-center gap-2 px-3 h-10 rounded-md border text-sm text-left ${field.value ? "text-foreground" : "text-muted-foreground"} border-input bg-background hover:bg-accent hover:text-accent-foreground`}>
+                            <CalendarIcon className="w-4 h-4 flex-shrink-0" />
+                            {field.value ? format(parseISO(field.value), "MMM d, yyyy") : "Pick a date"}
+                          </button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={field.value && isValid(parseISO(field.value)) ? parseISO(field.value) : undefined}
+                          onSelect={date => field.onChange(date ? format(date, "yyyy-MM-dd") : "")}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              </div>
+              {(() => {
+                const s = periodForm.watch("startDate");
+                const e = periodForm.watch("endDate");
+                if (s && e && s > e) return (
+                  <p className="text-xs text-destructive flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3" /> End date must be on or after start date
+                  </p>
+                );
+                return null;
+              })()}
+              <p className="text-xs text-muted-foreground">Nutrition targets for this window. Leave a field blank to skip it.</p>
+              <div className="grid grid-cols-2 gap-3">
+                <FormField control={periodForm.control} name="calories" render={({ field }) => (
+                  <FormItem><FormLabel>Calories</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ""} placeholder="e.g. 2200" /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={periodForm.control} name="protein" render={({ field }) => (
+                  <FormItem><FormLabel>Protein (g)</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
+                )} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <FormField control={periodForm.control} name="carbs" render={({ field }) => (
+                  <FormItem><FormLabel>Carbs (g)</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={periodForm.control} name="fat" render={({ field }) => (
+                  <FormItem><FormLabel>Fat (g)</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
+                )} />
+              </div>
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={createPeriod.isPending || updatePeriod.isPending}
+              >
+                {editingPeriod ? "Save Changes" : "Add Period"}
+              </Button>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
       {/* Nutrition Goal Dialog (phase default or day override) */}
       <Dialog open={nutritionTarget !== null} onOpenChange={open => { if (!open) setNutritionTarget(null); }}>
         <DialogContent>
@@ -1188,6 +1442,16 @@ export function ProgramBuilder() {
           </Form>
         </DialogContent>
       </Dialog>
+
+      {/* Assign program — full-width, bottom of page (view mode only) */}
+      {isTemplate && !isEditing && (
+        <Button
+          className="w-full"
+          onClick={() => { setAssignOpen(true); setSelectedAssignIds([]); }}
+        >
+          <Users className="w-4 h-4 mr-2" /> Assign program
+        </Button>
+      )}
 
       {/* Sticky edit-mode toolbar (template only) */}
       {isTemplate && isEditing && (
