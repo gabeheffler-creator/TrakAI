@@ -1,5 +1,4 @@
 uploads = []
-outputs = []
 
 [[generated]]
 id = "G0cHooUGzd1dOH8k-lL3c"
@@ -36,3 +35,9 @@ id = "1h518je4Al1Qu9GgnMRsU"
 uri = "file://attached_assets/seed/progress-back-week6.png"
 type = "image"
 title = "progress photo back week 6"
+
+[[outputs]]
+id = "nJqspbZNNo3uLprxtRS5Z"
+uri = "file://trak-testing-guide.md"
+type = "text"
+title = "TrakAI Manual Testing Guide"
