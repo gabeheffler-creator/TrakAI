@@ -691,9 +691,9 @@ export function ClientProfile() {
   const [hasRestGoal, setHasRestGoal] = useState(false);
   const goalInputs = goalDayTab === "training" ? trainingGoalInputs : goalDayTab === "rest" ? restGoalInputs : anyGoalInputs;
   const setGoalInputs = goalDayTab === "training" ? setTrainingGoalInputs : goalDayTab === "rest" ? setRestGoalInputs : setAnyGoalInputs;
-  const [sleepTimeframe, setSleepTimeframe] = useState("1m");
-  const [nutritionTimeframe, setNutritionTimeframe] = useState("1m");
-  const [photoTimeframe, setPhotoTimeframe] = useState("1m");
+  const [sleepTimeframe, setSleepTimeframe] = useState("6m");
+  const [nutritionTimeframe, setNutritionTimeframe] = useState("6m");
+  const [photoTimeframe, setPhotoTimeframe] = useState("6m");
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const generateInvite = useGenerateInviteLink();
 
@@ -1276,6 +1276,7 @@ export function ClientProfile() {
               { value: "nutrition", label: "Nutrition" },
               { value: "photos", label: "Photos" },
               { value: "tasks", label: "Tasks" },
+              { value: "messages", label: "Messages" },
               { value: "notes", label: "Notes", icon: <StickyNote className="w-3 h-3" /> },
             ].map(tab => (
               <TabsTrigger

@@ -248,31 +248,35 @@ const NUTRITION_LOG_DATES = [
   "2026-06-01","2026-06-02","2026-06-03","2026-06-04","2026-06-05","2026-06-06",
 ];
 
-const NUTRITION_LOGS = (id: number) => [
-  // Water-only entries (sprinkled through the range)
-  { clientId: id, date: "2026-02-10", imageUrl: "water_only", waterMl: 2366 }, // ~80 oz
-  { clientId: id, date: "2026-03-10", imageUrl: "water_only", waterMl: 2722 },
-  { clientId: id, date: "2026-04-14", imageUrl: "water_only", waterMl: 2485 },
-  { clientId: id, date: "2026-05-12", imageUrl: "water_only", waterMl: 2840 },
-  // Macro entries — training days (higher carbs)
-  ...NUTRITION_LOG_DATES.filter(d => WORKOUT_DATES.has(d)).map(date => ({
-    clientId: id, date, imageUrl: "cant_track",
-    calories: 2780 + Math.round(Math.random() * 80 - 40),
-    protein: 208 + Math.round(Math.random() * 10 - 5),
-    carbs:   295 + Math.round(Math.random() * 20 - 10),
-    fat:      68 + Math.round(Math.random() * 8 - 4),
-    waterMl: 2840, // ~96 oz
-  })),
-  // Macro entries — rest days
-  ...NUTRITION_LOG_DATES.filter(d => !WORKOUT_DATES.has(d) && d !== "2026-02-10" && d !== "2026-03-10" && d !== "2026-04-14" && d !== "2026-05-12").map(date => ({
-    clientId: id, date, imageUrl: "cant_track",
-    calories: 2380 + Math.round(Math.random() * 80 - 40),
-    protein: 198 + Math.round(Math.random() * 10 - 5),
-    carbs:   215 + Math.round(Math.random() * 20 - 10),
-    fat:      74 + Math.round(Math.random() * 8 - 4),
-    waterMl: 2485, // ~84 oz
-  })),
-];
+const NUTRITION_LOGS = (id: number) => {
+  // Dates with MFP screenshots — skip cant_track for those days
+  const alexMfpDates = new Set(["2026-02-03","2026-03-03","2026-04-07","2026-05-19","2026-06-04"]);
+  return [
+    // Water-only entries (sprinkled through the range)
+    { clientId: id, date: "2026-02-10", imageUrl: "water_only", waterMl: 2366 }, // ~80 oz
+    { clientId: id, date: "2026-03-10", imageUrl: "water_only", waterMl: 2722 },
+    { clientId: id, date: "2026-04-14", imageUrl: "water_only", waterMl: 2485 },
+    { clientId: id, date: "2026-05-12", imageUrl: "water_only", waterMl: 2840 },
+    // Macro entries — training days (higher carbs); skip MFP screenshot dates
+    ...NUTRITION_LOG_DATES.filter(d => WORKOUT_DATES.has(d) && !alexMfpDates.has(d)).map(date => ({
+      clientId: id, date, imageUrl: "cant_track",
+      calories: 2780 + Math.round(Math.random() * 80 - 40),
+      protein: 208 + Math.round(Math.random() * 10 - 5),
+      carbs:   295 + Math.round(Math.random() * 20 - 10),
+      fat:      68 + Math.round(Math.random() * 8 - 4),
+      waterMl: 2840, // ~96 oz
+    })),
+    // Macro entries — rest days
+    ...NUTRITION_LOG_DATES.filter(d => !WORKOUT_DATES.has(d) && d !== "2026-02-10" && d !== "2026-03-10" && d !== "2026-04-14" && d !== "2026-05-12").map(date => ({
+      clientId: id, date, imageUrl: "cant_track",
+      calories: 2380 + Math.round(Math.random() * 80 - 40),
+      protein: 198 + Math.round(Math.random() * 10 - 5),
+      carbs:   215 + Math.round(Math.random() * 20 - 10),
+      fat:      74 + Math.round(Math.random() * 8 - 4),
+      waterMl: 2485, // ~84 oz
+    })),
+  ];
+};
 
 // ── Messages ──────────────────────────────────────────────────────────────────
 const MESSAGES = (id: number) => [
@@ -311,9 +315,10 @@ const CLIENT_TASKS = (id: number) => [
   { clientId: id, text: "Hit 180 lbs bodyweight",           status: "completed", dueDate: "2026-06-15", completedAt: new Date("2026-06-06T08:00:00Z") },
   { clientId: id, text: "Log sleep every day for a week",   status: "completed", dueDate: "2026-06-01", completedAt: new Date("2026-06-01T22:00:00Z") },
   { clientId: id, text: "Complete a full PPL week",         status: "completed", dueDate: "2026-06-08", completedAt: new Date("2026-06-07T19:45:00Z") },
-  // Pending — shows on Dashboard checklist
-  { clientId: id, text: "Log today's nutrition",              status: "pending", dueDate: "2026-07-27" },
-  { clientId: id, text: "Complete this week's leg day",       status: "pending", dueDate: "2026-07-31" },
+  // Active — accepted by client, showing on Tasks page
+  { clientId: id, text: "Log today's nutrition",              status: "accepted", dueDate: "2026-07-27" },
+  { clientId: id, text: "Complete this week's leg day",       status: "accepted", dueDate: "2026-07-31" },
+  // Pending — assigned but not yet accepted
   { clientId: id, text: "Send coach a check-in message",      status: "pending", dueDate: "2026-07-28" },
 ];
 
@@ -469,26 +474,30 @@ const SAM_NUTRITION_LOG_DATES = [
   "2026-06-02","2026-06-04",
 ];
 
-const SAM_NUTRITION_LOGS = (id: number) => [
-  { clientId: id, date: "2026-02-14", imageUrl: "water_only", waterMl: 2130 },
-  { clientId: id, date: "2026-04-14", imageUrl: "water_only", waterMl: 2366 },
-  ...SAM_NUTRITION_LOG_DATES.filter(d => SAM_WORKOUT_DATES.has(d)).map(date => ({
-    clientId: id, date, imageUrl: "cant_track",
-    calories: 1790 + Math.round(Math.random() * 40 - 20),
-    protein: 143 + Math.round(Math.random() * 6 - 3),
-    carbs:   178 + Math.round(Math.random() * 12 - 6),
-    fat:      49 + Math.round(Math.random() * 4 - 2),
-    waterMl: 2600,
-  })),
-  ...SAM_NUTRITION_LOG_DATES.filter(d => !SAM_WORKOUT_DATES.has(d) && d !== "2026-02-14" && d !== "2026-04-14").map(date => ({
-    clientId: id, date, imageUrl: "cant_track",
-    calories: 1590 + Math.round(Math.random() * 40 - 20),
-    protein: 138 + Math.round(Math.random() * 6 - 3),
-    carbs:   138 + Math.round(Math.random() * 12 - 6),
-    fat:      47 + Math.round(Math.random() * 4 - 2),
-    waterMl: 2250,
-  })),
-];
+const SAM_NUTRITION_LOGS = (id: number) => {
+  // Dates with MFP screenshots — skip cant_track for those days
+  const samMfpDates = new Set(["2026-02-06","2026-03-03","2026-03-17","2026-04-07","2026-05-05","2026-05-28"]);
+  return [
+    { clientId: id, date: "2026-02-14", imageUrl: "water_only", waterMl: 2130 },
+    { clientId: id, date: "2026-04-14", imageUrl: "water_only", waterMl: 2366 },
+    ...SAM_NUTRITION_LOG_DATES.filter(d => SAM_WORKOUT_DATES.has(d) && !samMfpDates.has(d)).map(date => ({
+      clientId: id, date, imageUrl: "cant_track",
+      calories: 1790 + Math.round(Math.random() * 40 - 20),
+      protein: 143 + Math.round(Math.random() * 6 - 3),
+      carbs:   178 + Math.round(Math.random() * 12 - 6),
+      fat:      49 + Math.round(Math.random() * 4 - 2),
+      waterMl: 2600,
+    })),
+    ...SAM_NUTRITION_LOG_DATES.filter(d => !SAM_WORKOUT_DATES.has(d) && !samMfpDates.has(d) && d !== "2026-02-14" && d !== "2026-04-14").map(date => ({
+      clientId: id, date, imageUrl: "cant_track",
+      calories: 1590 + Math.round(Math.random() * 40 - 20),
+      protein: 138 + Math.round(Math.random() * 6 - 3),
+      carbs:   138 + Math.round(Math.random() * 12 - 6),
+      fat:      47 + Math.round(Math.random() * 4 - 2),
+      waterMl: 2250,
+    })),
+  ];
+};
 
 const SAM_MESSAGES = (id: number) => [
   { clientId: id, sender: "coach",  content: "Hey Sam! Really excited to start working together. How are you feeling about the program so far?", createdAt: new Date("2026-02-04T09:00:00Z") },
@@ -521,9 +530,9 @@ const SAM_CLIENT_TASKS = (id: number) => [
   { clientId: id, text: "Take 6-week progress photos",           status: "completed", dueDate: "2026-03-17", completedAt: new Date("2026-03-17T17:00:00Z") },
   { clientId: id, text: "Hit 160 lbs",                           status: "completed", dueDate: "2026-04-21", completedAt: new Date("2026-04-21T08:00:00Z") },
   { clientId: id, text: "Log sleep every day for a week",        status: "completed", dueDate: "2026-05-10", completedAt: new Date("2026-05-09T22:00:00Z") },
-  { clientId: id, text: "Log today's nutrition",                  status: "pending", dueDate: "2026-07-27" },
-  { clientId: id, text: "Complete this week's pull day",          status: "pending", dueDate: "2026-07-31" },
-  { clientId: id, text: "Send coach a check-in message",         status: "pending", dueDate: "2026-07-28" },
+  { clientId: id, text: "Log today's nutrition",                  status: "accepted", dueDate: "2026-07-27" },
+  { clientId: id, text: "Complete this week's pull day",          status: "accepted", dueDate: "2026-07-31" },
+  { clientId: id, text: "Send coach a check-in message",         status: "pending",  dueDate: "2026-07-28" },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -704,27 +713,31 @@ const JORDAN_NUTRITION_LOG_DATES = [
   "2026-06-01","2026-06-02","2026-06-07",
 ];
 
-const JORDAN_NUTRITION_LOGS = (id: number) => [
-  { clientId: id, date: "2026-02-14", imageUrl: "water_only", waterMl: 2840 },
-  { clientId: id, date: "2026-04-18", imageUrl: "water_only", waterMl: 3000 },
-  { clientId: id, date: "2026-05-14", imageUrl: "water_only", waterMl: 3200 },
-  ...JORDAN_NUTRITION_LOG_DATES.filter(d => JORDAN_WORKOUT_DATES.has(d)).map(date => ({
-    clientId: id, date, imageUrl: "cant_track",
-    calories: 2580 + Math.round(Math.random() * 60 - 30),
-    protein: 193 + Math.round(Math.random() * 8 - 4),
-    carbs:   287 + Math.round(Math.random() * 16 - 8),
-    fat:      79 + Math.round(Math.random() * 4 - 2),
-    waterMl: 3200,
-  })),
-  ...JORDAN_NUTRITION_LOG_DATES.filter(d => !JORDAN_WORKOUT_DATES.has(d) && !["2026-02-14","2026-04-18","2026-05-14"].includes(d)).map(date => ({
-    clientId: id, date, imageUrl: "cant_track",
-    calories: 2380 + Math.round(Math.random() * 60 - 30),
-    protein: 188 + Math.round(Math.random() * 8 - 4),
-    carbs:   247 + Math.round(Math.random() * 16 - 8),
-    fat:      79 + Math.round(Math.random() * 4 - 2),
-    waterMl: 2840,
-  })),
-];
+const JORDAN_NUTRITION_LOGS = (id: number) => {
+  // Dates with MFP screenshots — skip cant_track for those days
+  const jordanMfpDates = new Set(["2026-02-03","2026-03-17","2026-04-21","2026-05-19","2026-06-02"]);
+  return [
+    { clientId: id, date: "2026-02-14", imageUrl: "water_only", waterMl: 2840 },
+    { clientId: id, date: "2026-04-18", imageUrl: "water_only", waterMl: 3000 },
+    { clientId: id, date: "2026-05-14", imageUrl: "water_only", waterMl: 3200 },
+    ...JORDAN_NUTRITION_LOG_DATES.filter(d => JORDAN_WORKOUT_DATES.has(d) && !jordanMfpDates.has(d)).map(date => ({
+      clientId: id, date, imageUrl: "cant_track",
+      calories: 2580 + Math.round(Math.random() * 60 - 30),
+      protein: 193 + Math.round(Math.random() * 8 - 4),
+      carbs:   287 + Math.round(Math.random() * 16 - 8),
+      fat:      79 + Math.round(Math.random() * 4 - 2),
+      waterMl: 3200,
+    })),
+    ...JORDAN_NUTRITION_LOG_DATES.filter(d => !JORDAN_WORKOUT_DATES.has(d) && !jordanMfpDates.has(d) && !["2026-02-14","2026-04-18","2026-05-14"].includes(d)).map(date => ({
+      clientId: id, date, imageUrl: "cant_track",
+      calories: 2380 + Math.round(Math.random() * 60 - 30),
+      protein: 188 + Math.round(Math.random() * 8 - 4),
+      carbs:   247 + Math.round(Math.random() * 16 - 8),
+      fat:      79 + Math.round(Math.random() * 4 - 2),
+      waterMl: 2840,
+    })),
+  ];
+};
 
 const JORDAN_MESSAGES = (id: number) => [
   { clientId: id, sender: "coach",  content: "Jordan, stoked to work with you on this performance program. What are your main goals — strength numbers or sport performance?", createdAt: new Date("2026-02-04T09:30:00Z") },
@@ -769,9 +782,9 @@ const JORDAN_CLIENT_TASKS = (id: number) => [
   { clientId: id, text: "Hit 300+ lb squat for reps",               status: "completed", dueDate: "2026-05-05", completedAt: new Date("2026-04-21T20:00:00Z") },
   { clientId: id, text: "Log sleep 7 nights in a row",              status: "completed", dueDate: "2026-04-15", completedAt: new Date("2026-04-14T22:00:00Z") },
   { clientId: id, text: "Hit 375 lb deadlift for 3",                status: "completed", dueDate: "2026-05-31", completedAt: new Date("2026-05-19T20:30:00Z") },
-  { clientId: id, text: "Log today's nutrition",                     status: "pending", dueDate: "2026-07-27" },
-  { clientId: id, text: "Complete this week's legs session",         status: "pending", dueDate: "2026-07-31" },
-  { clientId: id, text: "Record a new squat video for coach review", status: "pending", dueDate: "2026-07-30" },
+  { clientId: id, text: "Log today's nutrition",                     status: "accepted", dueDate: "2026-07-27" },
+  { clientId: id, text: "Complete this week's legs session",         status: "accepted", dueDate: "2026-07-31" },
+  { clientId: id, text: "Record a new squat video for coach review", status: "pending",  dueDate: "2026-07-30" },
 ];
 
 // ── MFP screenshot seed data ──────────────────────────────────────────────────
@@ -799,18 +812,18 @@ const ALEX_MFP_SCREENSHOTS: MfpScreenshotEntry[] = [
 // Sam — fat loss / cardio, lower-calorie deficit (~1800 training / ~1600 rest)
 const SAM_MFP_SCREENSHOTS: MfpScreenshotEntry[] = [
   { date: "2026-02-06", imageFile: "mfp-day5.png", calories: 1803, protein: 143, carbs: 191, fat: 52, notes: "Training day — calorie deficit" },
-  { date: "2026-03-03", imageFile: "mfp-day5.png", calories: 1820, protein: 146, carbs: 195, fat: 53, notes: "Training day — full diary" },
-  { date: "2026-03-17", imageFile: "mfp-day5.png", calories: 1809, protein: 144, carbs: 192, fat: 52, notes: "Training day — full diary" },
-  { date: "2026-04-07", imageFile: "mfp-day5.png", calories: 1796, protein: 142, carbs: 188, fat: 51, notes: "Training day — full diary" },
+  { date: "2026-03-03", imageFile: "mfp-day4.png", calories: 1820, protein: 146, carbs: 195, fat: 53, notes: "Training day — full diary" },
+  { date: "2026-03-17", imageFile: "mfp-day1.png", calories: 1809, protein: 144, carbs: 192, fat: 52, notes: "Training day — full diary" },
+  { date: "2026-04-07", imageFile: "mfp-day2.png", calories: 1796, protein: 142, carbs: 188, fat: 51, notes: "Training day — full diary" },
   { date: "2026-05-05", imageFile: "mfp-day5.png", calories: 1812, protein: 145, carbs: 193, fat: 53, notes: "Training day — full diary" },
-  { date: "2026-05-28", imageFile: "mfp-day5.png", calories: 1798, protein: 141, carbs: 187, fat: 51, notes: "Training day — full diary" },
+  { date: "2026-05-28", imageFile: "mfp-day3.png", calories: 1798, protein: 141, carbs: 187, fat: 51, notes: "Training day — full diary" },
 ];
 
 // Jordan — athletic performance (~2600 kcal training / ~2400 rest)
 const JORDAN_MFP_SCREENSHOTS: MfpScreenshotEntry[] = [
   { date: "2026-02-03", imageFile: "mfp-day4.png", calories: 2592, protein: 194, carbs: 289, fat: 80, notes: "Training day — full diary" },
-  { date: "2026-03-17", imageFile: "mfp-day4.png", calories: 2607, protein: 196, carbs: 292, fat: 80, notes: "Training day — full diary" },
-  { date: "2026-04-21", imageFile: "mfp-day4.png", calories: 2618, protein: 195, carbs: 293, fat: 80, notes: "Training day — full diary" },
+  { date: "2026-03-17", imageFile: "mfp-day2.png", calories: 2607, protein: 196, carbs: 292, fat: 80, notes: "Training day — full diary" },
+  { date: "2026-04-21", imageFile: "mfp-day5.png", calories: 2618, protein: 195, carbs: 293, fat: 80, notes: "Training day — full diary" },
   { date: "2026-05-19", imageFile: "mfp-day1.png", calories: 2599, protein: 193, carbs: 287, fat: 79, notes: "Training day — full diary" },
   { date: "2026-06-02", imageFile: "mfp-day3.png", calories: 2415, protein: 191, carbs: 252, fat: 80, notes: "Rest day — full diary" },
 ];

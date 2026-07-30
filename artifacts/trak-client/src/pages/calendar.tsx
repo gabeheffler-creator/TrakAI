@@ -35,7 +35,7 @@ import {
   CheckCircle2,
   Circle,
   ChevronLeft,
-  X,
+  ArrowLeft,
   CalendarDays,
   LayoutList,
   LayoutGrid,
@@ -397,7 +397,7 @@ function FullCalendarOverlay({ today, buildBlocks, onClose, onSelectDate }: Full
         className="absolute top-3 right-4 p-1.5 rounded-lg hover:bg-muted transition-colors z-10"
         aria-label="Close calendar"
       >
-        <X className="w-5 h-5" />
+        <ArrowLeft className="w-5 h-5" />
       </button>
 
       {/* Day-of-week labels */}
