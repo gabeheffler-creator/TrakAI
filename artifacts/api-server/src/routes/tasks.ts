@@ -23,6 +23,7 @@ function serializeTask(t: typeof clientTasksTable.$inferSelect) {
     rejectionReason: t.rejectionReason ?? null,
     alternativeText: t.alternativeText ?? null,
     altStatus: t.altStatus ?? null,
+    dueDate: t.dueDate ?? null,
     createdAt: t.createdAt.toISOString(),
     updatedAt: t.updatedAt.toISOString(),
   };
@@ -61,6 +62,58 @@ async function sendTaskPush(
   await sendPushToSubs(subs, payload, log);
 }
 
+// POST /api/clients/:clientId/tasks/:taskId/expire — client-side fires this when countdown hits 0
+router.post("/clients/:clientId/tasks/:taskId/expire", requireClientOwnership(), async (req, res) => {
+  try {
+    const clientId = Number(req.params.clientId);
+    const taskId   = Number(req.params.taskId);
+
+    const task = await verifyClientOwnsTask(clientId, taskId);
+    if (!task) { res.status(404).json({ error: "Task not found" }); return; }
+    // Only fire notifications once — if already completed/rejected, skip
+    if (task.status !== "accepted") { res.json({ ok: true }); return; }
+
+    if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
+      res.json({ ok: true }); return;
+    }
+
+    const [client] = await db.select().from(clientsTable).where(eq(clientsTable.id, clientId));
+
+    // Push to client
+    const clientSubs = await db.select().from(pushSubscriptionsTable).where(
+      and(eq(pushSubscriptionsTable.role, "client"), eq(pushSubscriptionsTable.clientId, clientId))
+    );
+    if (clientSubs.length > 0) {
+      await sendPushToSubs(clientSubs, JSON.stringify({
+        title: "Time's up!",
+        body: "You didn't complete your task. What's going on?",
+        tag: `task-expire-client-${taskId}`,
+        url: "/client/",
+      }), req.log);
+    }
+
+    // Push to all coach subscriptions
+    if (client) {
+      const coachSubs = await db.select().from(pushSubscriptionsTable).where(
+        eq(pushSubscriptionsTable.role, "coach")
+      );
+      if (coachSubs.length > 0) {
+        await sendPushToSubs(coachSubs, JSON.stringify({
+          title: "Missed task",
+          body: `${client.name} didn't complete their task.`,
+          tag: `task-expire-coach-${taskId}`,
+          url: `/messages/${clientId}`,
+        }), req.log);
+      }
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    req.log.error(err);
+    res.status(500).json({ error: "Failed to send expiry notification" });
+  }
+});
+
 // GET /api/clients/:clientId/tasks — list all tasks for a client (coach only, newest first)
 router.get("/clients/:clientId/tasks", requireCoachAuth, async (req, res) => {
   try {
@@ -89,12 +142,16 @@ router.post("/clients/:clientId/tasks", requireCoachAuth, async (req, res) => {
       res.status(404).json({ error: "Client not found" });
       return;
     }
-    const body = z.object({ text: z.string().min(1).max(2000) }).parse(req.body);
+    const body = z.object({
+      text: z.string().min(1).max(2000),
+      dueDate: z.string().optional(),
+    }).parse(req.body);
 
     const [task] = await db.insert(clientTasksTable).values({
       clientId,
       text: body.text,
       status: "pending",
+      dueDate: body.dueDate ?? null,
     }).returning();
 
     await db.insert(messagesTable).values({

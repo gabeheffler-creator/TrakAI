@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useClientId } from "@/hooks/use-client-id";
 import { useUnitSystem } from "@/hooks/use-unit-system";
 import { useVideoCallStatus } from "@/hooks/use-video-call-status";
@@ -16,6 +16,97 @@ import { Button } from "@/components/ui/button";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { Link } from "wouter";
 import { Dumbbell, ClipboardList, TrendingUp, ChevronRight, Video, CheckCircle2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+function useCountdownMs(dueDate: string | null | undefined): number {
+  const [remaining, setRemaining] = useState<number>(() =>
+    dueDate ? new Date(dueDate).getTime() - Date.now() : Infinity
+  );
+  useEffect(() => {
+    if (!dueDate) return;
+    const id = setInterval(() => setRemaining(new Date(dueDate).getTime() - Date.now()), 50);
+    return () => clearInterval(id);
+  }, [dueDate]);
+  return remaining;
+}
+
+function formatCountdown(ms: number): string {
+  if (ms <= 0) return "00:00:00:000";
+  const h = Math.floor(ms / 3_600_000);
+  const m = Math.floor((ms % 3_600_000) / 60_000);
+  const s = Math.floor((ms % 60_000) / 1_000);
+  const msec = Math.floor(ms % 1_000);
+  return `${h.toString().padStart(2,"0")}:${m.toString().padStart(2,"0")}:${s.toString().padStart(2,"0")}:${msec.toString().padStart(3,"0")}`;
+}
+
+function DashTaskCard({
+  task,
+  clientId,
+  index,
+  onComplete,
+  disabled,
+}: {
+  task: { id: number; text: string; altStatus?: string | null; alternativeText?: string | null; dueDate?: string | null };
+  clientId: number;
+  index: number;
+  onComplete: () => void;
+  disabled: boolean;
+}) {
+  const remaining = useCountdownMs(task.dueDate);
+  const firedRef  = useRef(false);
+  const hasDue    = !!task.dueDate;
+  const overdue   = hasDue && remaining <= 0;
+  const label     = task.altStatus === "accepted" && task.alternativeText ? task.alternativeText : task.text;
+
+  useEffect(() => {
+    if (overdue && !firedRef.current) {
+      firedRef.current = true;
+      fetch(`/api/clients/${clientId}/tasks/${task.id}/expire`, { method: "POST" }).catch(() => {});
+    }
+  }, [overdue, clientId, task.id]);
+
+  return (
+    <Card
+      className={cn(
+        "border",
+        overdue
+          ? "border-orange-300 bg-orange-50 dark:bg-orange-950/30 dark:border-orange-700"
+          : "border-violet-200 bg-violet-50 dark:bg-violet-950/30 dark:border-violet-800"
+      )}
+      data-testid={index === 0 ? "card-active-task" : `card-active-task-${index}`}
+    >
+      <CardContent className="px-4 py-3 space-y-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            {overdue && (
+              <span className="text-[10px] font-bold uppercase tracking-widest text-orange-600 dark:text-orange-400 block mb-1">
+                Overdue
+              </span>
+            )}
+            <p className="text-sm leading-relaxed text-foreground">{label}</p>
+          </div>
+          {hasDue && (
+            <span className={cn(
+              "text-[10px] font-mono tabular-nums shrink-0 pt-0.5",
+              overdue ? "text-orange-600 dark:text-orange-400" : "text-muted-foreground"
+            )}>
+              {formatCountdown(remaining)}
+            </span>
+          )}
+        </div>
+        <Button
+          className={cn("w-full gap-2", overdue ? "bg-orange-600 hover:bg-orange-700" : "bg-emerald-600 hover:bg-emerald-700")}
+          disabled={disabled}
+          data-testid={index === 0 ? "button-mark-complete" : `button-mark-complete-${index}`}
+          onClick={onComplete}
+        >
+          <CheckCircle2 className="w-4 h-4" />
+          Mark Complete
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
 import { format, parseISO } from "date-fns";
 import { QueryErrorState } from "@/components/query-error-state";
 
@@ -148,36 +239,21 @@ export function Dashboard() {
             style={activeTasks.length === 6 ? { maxHeight: "calc(5 * 5.75rem + 4 * 0.75rem + 2.5rem)" } : undefined}
           >
             <div className="space-y-3">
-              {activeTasks.map((task, index) => {
-                const label = (task.altStatus === "accepted" && task.alternativeText)
-                  ? task.alternativeText
-                  : task.text;
-                return (
-                  <Card
-                    key={task.id}
-                    className="border-violet-200 bg-violet-50 dark:bg-violet-950/30 dark:border-violet-800"
-                    data-testid={index === 0 ? "card-active-task" : `card-active-task-${index}`}
-                  >
-                    <CardContent className="px-4 py-3 space-y-3">
-                      <p className="text-sm leading-relaxed text-foreground">{label}</p>
-                      <Button
-                        className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700"
-                        disabled={completeTask.isPending}
-                        data-testid={index === 0 ? "button-mark-complete" : `button-mark-complete-${index}`}
-                        onClick={() => {
-                          completeTask.mutate(
-                            { clientId: clientId!, taskId: task.id },
-                            { onSuccess: () => qc.invalidateQueries({ queryKey: getListActiveTasksQueryKey(clientId!) }) }
-                          );
-                        }}
-                      >
-                        <CheckCircle2 className="w-4 h-4" />
-                        Mark Complete
-                      </Button>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+              {activeTasks.map((task, index) => (
+                <DashTaskCard
+                  key={task.id}
+                  task={task}
+                  clientId={clientId!}
+                  index={index}
+                  disabled={completeTask.isPending}
+                  onComplete={() =>
+                    completeTask.mutate(
+                      { clientId: clientId!, taskId: task.id },
+                      { onSuccess: () => qc.invalidateQueries({ queryKey: getListActiveTasksQueryKey(clientId!) }) }
+                    )
+                  }
+                />
+              ))}
             </div>
             {activeTasks.length === 6 && (
               <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-background to-transparent pointer-events-none" />

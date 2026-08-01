@@ -31,10 +31,10 @@ router.get("/dashboard/coach", requireCoachAuth, async (req, res) => {
       : [{ value: 0 }];
 
     const clientSummaries = await Promise.all(clients.filter(c => c.status === "active").map(async (c) => {
-      const [lastWorkout] = await db.select({ date: workoutLogsTable.createdAt })
+      const [lastWorkout] = await db.select({ date: workoutLogsTable.date })
         .from(workoutLogsTable)
         .where(eq(workoutLogsTable.clientId, c.id))
-        .orderBy(desc(workoutLogsTable.createdAt))
+        .orderBy(desc(workoutLogsTable.date))
         .limit(1);
 
       const [{ dueCount }] = await db
@@ -50,7 +50,7 @@ router.get("/dashboard/coach", requireCoachAuth, async (req, res) => {
       return {
         clientId: c.id,
         name: c.name,
-        lastWorkout: lastWorkout?.date?.toISOString() ?? null,
+        lastWorkout: lastWorkout?.date ?? null,
         lastCheckin: null,
         assignmentsDue: Number(dueCount),
         unreadMessages: Number(msgCount),
@@ -59,12 +59,12 @@ router.get("/dashboard/coach", requireCoachAuth, async (req, res) => {
 
     const recentActivity = clientIds.length > 0
       ? await db.select({
-          createdAt: workoutLogsTable.createdAt,
+          date: workoutLogsTable.date,
           clientId: workoutLogsTable.clientId,
         })
           .from(workoutLogsTable)
           .where(inArray(workoutLogsTable.clientId, clientIds))
-          .orderBy(desc(workoutLogsTable.createdAt))
+          .orderBy(desc(workoutLogsTable.date))
           .limit(10)
       : [];
 
@@ -77,7 +77,7 @@ router.get("/dashboard/coach", requireCoachAuth, async (req, res) => {
         clientId: a.clientId,
         clientName: client?.name ?? "Unknown",
         description: "Logged a workout",
-        createdAt: a.createdAt.toISOString(),
+        createdAt: a.date,
       };
     }));
 
@@ -148,7 +148,7 @@ router.get("/dashboard/client/:clientId", requireClientOwnership(), async (req, 
 
     const recentWorkouts = await db.select().from(workoutLogsTable)
       .where(eq(workoutLogsTable.clientId, clientId))
-      .orderBy(desc(workoutLogsTable.createdAt))
+      .orderBy(desc(workoutLogsTable.date))
       .limit(5);
 
     const now = new Date();

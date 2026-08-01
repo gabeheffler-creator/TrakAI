@@ -214,6 +214,46 @@ const WORKOUT_SESSIONS = [
       ["Calf Raise",1,15,200],["Calf Raise",2,15,200],["Calf Raise",3,15,220],
     ],
   },
+  {
+    date: "2026-07-07", name: "Push Day", duration: 68,
+    sets: [
+      ["Barbell Bench Press",1,8,195],["Barbell Bench Press",2,8,195],["Barbell Bench Press",3,7,205],["Barbell Bench Press",4,6,205],
+      ["Incline Dumbbell Press",1,10,75],["Incline Dumbbell Press",2,10,75],["Incline Dumbbell Press",3,8,80],
+      ["Overhead Press",1,10,125],["Overhead Press",2,9,125],["Overhead Press",3,8,130],
+      ["Skull Crushers",1,12,85],["Skull Crushers",2,12,85],["Skull Crushers",3,10,95],
+      ["Cable Fly",1,15,45],["Cable Fly",2,15,45],["Cable Fly",3,12,50],
+    ],
+  },
+  {
+    date: "2026-07-14", name: "Pull Day", duration: 72,
+    sets: [
+      ["Pull-up",1,11,null],["Pull-up",2,10,null],["Pull-up",3,9,null],
+      ["T-Bar Row",1,8,138],["T-Bar Row",2,8,138],["T-Bar Row",3,8,148],
+      ["Lat Pulldown",1,12,168],["Lat Pulldown",2,12,168],["Lat Pulldown",3,10,178],
+      ["Hammer Curl",1,12,46],["Hammer Curl",2,12,46],["Hammer Curl",3,10,50],
+      ["Straight-Arm Pulldown",1,15,55],["Straight-Arm Pulldown",2,15,55],["Straight-Arm Pulldown",3,12,60],
+    ],
+  },
+  {
+    date: "2026-07-21", name: "Legs Day", duration: 80,
+    sets: [
+      ["Back Squat",1,8,248],["Back Squat",2,8,248],["Back Squat",3,6,268],["Back Squat",4,5,268],
+      ["Deadlift",1,6,300],["Deadlift",2,6,300],["Deadlift",3,5,320],["Deadlift",4,3,338],
+      ["Leg Press",1,12,405],["Leg Press",2,12,405],["Leg Press",3,10,445],
+      ["Bulgarian Split Squat",1,10,62],["Bulgarian Split Squat",2,10,62],["Bulgarian Split Squat",3,8,72],
+      ["Calf Raise",1,15,205],["Calf Raise",2,15,205],["Calf Raise",3,15,225],
+    ],
+  },
+  {
+    date: "2026-07-28", name: "Push Day", duration: 65,
+    sets: [
+      ["Barbell Bench Press",1,8,198],["Barbell Bench Press",2,8,198],["Barbell Bench Press",3,7,208],["Barbell Bench Press",4,6,208],
+      ["Incline Dumbbell Press",1,10,76],["Incline Dumbbell Press",2,10,76],["Incline Dumbbell Press",3,8,81],
+      ["Overhead Press",1,10,127],["Overhead Press",2,9,127],["Overhead Press",3,8,132],
+      ["Skull Crushers",1,12,86],["Skull Crushers",2,12,86],["Skull Crushers",3,10,96],
+      ["Cable Fly",1,15,46],["Cable Fly",2,15,46],["Cable Fly",3,12,51],
+    ],
+  },
 ];
 
 // ── Progress photos ───────────────────────────────────────────────────────────
@@ -295,6 +335,11 @@ const MESSAGES = (id: number) => [
   { clientId: id, sender: "coach",  content: "Ha, well-rested is good. Leg day today — let's see a new squat PR 💪", createdAt: new Date("2026-06-06T07:30:00Z") },
   { clientId: id, sender: "client", content: "265 for 3 on back squat! New all-time PR 🔥", createdAt: new Date("2026-06-06T20:00:00Z") },
   { clientId: id, sender: "coach",  content: "Let's go!! That's what consistent training looks like. Log your nutrition tonight and we'll plan next week.", createdAt: new Date("2026-06-06T20:15:00Z") },
+  { clientId: id, sender: "client", content: "Back at it after a couple weeks off. Energy is high again — hit a solid push session today.", createdAt: new Date("2026-07-07T21:00:00Z") },
+  { clientId: id, sender: "coach",  content: "Good to hear it. Stay consistent through July and we'll hit a new squat PR before August.", createdAt: new Date("2026-07-08T08:30:00Z") },
+  { clientId: id, sender: "client", content: "Legs day felt strong today. Hit 268 on squat — form felt dialled in.", createdAt: new Date("2026-07-21T20:30:00Z") },
+  { clientId: id, sender: "coach",  content: "Solid progress! You're up 3 lbs from June. Keep it consistent and we'll see 275 soon.", createdAt: new Date("2026-07-22T09:00:00Z") },
+  { clientId: id, sender: "client", content: "Push day done. Bench is moving well — 208 for sets of 6 now.", createdAt: new Date("2026-07-28T20:00:00Z") },
 ];
 
 // ── Assignments ───────────────────────────────────────────────────────────────
@@ -302,8 +347,8 @@ const ASSIGNMENTS = (id: number) => [
   { clientId: id, title: "Track sleep every night for a week", type: "habit", body: "Log your sleep quality and hours each morning using the Sleep tab.", status: "completed", dueDate: "2026-06-01", completedAt: new Date("2026-06-01T22:00:00Z") },
   { clientId: id, title: "Hit protein goal 5 out of 7 days",  type: "habit", body: "Aim for 200g+ protein on at least 5 days this week.", status: "completed", dueDate: "2026-05-31", completedAt: new Date("2026-05-31T21:00:00Z") },
   { clientId: id, title: "Submit check-in photos by Sunday",  type: "task",  body: "Take front and back progress photos in the same lighting and pose as last time.", status: "completed", dueDate: "2026-03-17", completedAt: new Date("2026-03-17T09:15:00Z") },
-  { clientId: id, title: "Drink 100 oz of water daily",       type: "habit", body: "Use the Nutrition tab to log your water intake each day.", status: "pending", dueDate: "2026-07-06" },
-  { clientId: id, title: "Complete all 3 PPL sessions this week", type: "task", body: "Push, Pull, and Legs — all three before the week ends.", status: "pending", dueDate: "2026-07-12" },
+  { clientId: id, title: "Drink 100 oz of water daily",       type: "habit", body: "Use the Nutrition tab to log your water intake each day.", status: "completed", dueDate: "2026-07-06", completedAt: new Date("2026-07-06T21:00:00Z") },
+  { clientId: id, title: "Complete all 3 PPL sessions this week", type: "task", body: "Push, Pull, and Legs — all three before the week ends.", status: "completed", dueDate: "2026-07-12", completedAt: new Date("2026-07-12T19:45:00Z") },
 ];
 
 // ── Completed + pending client tasks ──────────────────────────────────────────
@@ -459,6 +504,30 @@ const SAM_WORKOUT_SESSIONS = [
       ["Hammer Curl",1,15,30],["Hammer Curl",2,15,30],["Hammer Curl",3,12,32],
     ],
   },
+  {
+    date: "2026-07-07", name: "Legs Day", duration: 53,
+    sets: [
+      ["Leg Press",1,15,230],["Leg Press",2,15,230],["Leg Press",3,12,250],
+      ["Bulgarian Split Squat",1,12,35],["Bulgarian Split Squat",2,12,35],["Bulgarian Split Squat",3,10,38],
+      ["Calf Raise",1,20,130],["Calf Raise",2,20,130],["Calf Raise",3,18,140],
+    ],
+  },
+  {
+    date: "2026-07-14", name: "Push Day", duration: 50,
+    sets: [
+      ["Bench Press",1,12,110],["Bench Press",2,12,110],["Bench Press",3,10,112],
+      ["Overhead Press",1,12,65],["Overhead Press",2,12,65],["Overhead Press",3,10,68],
+      ["Cable Fly",1,15,40],["Cable Fly",2,15,40],["Cable Fly",3,12,43],
+    ],
+  },
+  {
+    date: "2026-07-21", name: "Pull Day", duration: 48,
+    sets: [
+      ["Lat Pulldown",1,12,108],["Lat Pulldown",2,12,108],["Lat Pulldown",3,10,118],
+      ["T-Bar Row",1,12,83],["T-Bar Row",2,12,83],["T-Bar Row",3,10,88],
+      ["Hammer Curl",1,15,32],["Hammer Curl",2,15,32],["Hammer Curl",3,12,34],
+    ],
+  },
 ];
 
 const SAM_NUTRITION_GOALS = (id: number) => [
@@ -513,14 +582,18 @@ const SAM_MESSAGES = (id: number) => [
   { clientId: id, sender: "coach",  content: "Amazing! Halfway to goal weight and you're getting stronger. Let's push for 157 by June.", createdAt: new Date("2026-04-22T09:00:00Z") },
   { clientId: id, sender: "client", content: "Hit 157.4 today 🎉 So close to goal!", createdAt: new Date("2026-06-02T08:00:00Z") },
   { clientId: id, sender: "coach",  content: "Incredible consistency Sam. 8 lbs down in 4 months and still getting stronger. Let's talk next phase.", createdAt: new Date("2026-06-02T10:00:00Z") },
+  { clientId: id, sender: "client", content: "Down to 156.8! Hit goal weight. What's the plan for next phase?", createdAt: new Date("2026-07-07T08:00:00Z") },
+  { clientId: id, sender: "coach",  content: "Amazing work Sam! Switching to maintenance + muscle build. Calories go up to 1900 on training days starting now.", createdAt: new Date("2026-07-07T10:00:00Z") },
+  { clientId: id, sender: "client", content: "Feeling strong this week. Bench went up by 2 lbs — loving the extra food!", createdAt: new Date("2026-07-14T19:00:00Z") },
+  { clientId: id, sender: "coach",  content: "That's the body recomp starting. Strength should keep climbing while you hold weight. Keep logging.", createdAt: new Date("2026-07-15T09:00:00Z") },
 ];
 
 const SAM_ASSIGNMENTS = (id: number) => [
   { clientId: id, title: "Log food every day for 2 weeks",      type: "habit", body: "Use the Nutrition tab to track all meals. Consistency builds the habit.", status: "completed", dueDate: "2026-02-17", completedAt: new Date("2026-02-17T20:00:00Z") },
   { clientId: id, title: "Hit water goal 5 out of 7 days",      type: "habit", body: "Aim for 80 oz on rest days and 90 oz on training days.", status: "completed", dueDate: "2026-03-10", completedAt: new Date("2026-03-09T21:00:00Z") },
   { clientId: id, title: "Take mid-point progress photos",      type: "task",  body: "Same pose, same lighting as week 1. Compare them side by side.", status: "completed", dueDate: "2026-03-17", completedAt: new Date("2026-03-17T17:05:00Z") },
-  { clientId: id, title: "Stay in calorie deficit all week",    type: "habit", body: "Keep training days at 1800 and rest days at 1600. Log everything.", status: "pending", dueDate: "2026-07-11" },
-  { clientId: id, title: "Complete 3 sessions this week",       type: "task",  body: "Push, Pull, and Legs before the week ends.", status: "pending", dueDate: "2026-07-13" },
+  { clientId: id, title: "Stay in calorie deficit all week",    type: "habit", body: "Keep training days at 1800 and rest days at 1600. Log everything.", status: "completed", dueDate: "2026-07-11", completedAt: new Date("2026-07-11T20:30:00Z") },
+  { clientId: id, title: "Complete 3 sessions this week",       type: "task",  body: "Push, Pull, and Legs before the week ends.", status: "completed", dueDate: "2026-07-13", completedAt: new Date("2026-07-13T19:00:00Z") },
 ];
 
 const SAM_CLIENT_TASKS = (id: number) => [
@@ -698,6 +771,40 @@ const JORDAN_WORKOUT_SESSIONS = [
       ["Calf Raise",1,15,260],["Calf Raise",2,15,260],["Calf Raise",3,12,280],
     ],
   },
+  {
+    date: "2026-07-07", name: "Push Day", duration: 74,
+    sets: [
+      ["Bench Press",1,5,225],["Bench Press",2,5,225],["Bench Press",3,5,230],["Bench Press",4,3,240],
+      ["Overhead Press",1,5,143],["Overhead Press",2,5,143],["Overhead Press",3,5,148],
+      ["Cable Fly",1,12,63],["Cable Fly",2,12,63],["Cable Fly",3,10,68],
+    ],
+  },
+  {
+    date: "2026-07-14", name: "Pull Day", duration: 70,
+    sets: [
+      ["Pull-up",1,12,null],["Pull-up",2,11,null],["Pull-up",3,10,null],
+      ["T-Bar Row",1,6,173],["T-Bar Row",2,6,173],["T-Bar Row",3,5,183],
+      ["Lat Pulldown",1,10,192],["Lat Pulldown",2,10,192],["Lat Pulldown",3,8,202],
+      ["Hammer Curl",1,10,63],["Hammer Curl",2,10,63],["Hammer Curl",3,8,68],
+    ],
+  },
+  {
+    date: "2026-07-21", name: "Legs Day", duration: 85,
+    sets: [
+      ["Back Squat",1,5,300],["Back Squat",2,5,300],["Back Squat",3,5,315],["Back Squat",4,3,325],
+      ["Deadlift",1,4,360],["Deadlift",2,4,360],["Deadlift",3,3,385],
+      ["Leg Press",1,10,550],["Leg Press",2,10,550],["Leg Press",3,8,570],
+      ["Calf Raise",1,15,265],["Calf Raise",2,15,265],["Calf Raise",3,12,285],
+    ],
+  },
+  {
+    date: "2026-07-28", name: "Push Day", duration: 72,
+    sets: [
+      ["Bench Press",1,5,228],["Bench Press",2,5,228],["Bench Press",3,5,235],["Bench Press",4,3,245],
+      ["Overhead Press",1,5,145],["Overhead Press",2,5,145],["Overhead Press",3,5,150],
+      ["Cable Fly",1,12,65],["Cable Fly",2,12,65],["Cable Fly",3,10,70],
+    ],
+  },
 ];
 
 const JORDAN_NUTRITION_GOALS = (id: number) => [
@@ -753,14 +860,18 @@ const JORDAN_MESSAGES = (id: number) => [
   { clientId: id, sender: "coach",  content: "Ahead of schedule. If you keep this trajectory you'll comfortably hit 365+ at the meet. Deadlift is looking like your biggest PR opportunity.", createdAt: new Date("2026-05-20T09:00:00Z") },
   { clientId: id, sender: "client", content: "375 deadlift for 3 yesterday. Felt like I had more in the tank.", createdAt: new Date("2026-05-20T12:00:00Z") },
   { clientId: id, sender: "coach",  content: "Don't grind it in training — save the max for the meet. Let's taper properly in August. You're in great shape.", createdAt: new Date("2026-05-20T13:00:00Z") },
+  { clientId: id, sender: "client", content: "385 deadlift for 3 today. Felt like I had more in the tank — 400 is right there.", createdAt: new Date("2026-07-21T21:00:00Z") },
+  { clientId: id, sender: "coach",  content: "Huge lift Jordan! You're ahead of where we wanted to be. One more max-effort week, then we start the taper.", createdAt: new Date("2026-07-22T08:30:00Z") },
+  { clientId: id, sender: "client", content: "New back squat PR today — 325 for 3! September meet is going to be something special.", createdAt: new Date("2026-07-22T20:00:00Z") },
+  { clientId: id, sender: "coach",  content: "That's competition-ready strength. Lock in nutrition this week and stay consistent through the taper.", createdAt: new Date("2026-07-23T09:00:00Z") },
 ];
 
 const JORDAN_ASSIGNMENTS = (id: number) => [
   { clientId: id, title: "Track macros every training day",        type: "habit", body: "Hit the 2600 kcal and 195g protein target on every session day. Log it all.", status: "completed", dueDate: "2026-02-28", completedAt: new Date("2026-02-27T21:00:00Z") },
   { clientId: id, title: "Achieve 8h sleep 5 nights/week",         type: "habit", body: "Sleep is your recovery tool. Log quality each morning.", status: "completed", dueDate: "2026-03-15", completedAt: new Date("2026-03-14T22:00:00Z") },
   { clientId: id, title: "Hit a squat PR",                          type: "task",  body: "Log a new 5-rep max on back squat, heavier than your last best.", status: "completed", dueDate: "2026-04-30", completedAt: new Date("2026-04-21T21:00:00Z") },
-  { clientId: id, title: "Log every workout session this month",   type: "habit", body: "Use the workout tracker for all sessions — sets, reps, and weight.", status: "pending", dueDate: "2026-07-31" },
-  { clientId: id, title: "Hit a deadlift PR before August",        type: "task",  body: "Target 395+ lbs for 1 rep before the taper begins.", status: "pending", dueDate: "2026-07-31" },
+  { clientId: id, title: "Log every workout session this month",   type: "habit", body: "Use the workout tracker for all sessions — sets, reps, and weight.", status: "completed", dueDate: "2026-07-31", completedAt: new Date("2026-07-28T20:30:00Z") },
+  { clientId: id, title: "Hit a deadlift PR before August",        type: "task",  body: "Target 395+ lbs for 1 rep before the taper begins.", status: "completed", dueDate: "2026-07-31", completedAt: new Date("2026-07-21T19:00:00Z") },
 ];
 
 const SAM_PHOTO_FILES = [

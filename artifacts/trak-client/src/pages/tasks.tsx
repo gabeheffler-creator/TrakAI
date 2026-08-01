@@ -11,6 +11,128 @@ import { ClipboardList, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { QueryErrorState } from "@/components/query-error-state";
+import { useState, useEffect, useRef } from "react";
+import { cn } from "@/lib/utils";
+
+// ── Countdown logic ───────────────────────────────────────────────────────────
+
+function useCountdownMs(dueDate: string | null | undefined): number {
+  const [remaining, setRemaining] = useState<number>(() =>
+    dueDate ? new Date(dueDate).getTime() - Date.now() : Infinity
+  );
+
+  useEffect(() => {
+    if (!dueDate) return;
+    const id = setInterval(() => {
+      setRemaining(new Date(dueDate).getTime() - Date.now());
+    }, 50);
+    return () => clearInterval(id);
+  }, [dueDate]);
+
+  return remaining;
+}
+
+function formatCountdown(ms: number): string {
+  if (ms <= 0) return "00:00:00:000";
+  const h    = Math.floor(ms / 3_600_000);
+  const m    = Math.floor((ms % 3_600_000) / 60_000);
+  const s    = Math.floor((ms % 60_000) / 1_000);
+  const msec = Math.floor(ms % 1_000);
+  return [
+    h.toString().padStart(2, "0"),
+    m.toString().padStart(2, "0"),
+    s.toString().padStart(2, "0"),
+    msec.toString().padStart(3, "0"),
+  ].join(":");
+}
+
+// ── Per-task card with live countdown ────────────────────────────────────────
+
+function TaskCard({
+  task,
+  clientId,
+  index,
+  onComplete,
+  completeDisabled,
+}: {
+  task: {
+    id: number;
+    text: string;
+    status: string;
+    altStatus?: string | null;
+    alternativeText?: string | null;
+    dueDate?: string | null;
+  };
+  clientId: number;
+  index: number;
+  onComplete: () => void;
+  completeDisabled: boolean;
+}) {
+  const remaining = useCountdownMs(task.dueDate);
+  const firedRef  = useRef(false);
+
+  const hasDue  = !!task.dueDate;
+  const overdue = hasDue && remaining <= 0;
+  const label   = task.altStatus === "accepted" && task.alternativeText
+    ? task.alternativeText
+    : task.text;
+
+  // Fire the expire endpoint exactly once when the countdown hits zero
+  useEffect(() => {
+    if (overdue && !firedRef.current) {
+      firedRef.current = true;
+      fetch(`/api/clients/${clientId}/tasks/${task.id}/expire`, { method: "POST" }).catch(() => {});
+    }
+  }, [overdue, clientId, task.id]);
+
+  return (
+    <Card
+      className={cn(
+        "border",
+        overdue
+          ? "border-orange-300 bg-orange-50 dark:bg-orange-950/30 dark:border-orange-700"
+          : "border-violet-200 bg-violet-50 dark:bg-violet-950/30 dark:border-violet-800"
+      )}
+      data-testid={`card-task-${task.id}`}
+    >
+      <CardContent className="px-4 py-3 space-y-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            {overdue && (
+              <span className="text-[10px] font-bold uppercase tracking-widest text-orange-600 dark:text-orange-400 block mb-1">
+                Overdue
+              </span>
+            )}
+            <p className="text-sm leading-relaxed text-foreground">{label}</p>
+          </div>
+          {hasDue && (
+            <span className={cn(
+              "text-[10px] font-mono tabular-nums shrink-0 pt-0.5",
+              overdue ? "text-orange-600 dark:text-orange-400" : "text-muted-foreground"
+            )}>
+              {formatCountdown(remaining)}
+            </span>
+          )}
+        </div>
+
+        <Button
+          className={cn(
+            "w-full gap-2",
+            overdue ? "bg-orange-600 hover:bg-orange-700" : "bg-emerald-600 hover:bg-emerald-700"
+          )}
+          disabled={completeDisabled}
+          data-testid={index === 0 ? "button-mark-complete" : `button-mark-complete-${index}`}
+          onClick={onComplete}
+        >
+          <CheckCircle2 className="w-4 h-4" />
+          Mark Complete
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ── Page ─────────────────────────────────────────────────────────────────────
 
 export function TasksPage() {
   const { clientId } = useClientId();
@@ -22,8 +144,6 @@ export function TasksPage() {
   );
 
   const completeTask = useCompleteTask();
-
-  // Only show accepted (incomplete) tasks — completed, rejected, and pending are hidden
   const tasks = allTasks?.filter(t => t.status === "accepted") ?? [];
 
   if (!clientId) {
@@ -62,42 +182,26 @@ export function TasksPage() {
 
       {!isError && tasks.length > 0 && (
         <div className="space-y-3">
-          {tasks.map((task, index) => {
-            const label = task.altStatus === "accepted" && task.alternativeText
-              ? task.alternativeText
-              : task.text;
-
-            return (
-              <Card
-                key={task.id}
-                className="border-violet-200 bg-violet-50 dark:bg-violet-950/30 dark:border-violet-800"
-                data-testid={`card-task-${task.id}`}
-              >
-                <CardContent className="px-4 py-3 space-y-3">
-                  <p className="text-sm leading-relaxed text-foreground">{label}</p>
-                  <Button
-                    className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700"
-                    disabled={completeTask.isPending}
-                    data-testid={index === 0 ? "button-mark-complete" : `button-mark-complete-${index}`}
-                    onClick={() => {
-                      completeTask.mutate(
-                        { clientId: clientId!, taskId: task.id },
-                        {
-                          onSuccess: () => {
-                            qc.invalidateQueries({ queryKey: getListClientTaskHistoryQueryKey(clientId!) });
-                            qc.invalidateQueries({ queryKey: getListActiveTasksQueryKey(clientId!) });
-                          },
-                        }
-                      );
-                    }}
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    Mark Complete
-                  </Button>
-                </CardContent>
-              </Card>
-            );
-          })}
+          {tasks.map((task, index) => (
+            <TaskCard
+              key={task.id}
+              task={task}
+              clientId={clientId!}
+              index={index}
+              completeDisabled={completeTask.isPending}
+              onComplete={() =>
+                completeTask.mutate(
+                  { clientId: clientId!, taskId: task.id },
+                  {
+                    onSuccess: () => {
+                      qc.invalidateQueries({ queryKey: getListClientTaskHistoryQueryKey(clientId!) });
+                      qc.invalidateQueries({ queryKey: getListActiveTasksQueryKey(clientId!) });
+                    },
+                  }
+                )
+              }
+            />
+          ))}
         </div>
       )}
     </div>

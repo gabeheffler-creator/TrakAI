@@ -21,7 +21,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { Send, ArrowLeft, ClipboardList, Lightbulb } from "lucide-react";
+import { Send, ArrowLeft, ClipboardList, Lightbulb, Timer, ChevronUp, ChevronDown, CalendarDays } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatDistanceToNow, parseISO } from "date-fns";
 import { QueryErrorState } from "@/components/query-error-state";
 
@@ -254,6 +256,44 @@ function SuggestAlternativeDialog({
   );
 }
 
+function SpinnerInput({
+  value,
+  onChange,
+  min,
+  max,
+  onUp,
+  onDown,
+  label,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+  min: number;
+  max: number;
+  onUp: () => void;
+  onDown: () => void;
+  label: string;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <button type="button" onClick={onUp} className="p-1 rounded hover:bg-muted transition-colors">
+        <ChevronUp className="w-4 h-4" />
+      </button>
+      <input
+        type="number"
+        min={min}
+        max={max}
+        value={value.toString().padStart(2, "0")}
+        onChange={e => onChange(Math.max(min, Math.min(max, Number(e.target.value))))}
+        className="w-14 text-center text-xl font-mono border rounded px-2 py-1.5 bg-background focus:outline-none focus:ring-2 focus:ring-violet-400"
+      />
+      <button type="button" onClick={onDown} className="p-1 rounded hover:bg-muted transition-colors">
+        <ChevronDown className="w-4 h-4" />
+      </button>
+      <span className="text-[10px] text-muted-foreground uppercase tracking-wide">{label}</span>
+    </div>
+  );
+}
+
 function AssignTaskDialog({
   open,
   onClose,
@@ -266,17 +306,68 @@ function AssignTaskDialog({
   onDone: () => void;
 }) {
   const [text, setText] = useState("");
+  const [timeLimitEnabled, setTimeLimitEnabled] = useState(false);
+  const [mode, setMode] = useState<"timer" | "deadline">("timer");
+  // Timer mode
+  const [timerHours, setTimerHours] = useState(1);
+  const [timerMinutes, setTimerMinutes] = useState(0);
+  // Deadline mode
+  const [deadlineDate, setDeadlineDate] = useState<Date | undefined>(undefined);
+  const [deadlineHour, setDeadlineHour] = useState(9);
+  const [deadlineMinute, setDeadlineMinute] = useState(0);
+  const [calOpen, setCalOpen] = useState(false);
   const assignTask = useAssignTask();
 
   useEffect(() => {
-    if (!open) setText("");
+    if (!open) {
+      setText("");
+      setTimeLimitEnabled(false);
+      setMode("timer");
+      setTimerHours(1);
+      setTimerMinutes(0);
+      setDeadlineDate(undefined);
+      setDeadlineHour(9);
+      setDeadlineMinute(0);
+      setCalOpen(false);
+    }
   }, [open]);
+
+  const adjustTimerHours = (delta: number) =>
+    setTimerHours(h => Math.max(0, Math.min(99, h + delta)));
+
+  const adjustTimerMinutes = (delta: number) =>
+    setTimerMinutes(m => {
+      const next = m + delta;
+      if (next < 0)  { adjustTimerHours(-1); return 59; }
+      if (next >= 60) { adjustTimerHours(1);  return 0; }
+      return next;
+    });
+
+  const adjustDeadlineHour   = (d: number) => setDeadlineHour(h => (h + d + 24) % 24);
+  const adjustDeadlineMinute = (d: number) => setDeadlineMinute(m => (m + d + 60) % 60);
+
+  const computeDueDate = (): string | undefined => {
+    if (!timeLimitEnabled) return undefined;
+    if (mode === "timer") {
+      const ms = (timerHours * 3600 + timerMinutes * 60) * 1000;
+      if (ms <= 0) return undefined;
+      return new Date(Date.now() + ms).toISOString();
+    }
+    if (!deadlineDate) return undefined;
+    const d = new Date(deadlineDate);
+    d.setHours(deadlineHour, deadlineMinute, 0, 0);
+    return d.toISOString();
+  };
 
   const handleAssign = () => {
     const t = text.trim();
     if (!t) return;
-    assignTask.mutate({ clientId, data: { text: t } }, { onSuccess: onDone });
+    const dueDate = computeDueDate();
+    assignTask.mutate({ clientId, data: { text: t, dueDate } }, { onSuccess: onDone });
   };
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
   return (
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
@@ -284,18 +375,143 @@ function AssignTaskDialog({
         <DialogHeader>
           <DialogTitle>What's the task?</DialogTitle>
         </DialogHeader>
+
         <Textarea
           placeholder="Describe the task for your client…"
           value={text}
           onChange={e => setText(e.target.value)}
-          rows={4}
+          rows={3}
           className="resize-none"
           autoFocus
           data-testid="dialog-assign-task-textarea"
         />
+
+        {/* ── Set time limit section ─────────────────────────────── */}
+        <div className="rounded-lg border overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setTimeLimitEnabled(v => !v)}
+            className="w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium bg-muted/40 hover:bg-muted/60 transition-colors"
+          >
+            <span className="flex items-center gap-2 text-muted-foreground">
+              <Timer className="w-4 h-4" />
+              Set time limit
+            </span>
+            <span className={cn(
+              "text-[11px] font-semibold px-2 py-0.5 rounded-full",
+              timeLimitEnabled
+                ? "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300"
+                : "text-muted-foreground"
+            )}>
+              {timeLimitEnabled ? "On" : "Off"}
+            </span>
+          </button>
+
+          {timeLimitEnabled && (
+            <div className="px-4 pt-3 pb-4 border-t space-y-4">
+              {/* Mode toggle */}
+              <div className="flex rounded-md overflow-hidden border text-sm">
+                {(["timer", "deadline"] as const).map((m, i) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setMode(m)}
+                    className={cn(
+                      "flex-1 py-1.5 font-medium transition-colors capitalize",
+                      i > 0 && "border-l",
+                      mode === m
+                        ? "bg-violet-600 text-white"
+                        : "bg-background text-muted-foreground hover:bg-muted/40"
+                    )}
+                  >
+                    {m}
+                  </button>
+                ))}
+              </div>
+
+              {mode === "timer" && (
+                <div className="flex items-end justify-center gap-2">
+                  <SpinnerInput
+                    value={timerHours}
+                    onChange={setTimerHours}
+                    min={0} max={99}
+                    onUp={() => adjustTimerHours(1)}
+                    onDown={() => adjustTimerHours(-1)}
+                    label="hrs"
+                  />
+                  <span className="text-2xl font-bold text-muted-foreground pb-7">:</span>
+                  <SpinnerInput
+                    value={timerMinutes}
+                    onChange={setTimerMinutes}
+                    min={0} max={59}
+                    onUp={() => adjustTimerMinutes(1)}
+                    onDown={() => adjustTimerMinutes(-1)}
+                    label="min"
+                  />
+                </div>
+              )}
+
+              {mode === "deadline" && (
+                <div className="space-y-3">
+                  {/* Date picker */}
+                  <Popover open={calOpen} onOpenChange={setCalOpen}>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        className="w-full flex items-center justify-between border rounded-md px-3 py-2 text-sm hover:bg-muted/40 transition-colors"
+                      >
+                        <span className={deadlineDate ? "text-foreground" : "text-muted-foreground"}>
+                          {deadlineDate
+                            ? deadlineDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
+                            : "Pick a date"}
+                        </span>
+                        <CalendarDays className="w-4 h-4 text-muted-foreground" />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="p-0 w-auto" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={deadlineDate}
+                        onSelect={d => { setDeadlineDate(d); setCalOpen(false); }}
+                        disabled={d => d < today}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+
+                  {/* Time picker */}
+                  <div className="flex items-end justify-center gap-2">
+                    <SpinnerInput
+                      value={deadlineHour}
+                      onChange={setDeadlineHour}
+                      min={0} max={23}
+                      onUp={() => adjustDeadlineHour(1)}
+                      onDown={() => adjustDeadlineHour(-1)}
+                      label="hr"
+                    />
+                    <span className="text-2xl font-bold text-muted-foreground pb-7">:</span>
+                    <SpinnerInput
+                      value={deadlineMinute}
+                      onChange={setDeadlineMinute}
+                      min={0} max={59}
+                      onUp={() => adjustDeadlineMinute(1)}
+                      onDown={() => adjustDeadlineMinute(-1)}
+                      label="min"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         <DialogFooter className="gap-2">
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleAssign} disabled={!text.trim() || assignTask.isPending} data-testid="button-dialog-assign">
+          <Button
+            onClick={handleAssign}
+            disabled={!text.trim() || assignTask.isPending}
+            data-testid="button-dialog-assign"
+          >
             Assign
           </Button>
         </DialogFooter>

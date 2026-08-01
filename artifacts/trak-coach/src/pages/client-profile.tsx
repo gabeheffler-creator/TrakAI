@@ -801,7 +801,7 @@ export function ClientProfile() {
   const [noteContent, setNoteContent] = useState("");
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
   const [editingNoteContent, setEditingNoteContent] = useState("");
-  const [notesTimeframe, setNotesTimeframe] = useState("1m");
+  const [notesTimeframe, setNotesTimeframe] = useState("all");
   const [sortView, setSortView] = useState<"chronological" | "separated">("chronological");
 
   // Call log state

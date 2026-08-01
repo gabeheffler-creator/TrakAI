@@ -1032,6 +1032,8 @@ export interface AssignTaskInput {
      * @maxLength 2000
      */
   text: string;
+  /** ISO datetime string for the task deadline */
+  dueDate?: string;
 }
 
 export interface RejectTaskInput {
