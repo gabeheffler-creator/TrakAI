@@ -22,7 +22,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, Moon, BellRing, CheckCircle2, ArrowLeft, Copy } from "lucide-react";
+import { Plus, Trash2, Moon, BellRing, CheckCircle2, ArrowLeft, Copy, Check, ExternalLink } from "lucide-react";
 import { QueryErrorState } from "@/components/query-error-state";
 
 const sleepSchema = z.object({
@@ -107,6 +107,52 @@ const ALARM_APPS: AlarmApp[] = [
 
 const ALARM_STORAGE_KEY = "trak_connected_alarm_app"; // fallback cache only
 
+function getSetupInstructions(appId: string): { steps: string[] } | null {
+  switch (appId) {
+    case "alarmy":
+      return {
+        steps: [
+          "Open Alarmy and tap the alarm you use.",
+          "Tap Mission → choose Custom URL.",
+          "Paste the URL above → tap Save.",
+          "When your alarm fires and you complete the mission, TrakClient will open at your sleep log.",
+        ],
+      };
+    case "ios-clock":
+    case "bedtime":
+      return {
+        steps: [
+          "Open the Shortcuts app → Automation tab → tap +.",
+          "Choose Alarm → select your alarm → tap Next.",
+          "Tap Add Action → search for Open URLs → paste the URL above.",
+          "Tap Done. Dismiss the alarm as normal — Shortcuts will open TrakClient automatically.",
+        ],
+      };
+    case "sleep-cycle":
+      return {
+        steps: [
+          "Sleep Cycle tracks sleep automatically and doesn't support opening a custom URL on dismiss.",
+          "When you wake up, tap Open Sleep Cycle below, then come back here to log your sleep manually.",
+        ],
+      };
+    case "google-clock":
+      return {
+        steps: [
+          "Google Clock doesn't support opening a custom URL when an alarm fires.",
+          "When you wake up, open this app manually and log your sleep. You can also add a TrakClient shortcut to your home screen for quicker access.",
+        ],
+      };
+    default:
+      return {
+        steps: [
+          "Find your alarm app's 'Mission', 'Wake-up task', or 'Open URL on dismiss' setting.",
+          "Paste the URL above as the URL to open when the alarm fires.",
+          "Save and test with a short alarm — TrakClient should open at your sleep log.",
+        ],
+      };
+  }
+}
+
 // ─── Alarm sheet ─────────────────────────────────────────────────────────────
 
 function AlarmSheet({
@@ -122,6 +168,17 @@ function AlarmSheet({
 }) {
   const [confirmApp, setConfirmApp] = useState<AlarmApp | null>(null);
   const [connectedView, setConnectedView] = useState<AlarmApp | null>(null);
+  const [copied, setCopied] = useState(false);
+  const sleepUrl = typeof window !== "undefined"
+    ? `${window.location.origin}/client/sleep`
+    : "/client/sleep";
+
+  const handleCopyUrl = () => {
+    navigator.clipboard.writeText(sleepUrl).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {});
+  };
 
   const handleAppTap = (app: AlarmApp) => {
     setConfirmApp(app);
@@ -179,22 +236,55 @@ function AlarmSheet({
           </SheetHeader>
 
           {connectedView ? (
-            /* ── Post-connect confirmation view ── */
-            <div className="pb-4">
-              <div className="flex flex-col items-center text-center gap-3 py-6">
-                <span className="text-5xl">{connectedView.emoji}</span>
-                <CheckCircle2 className="w-8 h-8 text-primary" />
+            /* ── Setup instructions view ── */
+            <div className="pb-4 space-y-4">
+              <div className="flex items-center gap-3">
+                <span className="text-3xl">{connectedView.emoji}</span>
                 <div>
-                  <p className="font-semibold text-base">Connected!</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {connectedView.name} is linked. Your sleep log will open automatically when your alarm fires.
-                  </p>
+                  <p className="font-semibold text-sm">{connectedView.name} selected</p>
+                  <p className="text-xs text-muted-foreground">One manual step required to finish setup</p>
                 </div>
               </div>
 
-              <div className="flex flex-col gap-2 mt-2">
+              {/* Sleep URL + copy */}
+              <div className="rounded-lg border bg-muted/40 p-3 space-y-2">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Your sleep log URL</p>
+                <div className="flex items-center gap-2">
+                  <code className="text-xs flex-1 break-all text-foreground leading-relaxed">{sleepUrl}</code>
+                  <button
+                    type="button"
+                    onClick={handleCopyUrl}
+                    className="shrink-0 p-2 rounded-md border bg-background hover:bg-muted transition-colors"
+                    aria-label="Copy URL"
+                  >
+                    {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Per-app steps */}
+              {(() => {
+                const instructions = getSetupInstructions(connectedView.id);
+                if (!instructions) return null;
+                return (
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Setup steps</p>
+                    <ol className="space-y-2.5">
+                      {instructions.steps.map((step, i) => (
+                        <li key={i} className="flex gap-2 text-sm">
+                          <span className="font-bold text-primary shrink-0 w-4">{i + 1}.</span>
+                          <span className="text-muted-foreground leading-relaxed">{step}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                );
+              })()}
+
+              <div className="flex flex-col gap-2 pt-1">
                 {connectedView.appUrl && (
-                  <Button className="w-full" onClick={() => handleOpenApp(connectedView)}>
+                  <Button className="w-full gap-2" onClick={() => handleOpenApp(connectedView)}>
+                    <ExternalLink className="w-4 h-4" />
                     Open {connectedView.name}
                   </Button>
                 )}
@@ -207,7 +297,7 @@ function AlarmSheet({
             /* ── App picker ── */
             <div className="space-y-3 pb-4">
               <p className="text-sm text-muted-foreground">
-                Choose your alarm app. TrakClient will connect it automatically so you can log sleep the moment you wake up.
+                Choose your alarm app. After connecting, you'll get a URL and step-by-step instructions to paste into your alarm app so it opens your sleep log when you wake up.
               </p>
               <div className="grid grid-cols-2 gap-2 pt-1">
                 {ALARM_APPS.map(app => (
@@ -245,8 +335,8 @@ function AlarmSheet({
             </AlertDialogTitle>
             <AlertDialogDescription>
               {confirmApp?.appUrl
-                ? `${confirmApp.name} will open so you can finish the setup. When your alarm fires, you'll be taken straight to your sleep log.`
-                : "When your alarm fires, you'll be taken straight to your sleep log."}
+                ? `We'll save ${confirmApp.name} as your alarm app and show you exactly how to set it up so it opens your sleep log when you wake up.`
+                : `We'll save ${confirmApp?.name ?? "this app"} as your alarm app and show you the setup steps.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
