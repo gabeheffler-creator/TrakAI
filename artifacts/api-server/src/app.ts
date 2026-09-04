@@ -37,13 +37,31 @@ app.use(
   }),
 );
 
+const webAllowedOrigins = (process.env.WEB_ALLOWED_ORIGINS ?? "")
+  .split(",").map(origin => origin.trim()).filter(Boolean);
+const nativeAllowedOrigins = ["capacitor://localhost"];
+const corsAllowedOrigins = [...webAllowedOrigins, ...nativeAllowedOrigins];
+const nativeCredentialPaths = new Set([
+  "/api/auth/token/login",
+  "/api/auth/token/refresh",
+  "/api/auth/token/revoke",
+]);
+
 // Cookies are sent automatically by browsers: reject unsafe cross-origin
-// mutations. Explicit bearer clients are not vulnerable to that CSRF vector.
+// mutations. Native origins are CORS-enabled for bearer auth, but are not
+// trusted to submit cookie-authenticated mutations.
 app.use((req, res, next) => {
   if (!["GET", "HEAD", "OPTIONS"].includes(req.method) && !req.get("authorization")) {
     const origin = req.get("origin");
     const trustedSelf = `${req.protocol}://${req.get("host")}`;
-    if (origin && origin !== trustedSelf && !allowedOrigins.includes(origin)) {
+    const nativeBodyCredentialRequest = !!origin
+      && nativeAllowedOrigins.includes(origin)
+      && nativeCredentialPaths.has(req.path);
+    if (nativeBodyCredentialRequest) {
+      next();
+      return;
+    }
+    if (origin && origin !== trustedSelf && !webAllowedOrigins.includes(origin)) {
       res.status(403).json({ error: "Cross-origin cookie request rejected" });
       return;
     }
@@ -51,13 +69,11 @@ app.use((req, res, next) => {
   next();
 });
 
-const allowedOrigins = (process.env.WEB_ALLOWED_ORIGINS ?? "")
-  .split(",").map(origin => origin.trim()).filter(Boolean);
 app.use(cors({
   credentials: true,
   origin(origin, callback) {
     // no Origin is same-origin/non-browser traffic; never reflect arbitrary origins.
-    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    if (!origin || corsAllowedOrigins.includes(origin)) return callback(null, true);
     callback(null, false);
   },
 }));

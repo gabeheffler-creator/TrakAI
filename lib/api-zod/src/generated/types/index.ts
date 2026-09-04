@@ -74,6 +74,8 @@ export * from './messageMessageType';
 export * from './messageSender';
 export * from './nativeLoginInput';
 export * from './nativeLoginInputRole';
+export * from './nativePushTokenRegistration';
+export * from './nativePushTokenUnregistration';
 export * from './nativeTokenPair';
 export * from './nativeTokenPairRole';
 export * from './nutritionExtractionInput';

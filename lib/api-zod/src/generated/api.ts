@@ -73,7 +73,8 @@ export const TokenLoginResponse = zod.object({
   "refreshExpiresAt": zod.coerce.date(),
   "sessionId": zod.string().uuid(),
   "role": zod.enum(['coach', 'client']).optional(),
-  "id": zod.number().optional()
+  "id": zod.number().optional(),
+  "name": zod.string().optional()
 })
 
 
@@ -83,8 +84,10 @@ export const TokenLoginResponse = zod.object({
 
 
 
+
 export const RefreshTokenBody = zod.object({
-  "refreshToken": zod.string().min(1)
+  "refreshToken": zod.string().min(1),
+  "deviceToken": zod.string().min(1).optional().describe('Optional current APNs token to remove atomically during logout')
 })
 
 export const RefreshTokenResponse = zod.object({
@@ -94,7 +97,8 @@ export const RefreshTokenResponse = zod.object({
   "refreshExpiresAt": zod.coerce.date(),
   "sessionId": zod.string().uuid(),
   "role": zod.enum(['coach', 'client']).optional(),
-  "id": zod.number().optional()
+  "id": zod.number().optional(),
+  "name": zod.string().optional()
 })
 
 
@@ -104,8 +108,10 @@ export const RefreshTokenResponse = zod.object({
 
 
 
+
 export const RevokeTokenBody = zod.object({
-  "refreshToken": zod.string().min(1)
+  "refreshToken": zod.string().min(1),
+  "deviceToken": zod.string().min(1).optional().describe('Optional current APNs token to remove atomically during logout')
 })
 
 
@@ -1990,6 +1996,30 @@ export const SavePushSubscriptionBody = zod.object({
   "auth": zod.string(),
   "role": zod.enum(['coach', 'client']),
   "clientId": zod.number().optional()
+})
+
+
+/**
+ * @summary Register this authenticated actor's native APNs device token
+ */
+export const registerNativePushTokenBodyDeviceTokenMax = 512;
+
+
+
+export const RegisterNativePushTokenBody = zod.object({
+  "deviceToken": zod.string().min(1).max(registerNativePushTokenBodyDeviceTokenMax)
+})
+
+
+/**
+ * @summary Unregister this authenticated actor's native APNs device token
+ */
+export const unregisterNativePushTokenBodyDeviceTokenMax = 512;
+
+
+
+export const UnregisterNativePushTokenBody = zod.object({
+  "deviceToken": zod.string().min(1).max(unregisterNativePushTokenBodyDeviceTokenMax)
 })
 
 

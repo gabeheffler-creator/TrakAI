@@ -80,17 +80,25 @@ export async function consumeActionToken(token: string, purpose: string) {
 }
 
 /** Locks and validates a native refresh credential before a caller revokes it. */
-export async function revokeNativeRefreshToken(refreshToken: string): Promise<boolean> {
+export async function revokeNativeRefreshToken(refreshToken: string, deviceToken?: string): Promise<boolean> {
   const parsed = parseRefreshToken(refreshToken);
   if (!parsed) return false;
   const client = await pool.connect();
   try {
     await client.query("begin");
-    const result = await client.query("select refresh_token_hash, refresh_expires_at, revoked_at, kind from auth_sessions where id=$1 for update", [parsed.sessionId]);
+    const result = await client.query("select refresh_token_hash, refresh_expires_at, revoked_at, kind, actor_type, actor_id from auth_sessions where id=$1 for update", [parsed.sessionId]);
     const row = result.rows[0];
     const valid = row?.kind === "native" && !row.revoked_at && new Date(row.refresh_expires_at).getTime() > Date.now() &&
       safeEqualHash(row.refresh_token_hash ?? "", tokenHash(parsed.secret));
-    if (valid) await client.query("update auth_sessions set revoked_at=now() where id=$1", [parsed.sessionId]);
+    if (valid) {
+      await client.query("update auth_sessions set revoked_at=now() where id=$1", [parsed.sessionId]);
+      if (deviceToken) {
+        await client.query(
+          "delete from native_push_tokens where device_token=$1 and actor_type=$2 and actor_id=$3",
+          [deviceToken, row.actor_type, row.actor_id],
+        );
+      }
+    }
     await client.query("commit");
     return valid;
   } catch (error) { await client.query("rollback"); throw error; } finally { client.release(); }

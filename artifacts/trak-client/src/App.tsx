@@ -29,7 +29,11 @@ import { VerifyEmailPage } from "@/pages/verify-email";
 import { InviteRegistrationPage } from "@/pages/invite-registration";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 
-const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+// Native Capacitor builds use a relative asset base ("./"), but Wouter route
+// bases must be URL paths. Treat that asset-only value as the root route.
+const basePath = import.meta.env.BASE_URL === "./"
+  ? ""
+  : import.meta.env.BASE_URL.replace(/\/$/, "");
 
 const queryClient = new QueryClient();
 

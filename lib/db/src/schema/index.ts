@@ -10,6 +10,7 @@ export * from "./progress_photos";
 export * from "./assignments";
 export * from "./messages";
 export * from "./push_subscriptions";
+export * from "./native_push_tokens";
 export * from "./coach_notes";
 export * from "./call_logs";
 export * from "./nutrition_goals";

@@ -8,7 +8,7 @@
 > | Client 2 | `sam` | `sam` |
 > | Client 3 | `jordan` | `jordan` |
 
-> **Mobile note:** The mobile apps (`/trak-client-mobile`, `/trak-coach-mobile`) are full iframes of the web apps with `?mobile=1`. Every web test should also be verified on mobile unless marked **web-only**.
+> **Mobile note:** The client and coach mobile artifacts directly bundle their corresponding React application; they do not use iframes. Browser previews continue to use the normal web authentication flow. Native iOS builds require `VITE_NATIVE_API_BASE_URL`, keep rotating refresh credentials in the app-specific Keychain namespace, and use bearer authentication. Every web test should also be verified on mobile unless marked **web-only**.
 
 Mark each item ✅ pass / ❌ fail / ⚠️ partial as you go.
 

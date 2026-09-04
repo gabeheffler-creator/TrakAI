@@ -9,4 +9,9 @@
 export interface RefreshTokenInput {
   /** @minLength 1 */
   refreshToken: string;
+  /**
+     * Optional current APNs token to remove atomically during logout
+     * @minLength 1
+     */
+  deviceToken?: string;
 }

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { messagesTable, pushSubscriptionsTable, clientsTable, clientTasksTable } from "@workspace/db";
+import { messagesTable, nativePushTokensTable, pushSubscriptionsTable, clientsTable, clientTasksTable } from "@workspace/db";
 import { eq, isNull, and, sql, count, desc, inArray } from "drizzle-orm";
 import {
   ListMessagesParams,
@@ -8,10 +8,12 @@ import {
   SendMessageBody,
   MarkMessagesReadParams,
   MarkMessagesReadBody,
+  RegisterNativePushTokenBody,
   SavePushSubscriptionBody,
+  UnregisterNativePushTokenBody,
 } from "@workspace/api-zod";
-import { requireCoachAuth, requireClientOwnership } from "../middlewares/auth";
-import { sendPushToSubs } from "../lib/push";
+import { requireAuth, requireCoachAuth, requireClientOwnership } from "../middlewares/auth";
+import { sendNativePushToActors, sendPushToSubs } from "../lib/push";
 
 const router = Router();
 
@@ -165,22 +167,22 @@ router.get("/coach/unread-count", requireCoachAuth, async (req, res) => {
   }
 });
 
-router.post("/push-subscriptions", async (req, res) => {
+router.post("/push-subscriptions", requireAuth, async (req, res) => {
   try {
-    if (!req.session?.coachId && !req.session?.clientId) {
-      res.status(401).json({ error: "Unauthorized" });
-      return;
-    }
     const body = SavePushSubscriptionBody.parse(req.body);
+    const actor = req.actor!;
+    const owner = actor.type === "coach"
+      ? { role: "coach", clientId: null }
+      : { role: "client", clientId: actor.client.id };
     await db.insert(pushSubscriptionsTable).values({
       endpoint: body.endpoint,
       p256dh: body.p256dh,
       auth: body.auth,
-      role: body.role,
-      clientId: body.clientId ?? null,
+      role: owner.role,
+      clientId: owner.clientId,
     }).onConflictDoUpdate({
       target: pushSubscriptionsTable.endpoint,
-      set: { p256dh: body.p256dh, auth: body.auth, role: body.role, clientId: body.clientId ?? null },
+      set: { p256dh: body.p256dh, auth: body.auth, role: owner.role, clientId: owner.clientId },
     });
     res.status(201).json({ ok: true });
   } catch (err) {
@@ -189,8 +191,52 @@ router.post("/push-subscriptions", async (req, res) => {
   }
 });
 
+// Native device ownership is derived exclusively from the authenticated actor;
+// callers cannot register a device on behalf of another coach or client.
+router.post("/push-tokens", requireAuth, async (req, res) => {
+  try {
+    const body = RegisterNativePushTokenBody.parse(req.body);
+    const actor = req.actor!;
+    const owner = actor.type === "coach"
+      ? { type: "coach" as const, id: actor.coach.id }
+      : { type: "client" as const, id: actor.client.id };
+    await db.insert(nativePushTokensTable).values({
+      deviceToken: body.deviceToken,
+      actorType: owner.type,
+      actorId: owner.id,
+    }).onConflictDoUpdate({
+      target: nativePushTokensTable.deviceToken,
+      set: { actorType: owner.type, actorId: owner.id, updatedAt: new Date() },
+    });
+    res.status(201).json({ ok: true });
+  } catch (err) {
+    req.log.error(err);
+    res.status(400).json({ error: "Failed to register native push token" });
+  }
+});
+
+router.delete("/push-tokens", requireAuth, async (req, res) => {
+  try {
+    const body = UnregisterNativePushTokenBody.parse(req.body);
+    const actor = req.actor!;
+    const owner = actor.type === "coach"
+      ? { type: "coach", id: actor.coach.id }
+      : { type: "client", id: actor.client.id };
+    // Include owner predicates so an authenticated actor can only remove its
+    // own token, even if it knows another device's token value.
+    await db.delete(nativePushTokensTable).where(and(
+      eq(nativePushTokensTable.deviceToken, body.deviceToken),
+      eq(nativePushTokensTable.actorType, owner.type),
+      eq(nativePushTokensTable.actorId, owner.id),
+    ));
+    res.status(204).end();
+  } catch (err) {
+    req.log.error(err);
+    res.status(400).json({ error: "Failed to unregister native push token" });
+  }
+});
+
 async function sendPushForMessage(clientId: number, sender: string, content: string, log: any) {
-  if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) return;
   const [client] = await db.select().from(clientsTable).where(eq(clientsTable.id, clientId));
   const clientName = client?.name ?? "Client";
   const recipientRole = sender === "coach" ? "client" : "coach";
@@ -200,20 +246,29 @@ async function sendPushForMessage(clientId: number, sender: string, content: str
   if (recipientRole === "client" && client?.status === "inactive") {
     return;
   }
+  const route = sender === "coach" ? "/client/messages" : `/messages/${clientId}`;
+  const title = sender === "coach" ? "Message from your coach" : `Message from ${clientName}`;
+  const payload = {
+    title,
+    body: content.slice(0, 120),
+    tag: `msg-${clientId}`,
+    url: route,
+    eventType: "message",
+    route,
+  };
   const subs = recipientRole === "client"
     ? await db.select().from(pushSubscriptionsTable).where(
         and(eq(pushSubscriptionsTable.role, "client"), eq(pushSubscriptionsTable.clientId, clientId))
       )
     : await db.select().from(pushSubscriptionsTable).where(eq(pushSubscriptionsTable.role, "coach"));
 
-  const payload = JSON.stringify({
-    title: sender === "coach" ? "Message from your coach" : `Message from ${clientName}`,
-    body: content.slice(0, 120),
-    tag: `msg-${clientId}`,
-    url: sender === "coach" ? "/client/messages" : `/messages/${clientId}`,
-  });
-
-  await sendPushToSubs(subs, payload, log);
+  if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+    await sendPushToSubs(subs, JSON.stringify(payload), log);
+  }
+  const recipient = recipientRole === "client"
+    ? { type: "client" as const, id: clientId }
+    : client ? { type: "coach" as const, id: client.coachId } : null;
+  if (recipient) await sendNativePushToActors([recipient], payload, log);
 }
 
 export default router;

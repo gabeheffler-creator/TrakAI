@@ -15,4 +15,5 @@ export interface NativeTokenPair {
   sessionId: string;
   role?: NativeTokenPairRole;
   id?: number;
+  name?: string;
 }

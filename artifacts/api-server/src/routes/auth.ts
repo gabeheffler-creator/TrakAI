@@ -60,7 +60,7 @@ router.post("/auth/token/login", authBurstLimit, async (req, res) => {
   if (!found || (found.type === "client" && found.row.status === "inactive")) { res.status(401).json({ error: "Invalid username or password" }); return; }
   if (found.row.emailVerificationRequired && !found.row.emailVerifiedAt) { res.status(403).json({ error: "Email verification required", code: "EMAIL_NOT_VERIFIED" }); return; }
   const tokens = await issueNativeTokens(found.type, found.row.id, metadata(req, parsed.data.deviceLabel));
-  res.json({ ...tokens, role: found.type, id: found.row.id });
+  res.json({ ...tokens, role: found.type, id: found.row.id, name: found.row.name });
 });
 router.post("/auth/token/refresh", authBurstLimit, async (req, res) => {
   const parsed = RefreshTokenBody.safeParse(req.body);
@@ -74,7 +74,10 @@ router.post("/auth/token/refresh", authBurstLimit, async (req, res) => {
 router.post("/auth/token/revoke", async (req, res) => {
   const parsed = RefreshTokenBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "refreshToken is required" }); return; }
-  if (!await revokeNativeRefreshToken(parsed.data.refreshToken)) { res.status(401).json({ error: "Invalid refresh token" }); return; }
+  const deviceToken = typeof req.body?.deviceToken === "string" && req.body.deviceToken.length > 0
+    ? req.body.deviceToken
+    : undefined;
+  if (!await revokeNativeRefreshToken(parsed.data.refreshToken, deviceToken)) { res.status(401).json({ error: "Invalid refresh token" }); return; }
   res.json({ ok: true });
 });
 router.post("/auth/logout", async (req, res) => {

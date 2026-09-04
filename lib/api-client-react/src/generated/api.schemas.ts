@@ -26,6 +26,11 @@ export interface NativeLoginInput {
 export interface RefreshTokenInput {
   /** @minLength 1 */
   refreshToken: string;
+  /**
+     * Optional current APNs token to remove atomically during logout
+     * @minLength 1
+     */
+  deviceToken?: string;
 }
 
 export type NativeTokenPairRole = typeof NativeTokenPairRole[keyof typeof NativeTokenPairRole];
@@ -44,6 +49,7 @@ export interface NativeTokenPair {
   sessionId: string;
   role?: NativeTokenPairRole;
   id?: number;
+  name?: string;
 }
 
 export type AuthSessionKind = typeof AuthSessionKind[keyof typeof AuthSessionKind];
@@ -1295,6 +1301,22 @@ export interface PushSubscriptionInput {
   auth: string;
   role: PushSubscriptionInputRole;
   clientId?: number;
+}
+
+export interface NativePushTokenRegistration {
+  /**
+     * @minLength 1
+     * @maxLength 512
+     */
+  deviceToken: string;
+}
+
+export interface NativePushTokenUnregistration {
+  /**
+     * @minLength 1
+     * @maxLength 512
+     */
+  deviceToken: string;
 }
 
 export type MessageInputSender = typeof MessageInputSender[keyof typeof MessageInputSender];

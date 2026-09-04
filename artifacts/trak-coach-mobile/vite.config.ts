@@ -4,7 +4,8 @@ import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
-const rawPort = process.env.PORT;
+const isNativeBuild = process.argv.includes("native") || process.env.npm_lifecycle_event === "build:native";
+const rawPort = process.env.PORT ?? (isNativeBuild ? "4173" : undefined);
 
 if (!rawPort) {
   throw new Error(
@@ -18,7 +19,7 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-const basePath = process.env.BASE_PATH;
+const basePath = process.env.BASE_PATH ?? (isNativeBuild ? "./" : undefined);
 
 if (!basePath) {
   throw new Error(
@@ -48,7 +49,7 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      "@": path.resolve(import.meta.dirname, "src"),
+      "@": path.resolve(import.meta.dirname, "..", "trak-coach", "src"),
       "@assets": path.resolve(import.meta.dirname, "..", "..", "attached_assets"),
     },
     dedupe: ["react", "react-dom"],
@@ -65,6 +66,7 @@ export default defineConfig({
     allowedHosts: true,
     fs: {
       strict: true,
+      allow: [path.resolve(import.meta.dirname, "..", "trak-coach"), path.resolve(import.meta.dirname, "..", "..")],
     },
   },
   preview: {

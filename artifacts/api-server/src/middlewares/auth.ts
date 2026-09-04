@@ -55,6 +55,14 @@ export const requireCoachAuth: RequestHandler = async (req, res, next) => {
 export const requireClientAuth: RequestHandler = async (req, res, next) => {
   try { const actor = await resolve(req); if (!actor) { res.status(401).json({ error: "Unauthorized" }); return; } if (denyInactive(res, actor)) return; if (actor.type !== "client") { res.status(403).json({ error: "Forbidden" }); return; } next(); } catch (error) { req.log.error(error); res.status(500).json({ error: "Failed to resolve identity" }); }
 };
+export const requireAuth: RequestHandler = async (req, res, next) => {
+  try {
+    const actor = await resolve(req);
+    if (!actor) { res.status(401).json({ error: "Unauthorized" }); return; }
+    if (denyInactive(res, actor)) return;
+    next();
+  } catch (error) { req.log.error(error); res.status(500).json({ error: "Failed to resolve identity" }); }
+};
 export const requireCoachOnly: RequestHandler = (req, res, next) => req.actor?.type === "coach" ? next() : res.status(403).json({ error: "Forbidden" });
 export const requireClientOwnership = (paramName = "clientId"): RequestHandler => async (req, res, next) => {
   try {

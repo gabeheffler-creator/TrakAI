@@ -4,7 +4,7 @@ import { clientTasksTable, messagesTable, clientsTable, pushSubscriptionsTable }
 import { eq, and, desc } from "drizzle-orm";
 import { requireClientOwnership, requireCoachAuth } from "../middlewares/auth";
 import { z } from "zod/v4";
-import { sendPushToSubs } from "../lib/push";
+import { sendNativePushToActors, sendPushToSubs } from "../lib/push";
 import { actorCaller, requestAiJson, sendAiError } from "../lib/ai-gateway";
 import { aiBurstLimit } from "../lib/rate-limit";
 
@@ -48,19 +48,23 @@ async function sendTaskPush(
   body: string,
   log: import("pino").Logger,
 ) {
-  if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) return;
   const [client] = await db.select().from(clientsTable).where(eq(clientsTable.id, clientId));
   if (!client || client.status === "inactive") return;
   const subs = await db.select().from(pushSubscriptionsTable).where(
     and(eq(pushSubscriptionsTable.role, "client"), eq(pushSubscriptionsTable.clientId, clientId))
   );
-  const payload = JSON.stringify({
+  const payload = {
     title,
     body: body.slice(0, 80),
     tag: `task-${clientId}`,
     url: "/client/messages",
-  });
-  await sendPushToSubs(subs, payload, log);
+    eventType: "task",
+    route: "/client/messages",
+  };
+  if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+    await sendPushToSubs(subs, JSON.stringify(payload), log);
+  }
+  await sendNativePushToActors([{ type: "client", id: clientId }], payload, log);
 }
 
 // POST /api/clients/:clientId/tasks/:taskId/expire — client-side fires this when countdown hits 0
@@ -74,38 +78,47 @@ router.post("/clients/:clientId/tasks/:taskId/expire", requireClientOwnership(),
     // Only fire notifications once — if already completed/rejected, skip
     if (task.status !== "accepted") { res.json({ ok: true }); return; }
 
-    if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
-      res.json({ ok: true }); return;
-    }
-
     const [client] = await db.select().from(clientsTable).where(eq(clientsTable.id, clientId));
 
     // Push to client
     const clientSubs = await db.select().from(pushSubscriptionsTable).where(
       and(eq(pushSubscriptionsTable.role, "client"), eq(pushSubscriptionsTable.clientId, clientId))
     );
-    if (clientSubs.length > 0) {
+    const clientPayload = {
+      title: "Time's up!",
+      body: "You didn't complete your task. What's going on?",
+      tag: `task-expire-client-${taskId}`,
+      url: "/client/",
+      eventType: "task_expired",
+      route: "/client/",
+    };
+    if (clientSubs.length > 0 && process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
       await sendPushToSubs(clientSubs, JSON.stringify({
-        title: "Time's up!",
-        body: "You didn't complete your task. What's going on?",
-        tag: `task-expire-client-${taskId}`,
-        url: "/client/",
+        ...clientPayload,
       }), req.log);
     }
+    await sendNativePushToActors([{ type: "client", id: clientId }], clientPayload, req.log);
 
     // Push to all coach subscriptions
     if (client) {
       const coachSubs = await db.select().from(pushSubscriptionsTable).where(
         eq(pushSubscriptionsTable.role, "coach")
       );
-      if (coachSubs.length > 0) {
+      const coachPayload = {
+        title: "Missed task",
+        body: `${client.name} didn't complete their task.`,
+        tag: `task-expire-coach-${taskId}`,
+        url: `/messages/${clientId}`,
+        eventType: "task_expired",
+        route: `/messages/${clientId}`,
+      };
+      if (coachSubs.length > 0 && process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
         await sendPushToSubs(coachSubs, JSON.stringify({
-          title: "Missed task",
-          body: `${client.name} didn't complete their task.`,
-          tag: `task-expire-coach-${taskId}`,
-          url: `/messages/${clientId}`,
+          ...coachPayload,
         }), req.log);
       }
+      // Native delivery is always scoped to this client's actual coach.
+      await sendNativePushToActors([{ type: "coach", id: client.coachId }], coachPayload, req.log);
     }
 
     res.json({ ok: true });
