@@ -15,3 +15,4 @@ export * from "./call_logs";
 export * from "./nutrition_goals";
 export * from "./coach_settings";
 export * from "./client_tasks";
+export * from "./ai_usage";

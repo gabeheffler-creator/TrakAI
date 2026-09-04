@@ -54,9 +54,10 @@ import {
   DeleteDayNutritionGoalParams,
 } from "@workspace/api-zod";
 import { requireCoachAuth, requireClientOwnership, requireCoachOnly } from "../middlewares/auth";
-import { openai } from "@workspace/integrations-openai-ai-server";
 import { z } from "zod/v4";
 import { cloneProgram, type DbOrTx } from "../services/clone-program";
+import { actorCaller, requestAiJson, sendAiError } from "../lib/ai-gateway";
+import { aiBurstLimit } from "../lib/rate-limit";
 
 if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
   webpush.setVapidDetails(
@@ -207,7 +208,7 @@ const GenerateAiProgramBody = z.object({
   clientId: z.coerce.number().int().positive().optional(),
 });
 
-router.post("/programs/generate-ai", requireCoachAuth, async (req, res) => {
+router.post("/programs/generate-ai", requireCoachAuth, aiBurstLimit, async (req, res) => {
   try {
     const parseResult = GenerateAiProgramBody.safeParse(req.body);
     if (!parseResult.success) {
@@ -293,36 +294,29 @@ Guidelines:
 - Sensible sets (2–5), reps as a string (e.g. "8-12", "5", "15-20"), rest in seconds (60–180)
 - dayNumber starts at 1`;
 
-    const aiResponse = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      max_completion_tokens: 4096,
-      response_format: { type: "json_object" },
+    type AiDay = { dayNumber: number; name: string; notes?: string | null; exercises: Array<{ exerciseId: number; sets: number; reps: string; restSeconds?: number }> };
+    type AiProgram = { name?: string; description?: string; durationWeeks?: number; days?: AiDay[] };
+    const parsed = await requestAiJson<AiProgram>({
+      caller: actorCaller(req.actor),
+      feature: "program_generation",
+      maxCompletionTokens: 4096,
+      responseFormat: { type: "json_object" },
       messages: [
         {
           role: "system",
-          content:
-            "You are an expert personal trainer and strength coach who designs evidence-based workout programs. Return only valid JSON, no markdown fences.",
+          content: "You are an expert personal trainer and strength coach who designs evidence-based workout programs. Return only valid JSON, no markdown fences.",
         },
         { role: "user", content: userPrompt },
       ],
+      parse: (content) => {
+        const result = JSON.parse(content.replace(/^```[a-z]*\n?/i, "").replace(/```\s*$/, "").trim()) as AiProgram;
+        if (!result.name || !Array.isArray(result.days) || result.days.length === 0) throw new Error("Incomplete program");
+        return result;
+      },
     });
 
-    const raw = aiResponse.choices[0]?.message?.content ?? "{}";
-    type AiDay = { dayNumber: number; name: string; notes?: string | null; exercises: Array<{ exerciseId: number; sets: number; reps: string; restSeconds?: number }> };
-    type AiProgram = { name?: string; description?: string; durationWeeks?: number; days?: AiDay[] };
-    let parsed: AiProgram = {};
-    try {
-      const clean = raw.replace(/^```[a-z]*\n?/i, "").replace(/```\s*$/, "").trim();
-      parsed = JSON.parse(clean) as AiProgram;
-    } catch {
-      req.log.warn({ raw }, "Failed to parse AI program response as JSON");
-      res.status(500).json({ error: "AI returned an invalid response. Please try again." });
-      return;
-    }
-
     if (!parsed.name || !Array.isArray(parsed.days) || parsed.days.length === 0) {
-      req.log.warn({ parsed }, "AI returned incomplete program structure");
-      res.status(500).json({ error: "AI returned an incomplete program. Please try again." });
+      res.status(502).json({ error: "AI returned an incomplete program. Please try again.", code: "AI_INVALID_RESPONSE" });
       return;
     }
 
@@ -405,6 +399,7 @@ Guidelines:
       days: createdDays,
     });
   } catch (err) {
+    if (sendAiError(res, err)) return;
     req.log.error(err);
     res.status(500).json({ error: "Failed to generate program" });
   }

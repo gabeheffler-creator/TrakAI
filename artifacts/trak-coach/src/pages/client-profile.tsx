@@ -80,6 +80,84 @@ import { QueryErrorState } from "@/components/query-error-state";
 import { VideoCall } from "@/components/video-call";
 import { ClientMeasurementsTab } from "@/components/client-measurements-tab";
 
+type AiErrorCode = "AI_TIMEOUT" | "AI_BURST_LIMIT" | "AI_DAILY_CAP" | "AI_PROVIDER_ERROR" | "AI_INVALID_RESPONSE" | "AI_CONFIG_ERROR" | "UNKNOWN";
+
+interface AiError {
+  error: string;
+  code: AiErrorCode | string;
+  retryAfterSeconds?: number;
+}
+
+function parseAiError(err: any): AiError | null {
+  if (!err) return null;
+  if (typeof err === "object" && err.data) {
+    return parseAiError(err.data);
+  }
+  if (typeof err === "object" && "code" in err && "error" in err) {
+    return err as AiError;
+  }
+  return null;
+}
+
+function AiErrorAlert({
+  error,
+  onRetry,
+  onManualFallback,
+  fallbackText,
+  fallbackExplanation
+}: {
+  error: AiError;
+  onRetry?: () => void;
+  onManualFallback?: () => void;
+  fallbackText?: string;
+  fallbackExplanation?: React.ReactNode;
+}) {
+  let title = "Generation Failed";
+  let description = error.error;
+
+  if (error.code === "AI_TIMEOUT") {
+    title = "Request Timed Out";
+    description = "The AI took too long to respond. You can try again or proceed manually.";
+  } else if (error.code === "AI_BURST_LIMIT") {
+    title = "Too Many Requests";
+    description = `Please wait ${error.retryAfterSeconds ?? 'a few'} seconds before trying again.`;
+  } else if (error.code === "AI_DAILY_CAP") {
+    title = "Daily Limit Reached";
+    description = "You have reached your AI usage limit for today. Please proceed manually.";
+  } else if (error.code === "AI_PROVIDER_ERROR" || error.code === "AI_INVALID_RESPONSE") {
+    title = "Service Unavailable";
+    description = "The AI service is currently experiencing issues. Please proceed manually.";
+  }
+
+  return (
+    <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-4 space-y-3">
+      <div>
+        <h4 className="text-sm font-semibold text-destructive">{title}</h4>
+        <p className="text-sm text-destructive/90 mt-1">{description}</p>
+        {fallbackExplanation && (
+          <div className="mt-2 text-sm text-destructive/90">
+            {fallbackExplanation}
+          </div>
+        )}
+      </div>
+      {(onRetry || onManualFallback) && (
+        <div className="flex gap-2">
+          {onRetry && error.code !== "AI_DAILY_CAP" && (
+            <Button variant="outline" size="sm" onClick={onRetry} className="border-destructive/30 text-destructive hover:bg-destructive/10">
+              Try Again
+            </Button>
+          )}
+          {onManualFallback && (
+            <Button variant="ghost" size="sm" onClick={onManualFallback} className="text-destructive hover:bg-destructive/10">
+              {fallbackText || "Continue Manually"}
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Vertical drum / scroll picker ────────────────────────────
 const ITEM_H = 44;
 const VISIBLE = 5; // must be odd; center = selected
@@ -668,13 +746,16 @@ export function ClientProfile() {
   const [programHistoryOpen, setProgramHistoryOpen] = useState(true);
   const [aiProgramMode, setAiProgramMode] = useState(false);
   const [aiGoalText, setAiGoalText] = useState("");
+  const [aiError, setAiError] = useState<AiError | null>(null);
   const generateAiProgram = useGenerateAiProgram();
   useEffect(() => {
     if (programDialogOpen) {
       setAiGoalText((client as { goal?: string } | undefined)?.goal ?? "");
+      setAiError(null);
     } else {
       setAiProgramMode(false);
       setAiGoalText("");
+      setAiError(null);
     }
   }, [programDialogOpen]);
   const [clientGoalEditOpen, setClientGoalEditOpen] = useState(false);
@@ -946,6 +1027,7 @@ export function ClientProfile() {
   };
 
   const handleGenerateAiProgram = () => {
+    setAiError(null);
     if (!aiGoalText.trim()) {
       toast({ title: "Please describe a training goal", variant: "destructive" });
       return;
@@ -960,9 +1042,25 @@ export function ClientProfile() {
           toast({ title: "Draft program built", description: "Review and approve it before assigning it." });
           setLocation(`/programs/${program.id}?clientId=${clientId}`);
         },
-        onError: () => toast({ title: "AI generation failed", description: "Please try again.", variant: "destructive" }),
+        onError: (err: any) => {
+          const parsed = parseAiError(err);
+          if (parsed) {
+            setAiError(parsed);
+          } else {
+            setAiError({ error: err instanceof Error ? err.message : "Failed to generate program. Please try again.", code: "UNKNOWN" });
+          }
+        },
       }
     );
+  };
+
+  const handleManualProgramFallback = () => {
+    sessionStorage.setItem("trak:manual-program-draft", JSON.stringify({
+      description: aiGoalText,
+      clientId,
+    }));
+    setProgramDialogOpen(false);
+    setLocation("/programs?new=manual");
   };
 
   if (clientError) {
@@ -1010,6 +1108,15 @@ export function ClientProfile() {
               rows={4}
             />
           </div>
+          {aiError && (
+            <AiErrorAlert
+              error={aiError}
+              onRetry={handleGenerateAiProgram}
+              onManualFallback={handleManualProgramFallback}
+              fallbackText="Create Program Manually"
+              fallbackExplanation={<p>Your training goal and client will carry over to the manual program form.</p>}
+            />
+          )}
           <Button
             className="w-full"
             onClick={handleGenerateAiProgram}

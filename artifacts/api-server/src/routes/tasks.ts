@@ -3,9 +3,10 @@ import { db } from "@workspace/db";
 import { clientTasksTable, messagesTable, clientsTable, pushSubscriptionsTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
 import { requireClientOwnership, requireCoachAuth } from "../middlewares/auth";
-import { openai } from "@workspace/integrations-openai-ai-server";
 import { z } from "zod/v4";
 import { sendPushToSubs } from "../lib/push";
+import { actorCaller, requestAiJson, sendAiError } from "../lib/ai-gateway";
+import { aiBurstLimit } from "../lib/rate-limit";
 
 const router = Router();
 
@@ -404,7 +405,7 @@ router.patch("/clients/:clientId/tasks/:taskId/leave", requireCoachAuth, async (
 });
 
 // GET /api/clients/:clientId/tasks/:taskId/ai-alternatives — AI-generated suggestions
-router.get("/clients/:clientId/tasks/:taskId/ai-alternatives", requireCoachAuth, async (req, res) => {
+router.get("/clients/:clientId/tasks/:taskId/ai-alternatives", requireCoachAuth, aiBurstLimit, async (req, res) => {
   try {
     const clientId = Number(req.params.clientId);
     const taskId = Number(req.params.taskId);
@@ -422,36 +423,27 @@ The client rejected it${task.rejectionReason ? ` with this reason: "${task.rejec
 Suggest exactly 3 concise alternative tasks the coach could assign instead.
 Return ONLY a JSON array of 3 strings, no markdown, no explanations. Example: ["Walk 20 min daily", "Do 10 bodyweight squats", "Stretch for 5 minutes"]`;
 
-    const aiRes = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      max_completion_tokens: 512,
-      response_format: { type: "json_object" },
+    const alternatives = await requestAiJson<string[]>({
+      caller: actorCaller(req.actor),
+      feature: "task_alternatives",
+      maxCompletionTokens: 512,
+      responseFormat: { type: "json_object" },
       messages: [
         { role: "system", content: "You are a helpful fitness coach assistant. Return only valid JSON." },
         { role: "user", content: prompt + '\n\nReturn format: {"alternatives": ["...", "...", "..."]}' },
       ],
+      parse: (content) => {
+        const result = JSON.parse(content) as { alternatives?: unknown };
+        if (!Array.isArray(result.alternatives) || result.alternatives.length !== 3 || !result.alternatives.every(a => typeof a === "string" && a.trim())) {
+          throw new Error("Invalid alternatives");
+        }
+        return result.alternatives;
+      },
     });
-
-    const raw = aiRes.choices[0]?.message?.content ?? "{}";
-    let alternatives: string[] = [];
-    try {
-      const parsed = JSON.parse(raw) as { alternatives?: string[] };
-      alternatives = Array.isArray(parsed.alternatives) ? parsed.alternatives.slice(0, 3) : [];
-    } catch {
-      req.log.warn({ raw }, "Failed to parse AI alternatives response");
-    }
-
-    if (alternatives.length < 3) {
-      alternatives = [
-        `Try ${task.text} for just 5 minutes`,
-        "Take a 10-minute walk instead",
-        "Do a lighter version of the original task",
-      ].slice(0, 3 - alternatives.length).concat(alternatives.slice(0, alternatives.length));
-      alternatives = alternatives.slice(0, 3);
-    }
 
     res.json({ alternatives });
   } catch (err) {
+    if (sendAiError(res, err)) return;
     req.log.error(err);
     res.status(500).json({ error: "Failed to generate alternatives" });
   }

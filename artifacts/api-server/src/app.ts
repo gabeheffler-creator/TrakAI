@@ -6,10 +6,12 @@ import path from "path";
 import { fileURLToPath } from "url";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { generalBurstLimit } from "./lib/rate-limit";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app: Express = express();
+app.set("trust proxy", 1);
 
 app.use(
   pinoHttp({
@@ -53,6 +55,7 @@ app.use(
 const assetsDir = path.resolve(__dirname, "../../../attached_assets");
 app.use("/api/assets", express.static(assetsDir));
 
+app.use("/api", generalBurstLimit);
 app.use("/api", router);
 
 export default app;

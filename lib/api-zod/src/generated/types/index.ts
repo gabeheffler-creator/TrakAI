@@ -66,6 +66,8 @@ export * from './messageInput';
 export * from './messageInputSender';
 export * from './messageMessageType';
 export * from './messageSender';
+export * from './nutritionExtractionInput';
+export * from './nutritionExtractionResult';
 export * from './nutritionLog';
 export * from './nutritionLogInput';
 export * from './program';

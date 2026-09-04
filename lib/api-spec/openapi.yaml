@@ -1503,6 +1503,37 @@ paths:
         "204":
           description: Deleted
 
+  /nutrition/extract:
+    post:
+      operationId: extractNutrition
+      tags: [nutrition]
+      summary: Extract visible nutrition totals from a food screenshot
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NutritionExtractionInput"
+      responses:
+        "200":
+          description: Extracted nutrition totals
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NutritionExtractionResult"
+        "400":
+          description: Image input is required
+        "401":
+          description: Client authentication required
+        "429":
+          description: Request or daily AI limit reached
+        "502":
+          description: AI returned an invalid response
+        "503":
+          description: AI service unavailable
+        "504":
+          description: AI request timed out
+
   # ── Client Nutrition Goal ─────────────────────────────────────────────────
   /clients/{clientId}/nutrition-goal/{dayType}:
     delete:
@@ -3486,6 +3517,28 @@ components:
           description: Water intake in millilitres
         notes:
           type: string
+
+    NutritionExtractionInput:
+      type: object
+      properties:
+        imageBase64:
+          type: string
+        imageUrl:
+          type: string
+        mimeType:
+          type: string
+      anyOf:
+        - required: [imageBase64]
+        - required: [imageUrl]
+    NutritionExtractionResult:
+      type: object
+      required: [calories, protein, carbs, fat, sodium]
+      properties:
+        calories: { type: ["number", "null"] }
+        protein: { type: ["number", "null"] }
+        carbs: { type: ["number", "null"] }
+        fat: { type: ["number", "null"] }
+        sodium: { type: ["number", "null"] }
 
     # ── Progress Photos ─────────────────────────────────────────────────────
     ProgressPhoto:

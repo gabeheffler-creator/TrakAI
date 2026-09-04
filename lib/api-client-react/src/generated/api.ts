@@ -58,6 +58,8 @@ import type {
   MeasurementInput,
   Message,
   MessageInput,
+  NutritionExtractionInput,
+  NutritionExtractionResult,
   NutritionLog,
   NutritionLogInput,
   Program,
@@ -4998,6 +5000,77 @@ export const useDeleteNutritionLog = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getDeleteNutritionLogMutationOptions(options));
+    }
+
+export const getExtractNutritionUrl = () => {
+
+
+
+
+  return `/api/nutrition/extract`
+}
+
+/**
+ * @summary Extract visible nutrition totals from a food screenshot
+ */
+export const extractNutrition = async (nutritionExtractionInput: NutritionExtractionInput, options?: RequestInit): Promise<NutritionExtractionResult> => {
+
+  return customFetch<NutritionExtractionResult>(getExtractNutritionUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      nutritionExtractionInput,)
+  }
+);}
+
+
+
+
+export const getExtractNutritionMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof extractNutrition>>, TError,{data: BodyType<NutritionExtractionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof extractNutrition>>, TError,{data: BodyType<NutritionExtractionInput>}, TContext> => {
+
+const mutationKey = ['extractNutrition'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof extractNutrition>>, {data: BodyType<NutritionExtractionInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  extractNutrition(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ExtractNutritionMutationResult = NonNullable<Awaited<ReturnType<typeof extractNutrition>>>
+    export type ExtractNutritionMutationBody = BodyType<NutritionExtractionInput>
+    export type ExtractNutritionMutationError = ErrorType<void>
+
+    /**
+ * @summary Extract visible nutrition totals from a food screenshot
+ */
+export const useExtractNutrition = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof extractNutrition>>, TError,{data: BodyType<NutritionExtractionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof extractNutrition>>,
+        TError,
+        {data: BodyType<NutritionExtractionInput>},
+        TContext
+      > => {
+      return useMutation(getExtractNutritionMutationOptions(options));
     }
 
 export const getDeleteClientNutritionGoalUrl = (clientId: number,

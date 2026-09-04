@@ -7,3 +7,4 @@
 - [Clerk web 401s: don't add token auth](clerk-web-401-troubleshooting.md) — for cookie-based web Clerk apps, fix 401 UX with retry/error states, not setAuthTokenGetter/Bearer tokens.
 - [Query error-state UI pattern](query-error-state-pattern.md) — standard convention for handling failed useList*/useGet* hooks across trak-coach/trak-client: per-app QueryErrorState component + isError/refetch/isFetching.
 - [Program approval lifecycle](program-approval-lifecycle.md) — preserve legacy assignments as approved, but require explicit approval for every newly created coach template before any assignment or client visibility.
+- [AI privacy and quota policy](ai-privacy-quota-policy.md) — AI usage auditing stores metadata only; daily caps count provider attempts per authenticated user, while burst limits remain a separate layer.

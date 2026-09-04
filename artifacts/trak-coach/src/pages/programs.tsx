@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   useListPrograms,
   useCreateProgram,
@@ -9,7 +9,7 @@ import {
   useListClients,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +23,67 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Trash2, ChevronRight, Dumbbell, Pencil, LayoutGrid, List, Sparkles, ArrowLeft, Loader2 } from "lucide-react";
+
+type AiErrorCode = "AI_TIMEOUT" | "AI_BURST_LIMIT" | "AI_DAILY_CAP" | "AI_PROVIDER_ERROR" | "AI_INVALID_RESPONSE" | "AI_CONFIG_ERROR" | "UNKNOWN";
+
+interface AiError {
+  error: string;
+  code: AiErrorCode | string;
+  retryAfterSeconds?: number;
+}
+
+function parseAiError(err: any): AiError | null {
+  if (!err) return null;
+  if (typeof err === "object" && err.data) {
+    return parseAiError(err.data);
+  }
+  if (typeof err === "object" && "code" in err && "error" in err) {
+    return err as AiError;
+  }
+  return null;
+}
+
+function AiErrorAlert({ error, onRetry, onManualFallback, fallbackText }: { error: AiError, onRetry?: () => void, onManualFallback?: () => void, fallbackText?: string }) {
+  let title = "Generation Failed";
+  let description = error.error;
+
+  if (error.code === "AI_TIMEOUT") {
+    title = "Request Timed Out";
+    description = "The AI took too long to respond. You can try again or proceed manually.";
+  } else if (error.code === "AI_BURST_LIMIT") {
+    title = "Too Many Requests";
+    description = `Please wait ${error.retryAfterSeconds ?? 'a few'} seconds before trying again.`;
+  } else if (error.code === "AI_DAILY_CAP") {
+    title = "Daily Limit Reached";
+    description = "You have reached your AI usage limit for today. Please proceed manually.";
+  } else if (error.code === "AI_PROVIDER_ERROR" || error.code === "AI_INVALID_RESPONSE") {
+    title = "Service Unavailable";
+    description = "The AI service is currently experiencing issues. Please proceed manually.";
+  }
+
+  return (
+    <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-4 space-y-3">
+      <div>
+        <h4 className="text-sm font-semibold text-destructive">{title}</h4>
+        <p className="text-sm text-destructive/90 mt-1">{description}</p>
+      </div>
+      {(onRetry || onManualFallback) && (
+        <div className="flex gap-2">
+          {onRetry && error.code !== "AI_DAILY_CAP" && (
+            <Button variant="outline" size="sm" onClick={onRetry} className="border-destructive/30 text-destructive hover:bg-destructive/10">
+              Try Again
+            </Button>
+          )}
+          {onManualFallback && (
+            <Button variant="ghost" size="sm" onClick={onManualFallback} className="text-destructive hover:bg-destructive/10">
+              {fallbackText || "Continue Manually"}
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const programSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -43,6 +104,7 @@ export function Programs() {
   const qc = useQueryClient();
   const { toast } = useToast();
   const [, navigate] = useLocation();
+  const search = useSearch();
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
@@ -52,6 +114,7 @@ export function Programs() {
   const [aiGoalText, setAiGoalText] = useState("");
   const [aiClientId, setAiClientId] = useState<string>("");
   const [aiDurationWeeks, setAiDurationWeeks] = useState<string>("");
+  const [aiError, setAiError] = useState<AiError | null>(null);
 
   const form = useForm<ProgramFormValues>({
     resolver: zodResolver(programSchema),
@@ -63,13 +126,36 @@ export function Programs() {
     defaultValues: { name: "", description: "", durationWeeks: undefined },
   });
 
+  useEffect(() => {
+    if (new URLSearchParams(search).get("new") !== "manual") return;
+    const stored = sessionStorage.getItem("trak:manual-program-draft");
+    if (!stored) return;
+    sessionStorage.removeItem("trak:manual-program-draft");
+    try {
+      const draft = JSON.parse(stored) as { description?: string; clientId?: number };
+      form.reset({
+        name: "",
+        description: draft.description ?? "",
+        durationWeeks: undefined,
+      });
+      setAiClientId(draft.clientId ? String(draft.clientId) : "");
+      setAiMode(false);
+      setSheetOpen(true);
+    } catch {
+      // Ignore malformed browser state and leave the normal Programs view intact.
+    }
+  }, [form, search]);
+
   const onSubmit = (values: ProgramFormValues) => {
     createProgram.mutate({ data: { name: values.name, description: values.description || undefined, durationWeeks: values.durationWeeks || undefined } }, {
-      onSuccess: () => {
+      onSuccess: (program) => {
         qc.invalidateQueries({ queryKey: getListProgramsQueryKey() });
         setSheetOpen(false);
         form.reset();
         toast({ title: "Program created" });
+        if (aiClientId) {
+          navigate(`/programs/${program.id}?clientId=${encodeURIComponent(aiClientId)}`);
+        }
       },
     });
   };
@@ -119,6 +205,7 @@ export function Programs() {
   };
 
   const handleGenerateAi = () => {
+    setAiError(null);
     if (!aiGoalText.trim()) {
       toast({ title: "Please describe a training goal", variant: "destructive" });
       return;
@@ -137,9 +224,13 @@ export function Programs() {
         toast({ title: "Program built!", description: "Review and make any changes." });
         navigate(`/programs/${program.id}${aiClientId ? `?clientId=${encodeURIComponent(aiClientId)}` : ""}`);
       },
-      onError: (err: unknown) => {
-        const message = err instanceof Error ? err.message : "Failed to generate program. Please try again.";
-        toast({ title: "AI generation failed", description: message, variant: "destructive" });
+      onError: (err: any) => {
+        const parsed = parseAiError(err);
+        if (parsed) {
+          setAiError(parsed);
+        } else {
+          setAiError({ error: err instanceof Error ? err.message : "Failed to generate program. Please try again.", code: "UNKNOWN" });
+        }
       },
     });
   };
@@ -149,6 +240,15 @@ export function Programs() {
     setAiGoalText("");
     setAiClientId("");
     setAiDurationWeeks("");
+    setAiError(null);
+  };
+
+  const handleManualFallback = () => {
+    form.setValue("description", aiGoalText);
+    if (aiDurationWeeks) {
+      form.setValue("durationWeeks", Number(aiDurationWeeks));
+    }
+    setAiMode(false);
   };
 
   const handleSheetOpenChange = (open: boolean) => {
@@ -241,6 +341,15 @@ export function Programs() {
                   onChange={e => setAiDurationWeeks(e.target.value)}
                 />
               </div>
+
+              {aiError && (
+                <AiErrorAlert
+                  error={aiError}
+                  onRetry={handleGenerateAi}
+                  onManualFallback={handleManualFallback}
+                  fallbackText="Create Program Manually"
+                />
+              )}
 
               <Button
                 className="w-full"

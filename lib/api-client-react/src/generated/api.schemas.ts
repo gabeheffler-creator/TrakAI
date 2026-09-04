@@ -869,6 +869,25 @@ export interface NutritionLogInput {
   notes?: string;
 }
 
+export type NutritionExtractionInput = (unknown & {
+  imageBase64?: string;
+  imageUrl?: string;
+  mimeType?: string;
+});
+
+export interface NutritionExtractionResult {
+  /** @nullable */
+  calories: number | null;
+  /** @nullable */
+  protein: number | null;
+  /** @nullable */
+  carbs: number | null;
+  /** @nullable */
+  fat: number | null;
+  /** @nullable */
+  sodium: number | null;
+}
+
 export interface ProgressPhoto {
   id: number;
   clientId: number;

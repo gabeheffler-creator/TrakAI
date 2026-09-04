@@ -1532,6 +1532,24 @@ export const DeleteNutritionLogParams = zod.object({
 
 
 /**
+ * @summary Extract visible nutrition totals from a food screenshot
+ */
+export const ExtractNutritionBody = zod.union([zod.unknown(),zod.unknown()]).and(zod.object({
+  "imageBase64": zod.string().optional(),
+  "imageUrl": zod.string().optional(),
+  "mimeType": zod.string().optional()
+}))
+
+export const ExtractNutritionResponse = zod.object({
+  "calories": zod.number().nullable(),
+  "protein": zod.number().nullable(),
+  "carbs": zod.number().nullable(),
+  "fat": zod.number().nullable(),
+  "sodium": zod.number().nullable()
+})
+
+
+/**
  * @summary Delete a training or rest day nutrition goal for a client
  */
 export const DeleteClientNutritionGoalParams = zod.object({

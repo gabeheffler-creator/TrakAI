@@ -19,6 +19,84 @@ import { QueryErrorState } from "@/components/query-error-state";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 
+type AiErrorCode = "AI_TIMEOUT" | "AI_BURST_LIMIT" | "AI_DAILY_CAP" | "AI_PROVIDER_ERROR" | "AI_INVALID_RESPONSE" | "AI_CONFIG_ERROR" | "UNKNOWN";
+
+interface AiError {
+  error: string;
+  code: AiErrorCode | string;
+  retryAfterSeconds?: number;
+}
+
+function parseAiError(err: any): AiError | null {
+  if (!err) return null;
+  if (typeof err === "object" && err.data) {
+    return parseAiError(err.data);
+  }
+  if (typeof err === "object" && "code" in err && "error" in err) {
+    return err as AiError;
+  }
+  return null;
+}
+
+function AiErrorAlert({
+  error,
+  onRetry,
+  onManualFallback,
+  fallbackText,
+  fallbackExplanation
+}: {
+  error: AiError;
+  onRetry?: () => void;
+  onManualFallback?: () => void;
+  fallbackText?: string;
+  fallbackExplanation?: React.ReactNode;
+}) {
+  let title = "Extraction Failed";
+  let description = error.error;
+
+  if (error.code === "AI_TIMEOUT") {
+    title = "Request Timed Out";
+    description = "The AI took too long to respond. You can try again or enter macros manually.";
+  } else if (error.code === "AI_BURST_LIMIT") {
+    title = "Too Many Requests";
+    description = `Please wait ${error.retryAfterSeconds ?? 'a few'} seconds before trying again.`;
+  } else if (error.code === "AI_DAILY_CAP") {
+    title = "Daily Limit Reached";
+    description = "You have reached your AI usage limit for today. Please enter macros manually.";
+  } else if (error.code === "AI_PROVIDER_ERROR" || error.code === "AI_INVALID_RESPONSE") {
+    title = "Service Unavailable";
+    description = "The AI service is currently experiencing issues. Please enter macros manually.";
+  }
+
+  return (
+    <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-3 space-y-2 mt-2">
+      <div>
+        <h4 className="text-xs font-semibold text-destructive">{title}</h4>
+        <p className="text-[11px] text-destructive/90 mt-0.5">{description}</p>
+        {fallbackExplanation && (
+          <div className="mt-1 text-[11px] text-destructive/90">
+            {fallbackExplanation}
+          </div>
+        )}
+      </div>
+      {(onRetry || onManualFallback) && (
+        <div className="flex gap-2 pt-1">
+          {onRetry && error.code !== "AI_DAILY_CAP" && (
+            <Button variant="outline" size="sm" onClick={onRetry} className="h-7 text-[10px] border-destructive/30 text-destructive hover:bg-destructive/10 px-2">
+              Try Again
+            </Button>
+          )}
+          {onManualFallback && (
+            <Button variant="ghost" size="sm" onClick={onManualFallback} className="h-7 text-[10px] text-destructive hover:bg-destructive/10 px-2">
+              {fallbackText || "Enter Manually"}
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface NutritionGoals {
   calories: number;
   protein: number;
@@ -68,6 +146,8 @@ interface AiResult {
   fat: number | null;
   sodium: number | null;
   editing: boolean;
+  error?: AiError | null;
+  isExtracting?: boolean;
 }
 
 const OZ_PER_GLASS = 8;
@@ -85,6 +165,7 @@ function PhotoBox({
   onAiEdit,
   onAiSave,
   onAiFieldChange,
+  onAiRetry,
 }: {
   slot: MealSlot;
   aiResult: AiResult | null;
@@ -95,7 +176,8 @@ function PhotoBox({
   onCalorieGuessChange: (v: string) => void;
   onAiEdit: () => void;
   onAiSave: () => void;
-  onAiFieldChange: (field: keyof Omit<AiResult, "editing">, value: string) => void;
+  onAiFieldChange: (field: keyof Omit<AiResult, "editing" | "error" | "isExtracting">, value: string) => void;
+  onAiRetry?: () => void;
   onSodiumChange?: (v: string) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -166,7 +248,27 @@ function PhotoBox({
             />
           </div>
 
-          {aiResult && (
+          {aiResult && aiResult.isExtracting && !aiResult.error && (
+            <div className="mx-4 mb-4 rounded-xl bg-muted/40 border border-border p-3 flex flex-col items-center justify-center py-6 gap-2">
+              <Loader2 className="w-5 h-5 text-muted-foreground animate-spin" />
+              <span className="text-xs text-muted-foreground">Extracting macros…</span>
+            </div>
+          )}
+
+          {aiResult && aiResult.error && (
+            <div className="mx-4 mb-4">
+              <AiErrorAlert
+                error={aiResult.error}
+                onRetry={onAiRetry}
+                onManualFallback={() => {
+                  onAiFieldChange("calories", "");
+                  onAiEdit();
+                }}
+              />
+            </div>
+          )}
+
+          {aiResult && !aiResult.isExtracting && !aiResult.error && (
             <div className="mx-4 mb-4 rounded-xl bg-primary/5 border border-primary/20 p-3">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-semibold text-primary">AI Extracted Macros</span>
@@ -321,14 +423,32 @@ export function NutritionPage() {
   };
 
   const extractMacrosFromImage = async (imageUrl: string, slotId: string) => {
+    setAiResults(prev => ({
+      ...prev,
+      [slotId]: {
+        ...(prev[slotId] || { calories: null, protein: null, carbs: null, fat: null, sodium: null, editing: false }),
+        isExtracting: true,
+        error: null,
+      },
+    }));
+
     try {
       const res = await fetch("/api/nutrition/extract", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ imageUrl }),
       });
-      if (!res.ok) throw new Error("AI extraction failed");
       const data = await res.json();
+
+      if (!res.ok) {
+        const parsedError = parseAiError(data);
+        if (parsedError) {
+          throw parsedError;
+        } else {
+          throw { error: data?.error || "AI extraction failed", code: "UNKNOWN" };
+        }
+      }
+
       setAiResults(prev => ({
         ...prev,
         [slotId]: {
@@ -338,10 +458,20 @@ export function NutritionPage() {
           fat: data.fat ?? null,
           sodium: data.sodium ?? null,
           editing: false,
+          isExtracting: false,
+          error: null,
         },
       }));
-    } catch {
-      // silently fail — user can still see photo
+    } catch (err: any) {
+      setAiResults(prev => ({
+        ...prev,
+        [slotId]: {
+          ...(prev[slotId] || { calories: null, protein: null, carbs: null, fat: null, sodium: null, editing: false }),
+          isExtracting: false,
+          error: err.error ? err : { error: err.message || "Failed to extract macros", code: "UNKNOWN" },
+          editing: true, // Auto switch to edit mode so they can type it in
+        },
+      }));
     }
   };
 
@@ -678,12 +808,13 @@ export function NutritionPage() {
             onCantTrackToggle={() => updateSlot(diarySlot.id, true, { cantTrack: !diarySlot.cantTrack })}
             onNoteChange={v => updateSlot(diarySlot.id, true, { cantTrackNote: v })}
             onCalorieGuessChange={v => updateSlot(diarySlot.id, true, { calorieGuess: v })}
-            onAiEdit={() => setAiResults(p => ({ ...p, [diarySlot.id]: { ...p[diarySlot.id], editing: true } }))}
+            onAiEdit={() => setAiResults(p => ({ ...p, [diarySlot.id]: { ...p[diarySlot.id], editing: true, error: null } }))}
             onAiSave={() => setAiResults(p => ({ ...p, [diarySlot.id]: { ...p[diarySlot.id], editing: false } }))}
             onAiFieldChange={(field, val) => setAiResults(p => ({
               ...p,
               [diarySlot.id]: { ...p[diarySlot.id], [field]: val === "" ? null : Number(val) }
             }))}
+            onAiRetry={() => diarySlot.uploadedUrl && extractMacrosFromImage(diarySlot.uploadedUrl, diarySlot.id)}
           />
 
           {/* Meal slots */}
@@ -698,12 +829,13 @@ export function NutritionPage() {
                 onCantTrackToggle={() => updateSlot(slot.id, false, { cantTrack: !slot.cantTrack })}
                 onNoteChange={v => updateSlot(slot.id, false, { cantTrackNote: v })}
                 onCalorieGuessChange={v => updateSlot(slot.id, false, { calorieGuess: v })}
-                onAiEdit={() => setAiResults(p => ({ ...p, [slot.id]: { ...p[slot.id], editing: true } }))}
+                onAiEdit={() => setAiResults(p => ({ ...p, [slot.id]: { ...p[slot.id], editing: true, error: null } }))}
                 onAiSave={() => setAiResults(p => ({ ...p, [slot.id]: { ...p[slot.id], editing: false } }))}
                 onAiFieldChange={(field, val) => setAiResults(p => ({
                   ...p,
                   [slot.id]: { ...p[slot.id], [field]: val === "" ? null : Number(val) }
                 }))}
+                onAiRetry={() => slot.uploadedUrl && extractMacrosFromImage(slot.uploadedUrl, slot.id)}
               />
             ))}
           </div>

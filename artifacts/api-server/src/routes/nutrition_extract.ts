@@ -1,8 +1,19 @@
 import { Router } from "express";
-import { openai } from "@workspace/integrations-openai-ai-server";
+import { requireClientAuth } from "../middlewares/auth";
+import { actorCaller, requestAiJson, sendAiError } from "../lib/ai-gateway";
+import { aiBurstLimit } from "../lib/rate-limit";
+import { z } from "zod/v4";
 const router = Router();
 
-router.post("/nutrition/extract", async (req, res) => {
+const NutritionExtraction = z.object({
+  calories: z.number().finite().nonnegative().nullable().optional(),
+  protein: z.number().finite().nonnegative().nullable().optional(),
+  carbs: z.number().finite().nonnegative().nullable().optional(),
+  fat: z.number().finite().nonnegative().nullable().optional(),
+  sodium: z.number().finite().nonnegative().nullable().optional(),
+});
+
+router.post("/nutrition/extract", requireClientAuth, aiBurstLimit, async (req, res) => {
   try {
     const imageBase64 = req.body?.imageBase64 ? String(req.body.imageBase64) : null;
     const imageUrl = req.body?.imageUrl ? String(req.body.imageUrl) : null;
@@ -17,9 +28,10 @@ router.post("/nutrition/extract", async (req, res) => {
       ? `data:${mimeType};base64,${imageBase64}`
       : imageUrl!;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5-mini",
-      max_completion_tokens: 512,
+    const parsed = await requestAiJson<{ calories?: number | null; protein?: number | null; carbs?: number | null; fat?: number | null; sodium?: number | null }>({
+      caller: actorCaller(req.actor),
+      feature: "nutrition_extraction",
+      maxCompletionTokens: 512,
       messages: [
         {
           role: "system",
@@ -42,18 +54,10 @@ router.post("/nutrition/extract", async (req, res) => {
           ],
         },
       ],
+      parse: (content) => NutritionExtraction.parse(
+        JSON.parse(content.replace(/^```[a-z]*\n?/i, "").replace(/```\s*$/, "").trim()),
+      ),
     });
-
-    const raw = response.choices[0]?.message?.content ?? "{}";
-
-    let parsed: { calories?: number | null; protein?: number | null; carbs?: number | null; fat?: number | null; sodium?: number | null } = {};
-    try {
-      // Strip markdown code fences if model wrapped output in them
-      const clean = raw.replace(/^```[a-z]*\n?/i, "").replace(/```\s*$/, "").trim();
-      parsed = JSON.parse(clean);
-    } catch {
-      req.log.warn({ raw }, "Failed to parse AI nutrition response as JSON");
-    }
 
     res.json({
       calories: parsed.calories ?? null,
@@ -63,6 +67,7 @@ router.post("/nutrition/extract", async (req, res) => {
       sodium: parsed.sodium ?? null,
     });
   } catch (err) {
+    if (sendAiError(res, err)) return;
     req.log.error(err);
     res.status(500).json({ error: "Failed to extract nutrition data" });
   }

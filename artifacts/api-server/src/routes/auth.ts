@@ -2,10 +2,11 @@ import { Router } from "express";
 import bcrypt from "bcryptjs";
 import { db, coachesTable, clientsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { authBurstLimit } from "../lib/rate-limit";
 
 const router = Router();
 
-router.post("/auth/coach/login", async (req, res) => {
+router.post("/auth/coach/login", authBurstLimit, async (req, res) => {
   try {
     const { username, password } = req.body as { username?: string; password?: string };
     if (!username || !password) {
@@ -31,7 +32,7 @@ router.post("/auth/coach/login", async (req, res) => {
   }
 });
 
-router.post("/auth/client/login", async (req, res) => {
+router.post("/auth/client/login", authBurstLimit, async (req, res) => {
   try {
     const { username, password } = req.body as { username?: string; password?: string };
     if (!username || !password) {
