@@ -2251,6 +2251,76 @@ export const useUpdateProgramSleepAdjustment = <TError = ErrorType<unknown>,
       return useMutation(getUpdateProgramSleepAdjustmentMutationOptions(options));
     }
 
+export const getApproveProgramUrl = (programId: number,) => {
+
+
+
+
+  return `/api/programs/${programId}/approve`
+}
+
+/**
+ * @summary Approve a draft workout program for client assignment
+ */
+export const approveProgram = async (programId: number, options?: RequestInit): Promise<Program> => {
+
+  return customFetch<Program>(getApproveProgramUrl(programId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getApproveProgramMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveProgram>>, TError,{programId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof approveProgram>>, TError,{programId: number}, TContext> => {
+
+const mutationKey = ['approveProgram'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof approveProgram>>, {programId: number}> = (props) => {
+          const {programId} = props ?? {};
+
+          return  approveProgram(programId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ApproveProgramMutationResult = NonNullable<Awaited<ReturnType<typeof approveProgram>>>
+
+    export type ApproveProgramMutationError = ErrorType<void>
+
+    /**
+ * @summary Approve a draft workout program for client assignment
+ */
+export const useApproveProgram = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveProgram>>, TError,{programId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof approveProgram>>,
+        TError,
+        {programId: number},
+        TContext
+      > => {
+      return useMutation(getApproveProgramMutationOptions(options));
+    }
+
 export const getCreateProgramPhaseUrl = (programId: number,) => {
 
 

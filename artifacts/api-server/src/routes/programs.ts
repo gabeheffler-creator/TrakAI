@@ -37,6 +37,7 @@ import {
   UpdateProgramExerciseParams,
   UpdateProgramExerciseBody,
   DeleteProgramExerciseParams,
+  ApproveProgramParams,
   GetClientProgramAssignmentParams,
   AssignProgramParams,
   AssignProgramBody,
@@ -134,6 +135,16 @@ async function programBelongsToCoach(programId: number, coachId: number): Promis
   return !!program && program.coachId === coachId;
 }
 
+async function approvedProgramBelongsToCoach(programId: number, coachId: number): Promise<boolean> {
+  const [program] = await db.select({ id: programsTable.id }).from(programsTable)
+    .where(and(
+      eq(programsTable.id, programId),
+      eq(programsTable.coachId, coachId),
+      eq(programsTable.status, "approved"),
+    ));
+  return !!program;
+}
+
 async function phaseBelongsToCoach(phaseId: number, coachId: number): Promise<boolean> {
   const [row] = await db.select({ coachId: programsTable.coachId })
     .from(programPhasesTable)
@@ -181,6 +192,7 @@ router.post("/programs", requireCoachAuth, async (req, res) => {
       name: body.name,
       description: body.description ?? null,
       durationWeeks: body.durationWeeks ?? null,
+      status: "draft",
     }).returning();
     res.status(201).json({ ...program, createdAt: program.createdAt.toISOString() });
   } catch (err) {
@@ -327,6 +339,7 @@ Guidelines:
         name: parsed.name!,
         description: parsed.description ?? null,
         durationWeeks: parsed.durationWeeks ?? durationWeeks ?? null,
+        status: "draft",
       }).returning();
 
       for (const day of parsed.days!) {
@@ -491,6 +504,28 @@ router.delete("/programs/:programId", requireCoachAuth, async (req, res) => {
   } catch (err) {
     req.log.error(err);
     res.status(500).json({ error: "Failed to delete program" });
+  }
+});
+
+router.post("/programs/:programId/approve", requireCoachAuth, requireCoachOnly, async (req, res) => {
+  try {
+    const { programId } = ApproveProgramParams.parse({ programId: Number(req.params.programId) });
+    if (!(await programBelongsToCoach(programId, coachIdOf(req)))) {
+      res.status(404).json({ error: "Program not found" });
+      return;
+    }
+    const [program] = await db.update(programsTable)
+      .set({ status: "approved" })
+      .where(eq(programsTable.id, programId))
+      .returning();
+    if (!program) {
+      res.status(404).json({ error: "Program not found" });
+      return;
+    }
+    res.json({ ...program, createdAt: program.createdAt.toISOString() });
+  } catch (err) {
+    req.log.error(err);
+    res.status(400).json({ error: "Failed to approve program" });
   }
 });
 
@@ -814,7 +849,10 @@ router.get("/clients/:clientId/program", requireClientOwnership(), async (req, r
     if (!assignment) { res.status(404).json({ error: "No active program" }); return; }
 
     const programId = assignment.programId;
-    const [program] = await db.select().from(programsTable).where(eq(programsTable.id, programId));
+    const [program] = await db.select().from(programsTable).where(and(
+      eq(programsTable.id, programId),
+      ...(req.actor?.type === "client" ? [eq(programsTable.status, "approved")] : []),
+    ));
     if (!program) { res.status(404).json({ error: "Program not found" }); return; }
 
     const phases = await db.select().from(programPhasesTable)
@@ -894,7 +932,10 @@ router.get("/clients/:clientId/program-assignment", requireClientOwnership(), as
       })
       .from(programAssignmentsTable)
       .innerJoin(programsTable, eq(programAssignmentsTable.programId, programsTable.id))
-      .where(eq(programAssignmentsTable.clientId, clientId))
+      .where(and(
+        eq(programAssignmentsTable.clientId, clientId),
+        ...(req.actor?.type === "client" ? [eq(programsTable.status, "approved")] : []),
+      ))
       .orderBy(programAssignmentsTable.createdAt);
     if (!assignment) { res.status(404).json({ error: "No active program" }); return; }
     res.json(assignment);
@@ -941,7 +982,7 @@ router.post("/clients/:clientId/program-assignment", requireClientOwnership(), r
     const { clientId } = AssignProgramParams.parse({ clientId: Number(req.params.clientId) });
     const body = AssignProgramBody.parse(req.body);
     const toDateStr = (d: Date | string) => d instanceof Date ? d.toISOString().split("T")[0] : d;
-    if (!(await programBelongsToCoach(body.programId, coachIdOf(req)))) { res.status(404).json({ error: "Program not found" }); return; }
+    if (!(await approvedProgramBelongsToCoach(body.programId, coachIdOf(req)))) { res.status(404).json({ error: "Approved program not found" }); return; }
 
     const result = await db.transaction(async (tx) => {
       const [existingAssignment] = await tx
@@ -1001,8 +1042,8 @@ router.post("/clients/:clientId/program-assignment/sync-template", requireClient
 
       if (!currentProgram?.sourceTemplateId) throw new RouteError(400, "Assigned program has no source template");
 
-      if (!(await programBelongsToCoach(currentProgram.sourceTemplateId, coachIdOf(req)))) {
-        throw new RouteError(404, "Source template not found");
+      if (!(await approvedProgramBelongsToCoach(currentProgram.sourceTemplateId, coachIdOf(req)))) {
+        throw new RouteError(404, "Approved source template not found");
       }
 
       await insertProgramHistory(tx, clientId, currentProgram.id, currentAssignment.startDate);
@@ -1039,8 +1080,8 @@ router.post("/clients/:clientId/program-assignment/sync-template", requireClient
 router.get("/programs/:programId/assigned-clients", requireCoachAuth, async (req, res) => {
   try {
     const { programId } = GetProgramAssignedClientsParams.parse({ programId: Number(req.params.programId) });
-    if (!(await programBelongsToCoach(programId, coachIdOf(req)))) {
-      res.status(404).json({ error: "Program not found" });
+    if (!(await approvedProgramBelongsToCoach(programId, coachIdOf(req)))) {
+      res.status(404).json({ error: "Approved program not found" });
       return;
     }
     const rows = await db
@@ -1070,8 +1111,8 @@ router.post("/programs/:programId/bulk-assign", requireCoachAuth, requireCoachOn
   try {
     const { programId } = BulkAssignProgramParams.parse({ programId: Number(req.params.programId) });
     const body = BulkAssignProgramBody.parse(req.body);
-    if (!(await programBelongsToCoach(programId, coachIdOf(req)))) {
-      res.status(404).json({ error: "Program not found" });
+    if (!(await approvedProgramBelongsToCoach(programId, coachIdOf(req)))) {
+      res.status(404).json({ error: "Approved program not found" });
       return;
     }
 
@@ -1136,8 +1177,8 @@ router.post("/programs/:programId/sync-to-clients", requireCoachAuth, requireCoa
   try {
     const { programId } = SyncProgramToClientsParams.parse({ programId: Number(req.params.programId) });
     const body = SyncProgramToClientsBody.parse(req.body);
-    if (!(await programBelongsToCoach(programId, coachIdOf(req)))) {
-      res.status(404).json({ error: "Program not found" });
+    if (!(await approvedProgramBelongsToCoach(programId, coachIdOf(req)))) {
+      res.status(404).json({ error: "Approved program not found" });
       return;
     }
 

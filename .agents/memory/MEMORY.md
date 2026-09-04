@@ -6,3 +6,4 @@
 - [Pre-built program templates](program-templates.md) — 5 coach-pickable program templates are static data cloned into a real editable program, not a separate DB table
 - [Clerk web 401s: don't add token auth](clerk-web-401-troubleshooting.md) — for cookie-based web Clerk apps, fix 401 UX with retry/error states, not setAuthTokenGetter/Bearer tokens.
 - [Query error-state UI pattern](query-error-state-pattern.md) — standard convention for handling failed useList*/useGet* hooks across trak-coach/trak-client: per-app QueryErrorState component + isError/refetch/isFetching.
+- [Program approval lifecycle](program-approval-lifecycle.md) — preserve legacy assignments as approved, but require explicit approval for every newly created coach template before any assignment or client visibility.

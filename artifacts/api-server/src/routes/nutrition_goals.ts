@@ -28,7 +28,10 @@ async function resolveProgramNutritionGoal(clientId: number) {
     .limit(1);
   if (!assignment) return null;
 
-  const [program] = await db.select().from(programsTable).where(eq(programsTable.id, assignment.programId));
+  const [program] = await db.select().from(programsTable).where(and(
+    eq(programsTable.id, assignment.programId),
+    eq(programsTable.status, "approved"),
+  ));
   if (!program) return null;
 
   const phases = await db.select().from(programPhasesTable)

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams } from "wouter";
+import { useParams, useSearch } from "wouter";
 import {
   useGetProgram,
   useCreateProgramPhase,
@@ -21,6 +21,8 @@ import {
   useSyncProgramToClients,
   useListClients,
   getListClientsQueryKey,
+  getListProgramsQueryKey,
+  useApproveProgram,
   useListNutritionPeriods,
   useCreateNutritionPeriod,
   useUpdateNutritionPeriod,
@@ -36,6 +38,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -150,6 +153,12 @@ const exerciseSchema = z.object({
 export function ProgramBuilder() {
   const { programId: programIdStr } = useParams<{ programId: string }>();
   const programId = Number(programIdStr);
+  const search = useSearch();
+  const clientIdParam = new URLSearchParams(search).get("clientId");
+  const parsedClientId = clientIdParam && /^\d+$/.test(clientIdParam) ? Number(clientIdParam) : null;
+  const requestedClientId = parsedClientId && Number.isSafeInteger(parsedClientId) && parsedClientId > 0
+    ? parsedClientId
+    : null;
   const qc = useQueryClient();
   const { toast } = useToast();
   const [selectedDayId, setSelectedDayId] = useState<number | null>(null);
@@ -189,12 +198,15 @@ export function ProgramBuilder() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [program?.id]);
   const [assignOpen, setAssignOpen] = useState(false);
+  const [assignConfirmationOpen, setAssignConfirmationOpen] = useState(false);
+  const [approveConfirmationOpen, setApproveConfirmationOpen] = useState(false);
   const [propagateOpen, setPropagateOpen] = useState(false);
   const [selectedAssignIds, setSelectedAssignIds] = useState<number[]>([]);
   const [selectedSyncIds, setSelectedSyncIds] = useState<number[]>([]);
   const [, setLocation] = useLocation();
   const { data: allClients } = useListClients({ query: { queryKey: getListClientsQueryKey() } });
   const bulkAssign = useBulkAssignProgram();
+  const approveProgram = useApproveProgram();
   const syncToClients = useSyncProgramToClients();
   const { data: nutritionPeriods, refetch: refetchPeriods } = useListNutritionPeriods(programId);
   const createPeriod = useCreateNutritionPeriod();
@@ -205,6 +217,15 @@ export function ProgramBuilder() {
   const { data: assignedClients, refetch: refetchAssigned } = useGetProgramAssignedClients(programId, {
     query: { enabled: !!programId, queryKey: getGetProgramAssignedClientsQueryKey(programId) },
   });
+  const clientContextId = requestedClientId && allClients?.some(client => client.id === requestedClientId)
+    ? requestedClientId
+    : null;
+
+  useEffect(() => {
+    if (program?.status === "draft" && clientContextId) {
+      setSelectedAssignIds([clientContextId]);
+    }
+  }, [program?.status, clientContextId]);
 
   const phaseForm = useForm<z.infer<typeof phaseSchema>>({
     resolver: zodResolver(phaseSchema),
@@ -232,6 +253,12 @@ export function ProgramBuilder() {
   });
 
   const invalidate = () => qc.invalidateQueries({ queryKey: getGetProgramQueryKey(programId) });
+  const invalidateAssignmentData = () => {
+    qc.invalidateQueries({ queryKey: getGetProgramQueryKey(programId) });
+    qc.invalidateQueries({ queryKey: getListProgramsQueryKey() });
+    qc.invalidateQueries({ queryKey: getGetProgramAssignedClientsQueryKey(programId) });
+    qc.invalidateQueries({ queryKey: getListClientsQueryKey() });
+  };
 
   const handleCreatePhase = (values: z.infer<typeof phaseSchema>) => {
     createPhase.mutate(
@@ -438,7 +465,48 @@ export function ProgramBuilder() {
   const unphasedDays = program.days.filter(d => !d.phaseId);
   const hasPhases = program.phases.length > 0;
   const isTemplate = !program.clientId;
-  const canEdit = !isTemplate || isEditing;
+  const isDraft = program.status === "draft";
+  const canEdit = isDraft || !isTemplate || isEditing;
+
+  const performBulkAssignment = (clientIds: number[]) => {
+    bulkAssign.mutate(
+      { programId, data: { clientIds } },
+      {
+        onSuccess: (result) => {
+          setApproveConfirmationOpen(false);
+          setAssignConfirmationOpen(false);
+          setAssignOpen(false);
+          refetchAssigned();
+          invalidateAssignmentData();
+          toast({
+            title: result.skipped.length > 0
+              ? `Assigned to ${result.assigned.length} client${result.assigned.length !== 1 ? "s" : ""} · ${result.skipped.length} already assigned`
+              : `Assigned to ${result.assigned.length} client${result.assigned.length !== 1 ? "s" : ""}`,
+          });
+        },
+        onError: () => toast({ title: "Failed to assign program", variant: "destructive" }),
+      }
+    );
+  };
+
+  const approveAndMaybeAssign = () => {
+    approveProgram.mutate(
+      { programId },
+      {
+        onSuccess: () => {
+          invalidateAssignmentData();
+          setIsEditing(false);
+          if (selectedAssignIds.length > 0) {
+            performBulkAssignment(selectedAssignIds);
+          } else {
+            setApproveConfirmationOpen(false);
+            toast({ title: "Program approved" });
+          }
+        },
+        onError: () => toast({ title: "Failed to approve program", variant: "destructive" }),
+      }
+    );
+  };
 
   const DayRow = ({ d }: { d: typeof program.days[number] }) => (
     <div
@@ -493,7 +561,12 @@ export function ProgramBuilder() {
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-2xl font-bold">{program.name}</h1>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-2xl font-bold">{program.name}</h1>
+              <Badge variant={isDraft ? "secondary" : "default"} data-testid="status-program">
+                {isDraft ? "Draft" : "Approved"}
+              </Badge>
+            </div>
             {program.description && <p className="text-sm text-muted-foreground">{program.description}</p>}
           </div>
         </div>
@@ -505,6 +578,13 @@ export function ProgramBuilder() {
           </div>
         )}
       </div>
+
+      {isDraft && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200" data-testid="status-program-draft">
+          <p className="font-medium">Draft program</p>
+          <p className="text-sm mt-1">This program remains editable and cannot be assigned or propagated until you approve it.</p>
+        </div>
+      )}
 
       {/* Sleep Adjustment Settings */}
       <Card>
@@ -970,7 +1050,7 @@ export function ProgramBuilder() {
       </div>
 
       {/* Assigned clients section (template only) */}
-      {isTemplate && (
+      {isTemplate && !isDraft && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-2">
@@ -995,6 +1075,50 @@ export function ProgramBuilder() {
           </CardContent>
         </Card>
       )}
+
+      <AlertDialog open={approveConfirmationOpen} onOpenChange={setApproveConfirmationOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{clientContextId ? "Approve and assign this program?" : "Approve this program?"}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {clientContextId
+                ? "Approval will make this program available and assign it to the selected client."
+                : "Approval will make this program available for assignment. You can still edit it afterwards."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={approveAndMaybeAssign}
+              disabled={approveProgram.isPending || bulkAssign.isPending}
+              data-testid="button-confirm-approve-program"
+            >
+              {approveProgram.isPending ? "Approving…" : clientContextId ? "Approve & Assign" : "Approve Program"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={assignConfirmationOpen} onOpenChange={setAssignConfirmationOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Assign this program?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will assign the approved program to {selectedAssignIds.length} selected client{selectedAssignIds.length !== 1 ? "s" : ""}.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => performBulkAssignment(selectedAssignIds)}
+              disabled={bulkAssign.isPending}
+              data-testid="button-confirm-bulk-assign-program"
+            >
+              {bulkAssign.isPending ? "Assigning…" : "Confirm assignment"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Assign program dialog */}
       <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
@@ -1060,24 +1184,7 @@ export function ProgramBuilder() {
               <Button
                 className="flex-1"
                 disabled={selectedAssignIds.length === 0 || bulkAssign.isPending}
-                onClick={() => {
-                  bulkAssign.mutate(
-                    { programId, data: { clientIds: selectedAssignIds } },
-                    {
-                      onSuccess: (result) => {
-                        setAssignOpen(false);
-                        refetchAssigned();
-                        toast({
-                          title: result.skipped.length > 0
-                            ? `Assigned to ${result.assigned.length} client${result.assigned.length !== 1 ? "s" : ""} · ${result.skipped.length} already assigned`
-                            : `Assigned to ${result.assigned.length} client${result.assigned.length !== 1 ? "s" : ""}`,
-                          duration: 2000,
-                        });
-                      },
-                      onError: () => toast({ title: "Failed to assign program", variant: "destructive" }),
-                    }
-                  );
-                }}
+                onClick={() => setAssignConfirmationOpen(true)}
               >
                 {bulkAssign.isPending ? "Assigning…" : `Assign to ${selectedAssignIds.length} client${selectedAssignIds.length !== 1 ? "s" : ""}`}
               </Button>
@@ -1444,7 +1551,19 @@ export function ProgramBuilder() {
       </Dialog>
 
       {/* Assign program — full-width, bottom of page (view mode only) */}
-      {isTemplate && !isEditing && (
+      {isTemplate && isDraft && (
+        <Button
+          className="w-full"
+          onClick={() => setApproveConfirmationOpen(true)}
+          disabled={approveProgram.isPending}
+          data-testid="button-approve-program"
+        >
+          <Save className="w-4 h-4 mr-2" />
+          {clientContextId ? "Approve & Assign" : "Approve Program"}
+        </Button>
+      )}
+
+      {isTemplate && !isDraft && !isEditing && (
         <Button
           className="w-full"
           onClick={() => { setAssignOpen(true); setSelectedAssignIds([]); }}
@@ -1454,7 +1573,7 @@ export function ProgramBuilder() {
       )}
 
       {/* Sticky edit-mode toolbar (template only) */}
-      {isTemplate && isEditing && (
+      {isTemplate && !isDraft && isEditing && (
         <div className="sticky bottom-0 left-0 right-0 z-10 bg-background/95 backdrop-blur border-t border-border px-4 py-3 flex items-center justify-end gap-2 -mx-4 md:-mx-6">
           <span className="text-sm text-muted-foreground mr-auto">Editing template</span>
           <Button variant="outline" onClick={() => setIsEditing(false)}>Cancel</Button>

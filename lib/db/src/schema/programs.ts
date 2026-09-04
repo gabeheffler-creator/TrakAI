@@ -13,6 +13,7 @@ export const programsTable = pgTable("programs", {
   name: text("name").notNull(),
   description: text("description"),
   durationWeeks: integer("duration_weeks"),
+  status: text("status", { enum: ["draft", "approved"] }).notNull().default("approved"),
   sleepAdjustEnabled: boolean("sleep_adjust_enabled").notNull().default(true),
   sleepAdjustPercent: integer("sleep_adjust_percent").notNull().default(20),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

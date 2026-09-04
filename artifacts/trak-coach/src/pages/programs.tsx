@@ -12,6 +12,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -134,7 +135,7 @@ export function Programs() {
         setSheetOpen(false);
         resetAiForm();
         toast({ title: "Program built!", description: "Review and make any changes." });
-        navigate(`/programs/${program.id}`);
+        navigate(`/programs/${program.id}${aiClientId ? `?clientId=${encodeURIComponent(aiClientId)}` : ""}`);
       },
       onError: (err: unknown) => {
         const message = err instanceof Error ? err.message : "Failed to generate program. Please try again.";
@@ -333,7 +334,12 @@ export function Programs() {
                 <>
                   <CardHeader className="pb-2">
                     <div className="flex items-start justify-between">
-                      <CardTitle className="text-base">{p.name}</CardTitle>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <CardTitle className="text-base truncate">{p.name}</CardTitle>
+                        <Badge variant={p.status === "approved" ? "default" : "secondary"} data-testid={`status-program-${p.id}`}>
+                          {p.status === "approved" ? "Approved" : "Draft"}
+                        </Badge>
+                      </div>
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
                           onClick={(e) => handleEdit(p, e)}
@@ -361,7 +367,12 @@ export function Programs() {
               ) : (
                 <CardContent className="py-3 flex items-center justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium truncate">{p.name}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium truncate">{p.name}</p>
+                      <Badge variant={p.status === "approved" ? "default" : "secondary"} data-testid={`status-program-${p.id}`}>
+                        {p.status === "approved" ? "Approved" : "Draft"}
+                      </Badge>
+                    </div>
                     {p.description && <p className="text-sm text-muted-foreground truncate">{p.description}</p>}
                   </div>
                   {p.durationWeeks && <p className="text-xs text-muted-foreground whitespace-nowrap">{p.durationWeeks} weeks</p>}

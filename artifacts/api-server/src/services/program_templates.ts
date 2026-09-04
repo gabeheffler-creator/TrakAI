@@ -34,6 +34,7 @@ export async function instantiateProgramTemplateForCoach(coachId: number, templa
     name: template.name,
     description: template.description,
     durationWeeks: template.durationWeeks,
+    status: "draft",
   }).returning();
 
   for (let phaseOrder = 0; phaseOrder < template.phases.length; phaseOrder++) {

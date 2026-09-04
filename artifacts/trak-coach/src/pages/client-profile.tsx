@@ -55,6 +55,7 @@ import {
   getListClientGoalHistoryQueryKey,
   getListClientProgramAssignmentHistoryQueryKey,
   getListClientTasksQueryKey,
+  getListProgramsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -663,6 +664,7 @@ export function ClientProfile() {
   const [msgInput, setMsgInput] = useState("");
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [programDialogOpen, setProgramDialogOpen] = useState(false);
+  const [confirmProgramAssignment, setConfirmProgramAssignment] = useState(false);
   const [programHistoryOpen, setProgramHistoryOpen] = useState(true);
   const [aiProgramMode, setAiProgramMode] = useState(false);
   const [aiGoalText, setAiGoalText] = useState("");
@@ -919,8 +921,12 @@ export function ClientProfile() {
     assignProgram.mutate({ clientId, data: { programId: values.programId, startDate: values.startDate } }, {
       onSuccess: () => {
         qc.invalidateQueries({ queryKey: getGetClientProgramAssignmentQueryKey(clientId) });
+        qc.invalidateQueries({ queryKey: getGetClientDashboardQueryKey(clientId) });
         qc.invalidateQueries({ queryKey: getGetProgramQueryKey(programAssignment?.programId ?? 0) });
+        qc.invalidateQueries({ queryKey: getGetProgramQueryKey(values.programId) });
+        qc.invalidateQueries({ queryKey: getListProgramsQueryKey() });
         qc.invalidateQueries({ queryKey: getListClientProgramAssignmentHistoryQueryKey(clientId) });
+        setConfirmProgramAssignment(false);
         setProgramDialogOpen(false);
         toast({ title: "Program assigned" });
       },
@@ -939,7 +945,7 @@ export function ClientProfile() {
     });
   };
 
-  const handleGenerateAndAssignProgram = () => {
+  const handleGenerateAiProgram = () => {
     if (!aiGoalText.trim()) {
       toast({ title: "Please describe a training goal", variant: "destructive" });
       return;
@@ -948,20 +954,11 @@ export function ClientProfile() {
       { data: { goalText: aiGoalText.trim(), clientId } },
       {
         onSuccess: (program) => {
-          const today = new Date().toISOString().split("T")[0];
-          assignProgram.mutate(
-            { clientId, data: { programId: program.id, startDate: today } },
-            {
-              onSuccess: () => {
-                qc.invalidateQueries({ queryKey: getGetClientProgramAssignmentQueryKey(clientId) });
-                qc.invalidateQueries({ queryKey: getListClientProgramAssignmentHistoryQueryKey(clientId) });
-                setProgramDialogOpen(false);
-                toast({ title: "Program built & assigned!", description: "You can review and edit it now." });
-                setLocation(`/programs/${program.id}`);
-              },
-              onError: () => toast({ title: "Failed to assign program", variant: "destructive" }),
-            }
-          );
+          qc.invalidateQueries({ queryKey: getListProgramsQueryKey() });
+          qc.invalidateQueries({ queryKey: getGetProgramQueryKey(program.id) });
+          setProgramDialogOpen(false);
+          toast({ title: "Draft program built", description: "Review and approve it before assigning it." });
+          setLocation(`/programs/${program.id}?clientId=${clientId}`);
         },
         onError: () => toast({ title: "AI generation failed", description: "Please try again.", variant: "destructive" }),
       }
@@ -1002,7 +999,7 @@ export function ClientProfile() {
       {aiProgramMode ? (
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            AI will generate a complete program based on this client's goal and assign it immediately.
+            AI will generate a draft program based on this client's goal. Review and approve it before assigning.
           </p>
           <div className="space-y-2">
             <label className="text-sm font-medium">Training goal</label>
@@ -1015,13 +1012,13 @@ export function ClientProfile() {
           </div>
           <Button
             className="w-full"
-            onClick={handleGenerateAndAssignProgram}
-            disabled={generateAiProgram.isPending || assignProgram.isPending || !aiGoalText.trim()}
+            onClick={handleGenerateAiProgram}
+            disabled={generateAiProgram.isPending || !aiGoalText.trim()}
           >
-            {(generateAiProgram.isPending || assignProgram.isPending) ? (
+            {generateAiProgram.isPending ? (
               <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Building program…</>
             ) : (
-              <><Sparkles className="w-4 h-4 mr-2" />Generate & Assign</>
+              <><Sparkles className="w-4 h-4 mr-2" />Generate Draft for Review</>
             )}
           </Button>
           <Button variant="ghost" size="sm" className="w-full" onClick={() => setAiProgramMode(false)}>
@@ -1037,7 +1034,7 @@ export function ClientProfile() {
                 <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
                   <FormControl><SelectTrigger><SelectValue placeholder="Select a program" /></SelectTrigger></FormControl>
                   <SelectContent>
-                    {programs?.map(p => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}
+                    {programs?.filter(p => p.status === "approved").map(p => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
                 <FormMessage />
@@ -1059,7 +1056,9 @@ export function ClientProfile() {
               <Sparkles className="w-4 h-4 mr-2" />
               Build AI Program
             </Button>
-            <Button type="submit" className="w-full" disabled={assignProgram.isPending}>Assign</Button>
+            <Button type="button" className="w-full" disabled={assignProgram.isPending} onClick={() => programForm.handleSubmit(() => setConfirmProgramAssignment(true))()}>
+              Continue to confirmation
+            </Button>
           </form>
         </Form>
       )}
@@ -1068,6 +1067,26 @@ export function ClientProfile() {
 
   return (
     <div className="space-y-6">
+      <AlertDialog open={confirmProgramAssignment} onOpenChange={setConfirmProgramAssignment}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Assign this approved program?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will replace the client&apos;s current program assignment.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => handleAssignProgram(programForm.getValues())}
+              disabled={assignProgram.isPending}
+              data-testid="button-confirm-assign-program"
+            >
+              {assignProgram.isPending ? "Assigning…" : "Confirm assignment"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       {videoCallOpen && (
         <VideoCall
           roomName={videoRoomName}

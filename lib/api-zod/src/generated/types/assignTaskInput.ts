@@ -12,4 +12,5 @@ export interface AssignTaskInput {
      * @maxLength 2000
      */
   text: string;
+  dueDate?: Date;
 }

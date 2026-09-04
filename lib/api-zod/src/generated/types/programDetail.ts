@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ProgramDayDetail } from './programDayDetail';
+import type { ProgramDetailStatus } from './programDetailStatus';
 import type { ProgramPhaseDetail } from './programPhaseDetail';
 
 export interface ProgramDetail {
@@ -15,6 +16,7 @@ export interface ProgramDetail {
   description?: string | null;
   /** @nullable */
   durationWeeks?: number | null;
+  status: ProgramDetailStatus;
   /** @nullable */
   clientId?: number | null;
   /** @nullable */

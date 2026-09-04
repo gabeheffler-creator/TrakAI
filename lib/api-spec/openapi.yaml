@@ -600,6 +600,27 @@ paths:
               schema:
                 $ref: "#/components/schemas/Program"
 
+  /programs/{programId}/approve:
+    post:
+      operationId: approveProgram
+      tags: [workouts]
+      summary: Approve a draft workout program for client assignment
+      parameters:
+        - name: programId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Approved program
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Program"
+        "404":
+          description: Program not found
+
   /programs/{programId}/phases:
     post:
       operationId: createProgramPhase
@@ -2602,7 +2623,7 @@ components:
     # ── Program ─────────────────────────────────────────────────────────────
     Program:
       type: object
-      required: [id, name, createdAt]
+      required: [id, name, status, createdAt]
       properties:
         id:
           type: integer
@@ -2612,6 +2633,9 @@ components:
           type: ["string", "null"]
         durationWeeks:
           type: ["integer", "null"]
+        status:
+          type: string
+          enum: [draft, approved]
         clientId:
           type: ["integer", "null"]
         sourceTemplateId:
@@ -2782,7 +2806,7 @@ components:
 
     ProgramDetail:
       type: object
-      required: [id, name, days, phases]
+      required: [id, name, status, days, phases]
       properties:
         id:
           type: integer
@@ -2792,6 +2816,9 @@ components:
           type: ["string", "null"]
         durationWeeks:
           type: ["integer", "null"]
+        status:
+          type: string
+          enum: [draft, approved]
         clientId:
           type: ["integer", "null"]
         sourceTemplateId:
@@ -3628,6 +3655,9 @@ components:
           type: string
           minLength: 1
           maxLength: 2000
+        dueDate:
+          type: string
+          format: date-time
 
     RejectTaskInput:
       type: object

@@ -5,6 +5,7 @@
  * Trak fitness coaching platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { ProgramStatus } from './programStatus';
 
 export interface Program {
   id: number;
@@ -13,6 +14,7 @@ export interface Program {
   description?: string | null;
   /** @nullable */
   durationWeeks?: number | null;
+  status: ProgramStatus;
   /** @nullable */
   clientId?: number | null;
   /** @nullable */

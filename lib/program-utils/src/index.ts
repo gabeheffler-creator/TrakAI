@@ -6,7 +6,7 @@ import {
   programExercisesTable,
   programNutritionGoalsTable,
 } from "@workspace/db";
-import { eq, asc, inArray } from "drizzle-orm";
+import { eq, asc, inArray, and } from "drizzle-orm";
 
 export type DbOrTx = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -16,8 +16,9 @@ export async function cloneProgram(
   coachId: number,
   clientId: number,
 ): Promise<number> {
-  const [source] = await dbtx.select().from(programsTable).where(eq(programsTable.id, sourceProgramId));
-  if (!source) throw new Error(`Program ${sourceProgramId} not found`);
+  const [source] = await dbtx.select().from(programsTable)
+    .where(and(eq(programsTable.id, sourceProgramId), eq(programsTable.status, "approved")));
+  if (!source) throw new Error(`Approved program ${sourceProgramId} not found`);
 
   const [clone] = await dbtx.insert(programsTable).values({
     coachId,
@@ -26,6 +27,7 @@ export async function cloneProgram(
     name: source.name,
     description: source.description,
     durationWeeks: source.durationWeeks,
+    status: "approved",
   }).returning();
 
   const sourcePhases = await dbtx.select().from(programPhasesTable)

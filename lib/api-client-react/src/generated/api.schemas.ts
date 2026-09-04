@@ -177,6 +177,14 @@ export interface CoachDashboard {
   clientSummaries?: ClientSummary[];
 }
 
+export type ProgramDetailStatus = typeof ProgramDetailStatus[keyof typeof ProgramDetailStatus];
+
+
+export const ProgramDetailStatus = {
+  draft: 'draft',
+  approved: 'approved',
+} as const;
+
 export interface ProgramNutritionGoal {
   id: number;
   phaseId: number;
@@ -237,6 +245,7 @@ export interface ProgramDetail {
   description?: string | null;
   /** @nullable */
   durationWeeks?: number | null;
+  status: ProgramDetailStatus;
   /** @nullable */
   clientId?: number | null;
   /** @nullable */
@@ -374,6 +383,14 @@ export interface ExercisePatch {
   videoUrl?: string | null;
 }
 
+export type ProgramStatus = typeof ProgramStatus[keyof typeof ProgramStatus];
+
+
+export const ProgramStatus = {
+  draft: 'draft',
+  approved: 'approved',
+} as const;
+
 export interface Program {
   id: number;
   name: string;
@@ -381,6 +398,7 @@ export interface Program {
   description?: string | null;
   /** @nullable */
   durationWeeks?: number | null;
+  status: ProgramStatus;
   /** @nullable */
   clientId?: number | null;
   /** @nullable */
@@ -1032,7 +1050,6 @@ export interface AssignTaskInput {
      * @maxLength 2000
      */
   text: string;
-  /** ISO datetime string for the task deadline */
   dueDate?: string;
 }
 

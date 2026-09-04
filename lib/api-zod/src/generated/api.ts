@@ -358,6 +358,7 @@ export const GetClientDashboardResponse = zod.object({
   "name": zod.string(),
   "description": zod.string().nullish(),
   "durationWeeks": zod.number().nullish(),
+  "status": zod.enum(['draft', 'approved']),
   "clientId": zod.number().nullish(),
   "sourceTemplateId": zod.number().nullish(),
   "sleepAdjustEnabled": zod.boolean().optional(),
@@ -551,6 +552,7 @@ export const ListProgramsResponseItem = zod.object({
   "name": zod.string(),
   "description": zod.string().nullish(),
   "durationWeeks": zod.number().nullish(),
+  "status": zod.enum(['draft', 'approved']),
   "clientId": zod.number().nullish(),
   "sourceTemplateId": zod.number().nullish(),
   "sleepAdjustEnabled": zod.boolean().optional(),
@@ -598,6 +600,7 @@ export const GetProgramResponse = zod.object({
   "name": zod.string(),
   "description": zod.string().nullish(),
   "durationWeeks": zod.number().nullish(),
+  "status": zod.enum(['draft', 'approved']),
   "clientId": zod.number().nullish(),
   "sourceTemplateId": zod.number().nullish(),
   "sleepAdjustEnabled": zod.boolean().optional(),
@@ -696,6 +699,7 @@ export const UpdateProgramResponse = zod.object({
   "name": zod.string(),
   "description": zod.string().nullish(),
   "durationWeeks": zod.number().nullish(),
+  "status": zod.enum(['draft', 'approved']),
   "clientId": zod.number().nullish(),
   "sourceTemplateId": zod.number().nullish(),
   "sleepAdjustEnabled": zod.boolean().optional(),
@@ -734,6 +738,28 @@ export const UpdateProgramSleepAdjustmentResponse = zod.object({
   "name": zod.string(),
   "description": zod.string().nullish(),
   "durationWeeks": zod.number().nullish(),
+  "status": zod.enum(['draft', 'approved']),
+  "clientId": zod.number().nullish(),
+  "sourceTemplateId": zod.number().nullish(),
+  "sleepAdjustEnabled": zod.boolean().optional(),
+  "sleepAdjustPercent": zod.number().optional(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Approve a draft workout program for client assignment
+ */
+export const ApproveProgramParams = zod.object({
+  "programId": zod.coerce.number()
+})
+
+export const ApproveProgramResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "durationWeeks": zod.number().nullish(),
+  "status": zod.enum(['draft', 'approved']),
   "clientId": zod.number().nullish(),
   "sourceTemplateId": zod.number().nullish(),
   "sleepAdjustEnabled": zod.boolean().optional(),
@@ -991,6 +1017,7 @@ export const GetClientProgramResponse = zod.object({
   "name": zod.string(),
   "description": zod.string().nullish(),
   "durationWeeks": zod.number().nullish(),
+  "status": zod.enum(['draft', 'approved']),
   "clientId": zod.number().nullish(),
   "sourceTemplateId": zod.number().nullish(),
   "sleepAdjustEnabled": zod.boolean().optional(),
@@ -1776,7 +1803,8 @@ export const assignTaskBodyTextMax = 2000;
 
 
 export const AssignTaskBody = zod.object({
-  "text": zod.string().min(1).max(assignTaskBodyTextMax)
+  "text": zod.string().min(1).max(assignTaskBodyTextMax),
+  "dueDate": zod.coerce.date().optional()
 })
 
 
