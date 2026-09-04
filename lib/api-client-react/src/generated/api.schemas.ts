@@ -5,6 +5,102 @@
  * Trak fitness coaching platform API
  * OpenAPI spec version: 0.1.0
  */
+export type NativeLoginInputRole = typeof NativeLoginInputRole[keyof typeof NativeLoginInputRole];
+
+
+export const NativeLoginInputRole = {
+  coach: 'coach',
+  client: 'client',
+} as const;
+
+export interface NativeLoginInput {
+  /** @minLength 1 */
+  username: string;
+  /** @minLength 1 */
+  password: string;
+  role?: NativeLoginInputRole;
+  /** @maxLength 120 */
+  deviceLabel?: string;
+}
+
+export interface RefreshTokenInput {
+  /** @minLength 1 */
+  refreshToken: string;
+}
+
+export type NativeTokenPairRole = typeof NativeTokenPairRole[keyof typeof NativeTokenPairRole];
+
+
+export const NativeTokenPairRole = {
+  coach: 'coach',
+  client: 'client',
+} as const;
+
+export interface NativeTokenPair {
+  accessToken: string;
+  refreshToken: string;
+  accessExpiresAt: string;
+  refreshExpiresAt: string;
+  sessionId: string;
+  role?: NativeTokenPairRole;
+  id?: number;
+}
+
+export type AuthSessionKind = typeof AuthSessionKind[keyof typeof AuthSessionKind];
+
+
+export const AuthSessionKind = {
+  cookie: 'cookie',
+  native: 'native',
+} as const;
+
+export interface AuthSession {
+  id: string;
+  kind: AuthSessionKind;
+  /** @nullable */
+  device_label?: string | null;
+  created_at: string;
+  last_used_at: string;
+  expires_at: string;
+  current: boolean;
+}
+
+export interface PasswordResetRequest {
+  email: string;
+}
+
+export interface PasswordResetConfirmation {
+  /** @minLength 1 */
+  token: string;
+  /** @minLength 8 */
+  password: string;
+}
+
+export interface EmailVerificationConfirmation {
+  /** @minLength 1 */
+  token: string;
+}
+
+export type EmailVerificationRequestRole = typeof EmailVerificationRequestRole[keyof typeof EmailVerificationRequestRole];
+
+
+export const EmailVerificationRequestRole = {
+  coach: 'coach',
+  client: 'client',
+} as const;
+
+export interface EmailVerificationRequest {
+  email: string;
+  role: EmailVerificationRequestRole;
+}
+
+export interface InviteRegistrationInput {
+  /** @minLength 1 */
+  username: string;
+  /** @minLength 8 */
+  password: string;
+}
+
 export interface LoginInput {
   username: string;
   password: string;
@@ -139,9 +235,8 @@ export interface InviteLink {
 }
 
 export interface InviteInfo {
-  clientId: number;
   clientName: string;
-  clientEmail: string;
+  coachName: string;
 }
 
 export interface InviteAcceptResult {

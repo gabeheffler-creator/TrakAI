@@ -11,6 +11,8 @@ export const clientsTable = pgTable("clients", {
   passwordHash: text("password_hash"),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
+  emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
+  emailVerificationRequired: boolean("email_verification_required").notNull().default(false),
   phone: text("phone"),
   goal: text("goal"),
   goalTargetDate: text("goal_target_date"),

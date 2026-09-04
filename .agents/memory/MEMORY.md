@@ -8,3 +8,4 @@
 - [Query error-state UI pattern](query-error-state-pattern.md) — standard convention for handling failed useList*/useGet* hooks across trak-coach/trak-client: per-app QueryErrorState component + isError/refetch/isFetching.
 - [Program approval lifecycle](program-approval-lifecycle.md) — preserve legacy assignments as approved, but require explicit approval for every newly created coach template before any assignment or client visibility.
 - [AI privacy and quota policy](ai-privacy-quota-policy.md) — AI usage auditing stores metadata only; daily caps count provider attempts per authenticated user, while burst limits remain a separate layer.
+- [Cross-device authentication model](cross-device-auth-model.md) — keep web cookies server-side; native clients use hashed opaque access/rotating refresh tokens resolved through one actor path.

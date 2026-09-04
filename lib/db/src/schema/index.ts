@@ -16,3 +16,4 @@ export * from "./nutrition_goals";
 export * from "./coach_settings";
 export * from "./client_tasks";
 export * from "./ai_usage";
+export * from "./auth";

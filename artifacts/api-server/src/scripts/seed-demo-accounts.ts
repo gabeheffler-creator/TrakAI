@@ -24,6 +24,11 @@ import {
 import { eq } from "drizzle-orm";
 import { objectStorageClient } from "../lib/objectStorage";
 import { instantiateAllProgramTemplatesForCoach } from "../services/program_templates";
+import { canSeedDemoAccounts } from "../lib/demo-gate";
+
+if (!canSeedDemoAccounts()) {
+  throw new Error("Demo seeding is disabled: use NODE_ENV=development with ENABLE_DEMO_DATA=true (or NODE_ENV=test).");
+}
 
 const SALT_ROUNDS = 10;
 const BUCKET = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID!;

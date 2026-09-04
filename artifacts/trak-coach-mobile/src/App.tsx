@@ -67,17 +67,19 @@ function LoginScreen({ onLogin }: { onLogin: () => void }) {
           {loading ? "Signing in…" : "Sign in"}
         </button>
       </form>
-      <div style={{ width: "100%", background: "#f9fafb", borderRadius: 12, padding: "12px 16px", border: "1.5px solid #e5e7eb" }}>
-        <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Demo credentials</div>
-        <button
-          type="button"
-          onClick={() => fill("coach", "coach")}
-          style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#fff", border: "1.5px solid #e5e7eb", borderRadius: 8, padding: "8px 12px", cursor: "pointer" }}
-        >
-          <span style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 14 }}>coach / coach</span>
-          <span style={{ fontSize: 11, color: "#9ca3af" }}>tap to fill</span>
-        </button>
-      </div>
+      {import.meta.env.DEV && import.meta.env.VITE_ENABLE_DEMO_DATA === "true" && (
+        <div style={{ width: "100%", background: "#f9fafb", borderRadius: 12, padding: "12px 16px", border: "1.5px solid #e5e7eb" }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Demo credentials</div>
+          <button
+            type="button"
+            onClick={() => fill("coach", "coach")}
+            style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#fff", border: "1.5px solid #e5e7eb", borderRadius: 8, padding: "8px 12px", cursor: "pointer" }}
+          >
+            <span style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 14 }}>coach / coach</span>
+            <span style={{ fontSize: 11, color: "#9ca3af" }}>tap to fill</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }

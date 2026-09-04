@@ -73,22 +73,24 @@ function LoginScreen({ onLogin }: { onLogin: () => void }) {
           {loading ? "Signing in…" : "Sign in"}
         </button>
       </form>
-      <div style={{ width: "100%", background: "#f9fafb", borderRadius: 12, padding: "12px 16px", border: "1.5px solid #e5e7eb" }}>
-        <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Demo accounts — tap to fill</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {DEMO_CLIENTS.map(c => (
-            <button
-              key={c.username}
-              type="button"
-              onClick={() => fill(c.username, c.password)}
-              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#fff", border: "1.5px solid #e5e7eb", borderRadius: 8, padding: "8px 12px", cursor: "pointer" }}
-            >
-              <span style={{ fontSize: 12, color: "#6b7280" }}>{c.label}</span>
-              <span style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 14 }}>{c.username} / {c.password}</span>
-            </button>
-          ))}
+      {import.meta.env.DEV && import.meta.env.VITE_ENABLE_DEMO_DATA === "true" && (
+        <div style={{ width: "100%", background: "#f9fafb", borderRadius: 12, padding: "12px 16px", border: "1.5px solid #e5e7eb" }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Demo accounts — tap to fill</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {DEMO_CLIENTS.map(c => (
+              <button
+                key={c.username}
+                type="button"
+                onClick={() => fill(c.username, c.password)}
+                style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#fff", border: "1.5px solid #e5e7eb", borderRadius: 8, padding: "8px 12px", cursor: "pointer" }}
+              >
+                <span style={{ fontSize: 12, color: "#6b7280" }}>{c.label}</span>
+                <span style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 14 }}>{c.username} / {c.password}</span>
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

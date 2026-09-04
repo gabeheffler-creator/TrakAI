@@ -7,7 +7,7 @@
     "dev": "export NODE_ENV=development && pnpm run build && pnpm run start",
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
-    "test": "node --import tsx/esm --test 'src/lib/day-type.test.ts' 'src/lib/ai-gateway.test.ts' 'src/routes/nutrition_goals.test.ts'",
+    "test": "NODE_ENV=test RATE_LIMIT_AUTH_MAX=1000 RATE_LIMIT_GENERAL_MAX=1000 node --import tsx/esm --test 'src/lib/*.test.ts' 'src/routes/*.test.ts'",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "backfill-program-templates": "tsx ./src/scripts/backfill-program-templates.ts",
     "seed-demo-accounts": "tsx ./src/scripts/seed-demo-accounts.ts"

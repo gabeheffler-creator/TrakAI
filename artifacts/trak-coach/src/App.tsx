@@ -15,6 +15,9 @@ import { Exercises } from "@/pages/exercises";
 import { Messages } from "@/pages/messages";
 import { SettingsPage } from "@/pages/settings";
 import { LoginPage } from "@/pages/login";
+import { ForgotPasswordPage } from "@/pages/forgot-password";
+import { ResetPasswordPage } from "@/pages/reset-password";
+import { VerifyEmailPage } from "@/pages/verify-email";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -58,10 +61,34 @@ function LoginGate() {
   return <LoginPage />;
 }
 
+function ForgotPasswordGate() {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (user) return <Redirect to="/" />;
+  return <ForgotPasswordPage />;
+}
+
+function ResetPasswordGate() {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (user) return <Redirect to="/" />;
+  return <ResetPasswordPage />;
+}
+
+function VerifyEmailGate() {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (user) return <Redirect to="/" />;
+  return <VerifyEmailPage />;
+}
+
 function AppRouter() {
   return (
     <Switch>
       <Route path="/login" component={LoginGate} />
+      <Route path="/forgot-password" component={ForgotPasswordGate} />
+      <Route path="/reset-password" component={ResetPasswordGate} />
+      <Route path="/verify-email" component={VerifyEmailGate} />
       <Route path="/" component={HomeGate} />
       <Route path="/clients"><Protected><ClientList /></Protected></Route>
       <Route path="/clients/:clientId/goal-history"><Protected><GoalHistoryPage /></Protected></Route>

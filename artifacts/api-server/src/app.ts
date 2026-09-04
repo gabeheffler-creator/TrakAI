@@ -7,11 +7,15 @@ import { fileURLToPath } from "url";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { generalBurstLimit } from "./lib/rate-limit";
+import { PgSessionStore } from "./lib/pg-session-store";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app: Express = express();
 app.set("trust proxy", 1);
+if (process.env.NODE_ENV === "production" && !process.env.AUTH_PUBLIC_BASE_URL) {
+  throw new Error("AUTH_PUBLIC_BASE_URL must be set in production");
+}
 
 app.use(
   pinoHttp({
@@ -33,14 +37,40 @@ app.use(
   }),
 );
 
-app.use(cors({ credentials: true, origin: true }));
+// Cookies are sent automatically by browsers: reject unsafe cross-origin
+// mutations. Explicit bearer clients are not vulnerable to that CSRF vector.
+app.use((req, res, next) => {
+  if (!["GET", "HEAD", "OPTIONS"].includes(req.method) && !req.get("authorization")) {
+    const origin = req.get("origin");
+    const trustedSelf = `${req.protocol}://${req.get("host")}`;
+    if (origin && origin !== trustedSelf && !allowedOrigins.includes(origin)) {
+      res.status(403).json({ error: "Cross-origin cookie request rejected" });
+      return;
+    }
+  }
+  next();
+});
+
+const allowedOrigins = (process.env.WEB_ALLOWED_ORIGINS ?? "")
+  .split(",").map(origin => origin.trim()).filter(Boolean);
+app.use(cors({
+  credentials: true,
+  origin(origin, callback) {
+    // no Origin is same-origin/non-browser traffic; never reflect arbitrary origins.
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    callback(null, false);
+  },
+}));
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 app.use(
   session({
     name: "trak_session",
-    secret: process.env.SESSION_SECRET ?? crypto.randomUUID(),
+    secret: process.env.SESSION_SECRET ?? (process.env.NODE_ENV === "production"
+      ? (() => { throw new Error("SESSION_SECRET must be set in production"); })()
+      : "development-session-secret-not-for-production"),
+    store: new PgSessionStore(),
     resave: false,
     saveUninitialized: false,
     cookie: {

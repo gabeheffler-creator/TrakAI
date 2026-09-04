@@ -6,7 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface InviteInfo {
-  clientName: string;
-  coachName: string;
+export interface InviteRegistrationInput {
+  /** @minLength 1 */
+  username: string;
+  /** @minLength 8 */
+  password: string;
 }

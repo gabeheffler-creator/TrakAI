@@ -4,12 +4,13 @@ import { useUnitSystem } from "@/hooks/use-unit-system";
 import { useWorkoutPrefs } from "@/hooks/use-workout-prefs";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Moon, Sun, Ruler, Dumbbell, BarChart2, Bug, MessageSquare, ChevronRight, CheckCircle, FlaskConical, FileDown } from "lucide-react";
+import { Moon, Sun, Ruler, Dumbbell, BarChart2, Bug, MessageSquare, ChevronRight, CheckCircle, FlaskConical, FileDown, ShieldCheck } from "lucide-react";
 import { Link } from "wouter";
+import { AuthSessions } from "@/components/auth-sessions";
 
 const BETA_MODE_KEY = "trak_beta_mode";
 function readBetaMode() { return localStorage.getItem(BETA_MODE_KEY) === "true"; }
@@ -92,6 +93,8 @@ export function SettingsPage() {
   const [feedbackText, setFeedbackText] = useState("");
   const [feedbackPending, setFeedbackPending] = useState(false);
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+
+  const [sessionsSheetOpen, setSessionsSheetOpen] = useState(false);
 
   const handleOpenBug = () => { setBugText(""); setBugSubmitted(false); setBugSheetOpen(true); };
   const handleOpenFeedback = () => { setFeedbackText(""); setFeedbackSubmitted(false); setFeedbackSheetOpen(true); };
@@ -255,8 +258,16 @@ export function SettingsPage() {
       </div>
 
       {/* ── Support ────────────────────────────── */}
-      <SectionHeader title="Support" />
+      <SectionHeader title="Support & Security" />
       <div className="rounded-2xl border border-border bg-card divide-y divide-border">
+        <div className="px-4">
+          <SettingRow
+            icon={<ShieldCheck className="w-4 h-4" />}
+            label="Active sessions"
+            description="Manage devices logged into your account"
+            onClick={() => setSessionsSheetOpen(true)}
+          />
+        </div>
         <div className="px-4">
           <SettingRow
             icon={<MessageSquare className="w-4 h-4" />}
@@ -274,6 +285,17 @@ export function SettingsPage() {
           />
         </div>
       </div>
+
+      {/* ── Sessions sheet ────────────────────── */}
+      <Sheet open={sessionsSheetOpen} onOpenChange={open => { if (!open) setSessionsSheetOpen(false); }}>
+        <SheetContent side="bottom" className="rounded-t-2xl pb-8 max-h-[85vh] overflow-y-auto">
+          <SheetHeader className="mb-4">
+            <SheetTitle>Active Sessions</SheetTitle>
+            <SheetDescription>Review and sign out browsers or mobile devices connected to your account.</SheetDescription>
+          </SheetHeader>
+          <AuthSessions />
+        </SheetContent>
+      </Sheet>
 
       {/* ── Feedback sheet ────────────────────── */}
       <Sheet open={feedbackSheetOpen} onOpenChange={open => { if (!open) setFeedbackSheetOpen(false); }}>

@@ -6,7 +6,12 @@ export async function sendGmail(params: {
   html: string;
   from?: string;
 }): Promise<{ ok: true } | { ok: false; status?: number; body?: string }> {
-  const { to, subject, html, from = "me" } = params;
+  if (process.env.NODE_ENV === "test") return { ok: true };
+
+  const cleanHeader = (value: string) => value.replace(/[\r\n]/g, "");
+  const { html, from = "me" } = params;
+  const to = cleanHeader(params.to);
+  const subject = cleanHeader(params.subject);
 
   const rawMessage = [
     `To: ${to}`,

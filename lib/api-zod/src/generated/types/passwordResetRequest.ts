@@ -6,7 +6,6 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface InviteInfo {
-  clientName: string;
-  coachName: string;
+export interface PasswordResetRequest {
+  email: string;
 }

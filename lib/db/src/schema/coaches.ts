@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -9,6 +9,8 @@ export const coachesTable = pgTable("coaches", {
   passwordHash: text("password_hash"),
   name: text("name").notNull(),
   email: text("email").notNull(),
+  emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
+  emailVerificationRequired: boolean("email_verification_required").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

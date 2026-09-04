@@ -51,6 +51,130 @@ export const GetMeResponse = zod.object({
 
 
 /**
+ * @summary Create native opaque access and refresh tokens
+ */
+
+
+export const tokenLoginBodyDeviceLabelMax = 120;
+
+
+
+export const TokenLoginBody = zod.object({
+  "username": zod.string().min(1),
+  "password": zod.string().min(1),
+  "role": zod.enum(['coach', 'client']).optional(),
+  "deviceLabel": zod.string().max(tokenLoginBodyDeviceLabelMax).optional()
+})
+
+export const TokenLoginResponse = zod.object({
+  "accessToken": zod.string(),
+  "refreshToken": zod.string(),
+  "accessExpiresAt": zod.coerce.date(),
+  "refreshExpiresAt": zod.coerce.date(),
+  "sessionId": zod.string().uuid(),
+  "role": zod.enum(['coach', 'client']).optional(),
+  "id": zod.number().optional()
+})
+
+
+/**
+ * @summary Rotate a native refresh token
+ */
+
+
+
+export const RefreshTokenBody = zod.object({
+  "refreshToken": zod.string().min(1)
+})
+
+export const RefreshTokenResponse = zod.object({
+  "accessToken": zod.string(),
+  "refreshToken": zod.string(),
+  "accessExpiresAt": zod.coerce.date(),
+  "refreshExpiresAt": zod.coerce.date(),
+  "sessionId": zod.string().uuid(),
+  "role": zod.enum(['coach', 'client']).optional(),
+  "id": zod.number().optional()
+})
+
+
+/**
+ * @summary Revoke a native session by refresh token
+ */
+
+
+
+export const RevokeTokenBody = zod.object({
+  "refreshToken": zod.string().min(1)
+})
+
+
+/**
+ * @summary List active sessions for the authenticated actor
+ */
+export const ListAuthSessionsResponseItem = zod.object({
+  "id": zod.string().uuid(),
+  "kind": zod.enum(['cookie', 'native']),
+  "device_label": zod.string().nullish(),
+  "created_at": zod.coerce.date(),
+  "last_used_at": zod.coerce.date(),
+  "expires_at": zod.coerce.date(),
+  "current": zod.boolean()
+})
+export const ListAuthSessionsResponse = zod.array(ListAuthSessionsResponseItem)
+
+
+/**
+ * @summary Revoke one of the authenticated actor's sessions
+ */
+export const RevokeAuthSessionParams = zod.object({
+  "sessionId": zod.coerce.string().uuid()
+})
+
+
+/**
+ * @summary Request a password reset without exposing account existence
+ */
+export const RequestPasswordResetBody = zod.object({
+  "email": zod.string().email()
+})
+
+
+/**
+ * @summary Consume a password reset token
+ */
+
+export const confirmPasswordResetBodyPasswordMin = 8;
+
+
+
+export const ConfirmPasswordResetBody = zod.object({
+  "token": zod.string().min(1),
+  "password": zod.string().min(confirmPasswordResetBodyPasswordMin)
+})
+
+
+/**
+ * @summary Send a verification token for the authenticated actor
+ */
+export const RequestEmailVerificationBody = zod.object({
+  "email": zod.string().email(),
+  "role": zod.enum(['coach', 'client'])
+})
+
+
+/**
+ * @summary Consume an email verification token
+ */
+
+
+
+export const ConfirmEmailVerificationBody = zod.object({
+  "token": zod.string().min(1)
+})
+
+
+/**
  * @summary Health check
  */
 export const HealthCheckResponse = zod.object({
@@ -277,9 +401,34 @@ export const GetInviteParams = zod.object({
 })
 
 export const GetInviteResponse = zod.object({
-  "clientId": zod.number(),
   "clientName": zod.string(),
-  "clientEmail": zod.string()
+  "coachName": zod.string()
+})
+
+
+/**
+ * @summary Accept a one-time client invitation
+ */
+export const RegisterInviteParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+
+export const registerInviteBodyPasswordMin = 8;
+
+
+
+export const RegisterInviteBody = zod.object({
+  "username": zod.string().min(1),
+  "password": zod.string().min(registerInviteBodyPasswordMin)
+})
+
+
+/**
+ * @summary Send a server-derived invitation to an owned client
+ */
+export const SendClientInviteEmailParams = zod.object({
+  "clientId": zod.coerce.number()
 })
 
 

@@ -6,7 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface InviteInfo {
-  clientName: string;
-  coachName: string;
+export interface RefreshTokenInput {
+  /** @minLength 1 */
+  refreshToken: string;
 }

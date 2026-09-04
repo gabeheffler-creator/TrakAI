@@ -14,7 +14,6 @@ import {
   coachesTable,
 } from "@workspace/db";
 import { eq, sql, desc, and, inArray, lt } from "drizzle-orm";
-import { randomBytes } from "crypto";
 import {
   CreateClientBody,
   UpdateClientBody,
@@ -28,9 +27,13 @@ import {
   GetClientActivityHeatmapParams,
   CreateClientGoalBody,
   ListClientGoalHistoryParams,
+  RegisterInviteBody,
 } from "@workspace/api-zod";
 import { requireCoachAuth, requireClientOwnership, requireCoachOnly, requireClientAuth } from "../middlewares/auth";
 import { sendGmail } from "../lib/mail";
+import { authPageUrl } from "../lib/public-auth-urls";
+import { issueActionToken, tokenHash } from "../lib/tokens";
+import { pool } from "@workspace/db";
 
 const router = Router();
 
@@ -180,6 +183,9 @@ router.patch("/clients/:clientId/status", requireClientOwnership(), requireCoach
       .returning();
     if (!client) { res.status(404).json({ error: "Client not found" }); return; }
     res.json({ ...client, createdAt: client.createdAt.toISOString() });
+    if (status === "inactive") {
+      await pool.query("update auth_sessions set revoked_at=now() where actor_type='client' and actor_id=$1 and revoked_at is null", [client.id]);
+    }
 
     if (client.email) {
       const subject = status === "active"
@@ -306,12 +312,9 @@ router.delete("/clients/:clientId", requireClientOwnership(), requireCoachOnly, 
 router.post("/clients/:clientId/invite", requireClientOwnership(), requireCoachOnly, async (req, res) => {
   try {
     const { clientId } = GenerateInviteLinkParams.parse({ clientId: Number(req.params.clientId) });
-    const token = randomBytes(16).toString("hex");
-    const [client] = await db.update(clientsTable)
-      .set({ inviteToken: token, updatedAt: new Date() })
-      .where(eq(clientsTable.id, clientId))
-      .returning();
+    const [client] = await db.select().from(clientsTable).where(eq(clientsTable.id, clientId));
     if (!client) { res.status(404).json({ error: "Client not found" }); return; }
+    const { token } = await issueActionToken("client", client.id, "invite_accept");
     res.json({ token, url: `/client/join/${token}` });
   } catch (err) {
     req.log.error(err);
@@ -324,13 +327,46 @@ router.post("/clients/:clientId/invite", requireClientOwnership(), requireCoachO
 router.get("/invite/:token", async (req, res) => {
   try {
     const { token } = GetInviteParams.parse({ token: req.params.token });
-    const [client] = await db.select().from(clientsTable).where(eq(clientsTable.inviteToken, token));
+    const tokenRow = await db.execute(sql`select actor_id from auth_action_tokens where token_hash=${tokenHash(token)} and purpose='invite_accept' and used_at is null and expires_at > now()`);
+    const id = tokenRow.rows[0]?.actor_id as number | undefined;
+    if (!id) { res.status(404).json({ error: "Invalid or expired token" }); return; }
+    const [client] = await db.select().from(clientsTable).where(eq(clientsTable.id, id));
     if (!client) { res.status(404).json({ error: "Invalid or expired token" }); return; }
-    res.json({ clientId: client.id, clientName: client.name, clientEmail: client.email });
+    const [coach] = await db.select({ name: coachesTable.name }).from(coachesTable).where(eq(coachesTable.id, client.coachId));
+    res.json({ clientName: client.name.split(" ")[0], coachName: coach?.name ?? "Your coach" });
   } catch (err) {
     req.log.error(err);
     res.status(500).json({ error: "Failed to get invite" });
   }
+});
+
+router.post("/invite/:token/register", async (req, res) => {
+  try {
+    const { token } = req.params;
+    const parsed = RegisterInviteBody.safeParse(req.body);
+    if (!token || !parsed.success) { res.status(400).json({ error: "username and password (minimum 8 characters) are required" }); return; }
+    const { username, password } = parsed.data;
+    const passwordHash = await (await import("bcryptjs")).default.hash(password, 12);
+    const connection = await pool.connect();
+    let client: typeof clientsTable.$inferSelect | undefined;
+    try {
+      await connection.query("begin");
+      const action = await connection.query(`update auth_action_tokens set used_at=now() where token_hash=$1 and purpose='invite_accept' and used_at is null and expires_at > now() returning actor_type, actor_id`, [tokenHash(token)]);
+      if (action.rows[0]?.actor_type !== "client") { await connection.query("rollback"); res.status(400).json({ error: "Invalid or expired token" }); return; }
+      const updated = await connection.query(`update clients set username=$1, password_hash=$2, email_verification_required=true, updated_at=now() where id=$3 returning *`, [username, passwordHash, action.rows[0].actor_id]);
+      client = updated.rows[0];
+      if (!client) throw new Error("Invited client no longer exists");
+      await connection.query("commit");
+    } catch (error: any) {
+      await connection.query("rollback");
+      if (error?.code === "23505") { res.status(409).json({ error: "Username is already in use" }); return; }
+      throw error;
+    } finally { connection.release(); }
+    const verification = await issueActionToken("client", client.id, "email_verification");
+    const verificationUrl = authPageUrl("client", "verify-email", verification.token);
+    void sendGmail({ to: client.email, subject: "Verify your TrakAI email", html: `<p><a href="${verificationUrl}">Verify your email</a></p>` });
+    res.status(201).json({ ok: true });
+  } catch (err) { req.log.error(err); res.status(400).json({ error: "Unable to accept invite" }); }
 });
 
 

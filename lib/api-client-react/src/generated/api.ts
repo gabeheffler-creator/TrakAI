@@ -27,6 +27,7 @@ import type {
   Assignment,
   AssignmentInput,
   AssignmentUpdate,
+  AuthSession,
   AuthUser,
   BulkAssignProgramInput,
   BulkAssignProgramResult,
@@ -43,12 +44,15 @@ import type {
   CoachDashboard,
   CoachNote,
   CoachNoteInput,
+  EmailVerificationConfirmation,
+  EmailVerificationRequest,
   Exercise,
   ExerciseInput,
   ExercisePatch,
   HealthStatus,
   InviteInfo,
   InviteLink,
+  InviteRegistrationInput,
   LastWorkoutPerformance,
   LoginInput,
   LoginResult,
@@ -58,10 +62,14 @@ import type {
   MeasurementInput,
   Message,
   MessageInput,
+  NativeLoginInput,
+  NativeTokenPair,
   NutritionExtractionInput,
   NutritionExtractionResult,
   NutritionLog,
   NutritionLogInput,
+  PasswordResetConfirmation,
+  PasswordResetRequest,
   Program,
   ProgramAssignedClient,
   ProgramAssignment,
@@ -85,6 +93,7 @@ import type {
   ProgressPhoto,
   ProgressPhotoInput,
   PushSubscriptionInput,
+  RefreshTokenInput,
   RejectTaskInput,
   SetLog,
   SetLogInput,
@@ -402,6 +411,720 @@ export function useGetMe<TData = Awaited<ReturnType<typeof getMe>>, TError = Err
 
 
 
+
+export const getTokenLoginUrl = () => {
+
+
+
+
+  return `/api/auth/token/login`
+}
+
+/**
+ * @summary Create native opaque access and refresh tokens
+ */
+export const tokenLogin = async (nativeLoginInput: NativeLoginInput, options?: RequestInit): Promise<NativeTokenPair> => {
+
+  return customFetch<NativeTokenPair>(getTokenLoginUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      nativeLoginInput,)
+  }
+);}
+
+
+
+
+export const getTokenLoginMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof tokenLogin>>, TError,{data: BodyType<NativeLoginInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof tokenLogin>>, TError,{data: BodyType<NativeLoginInput>}, TContext> => {
+
+const mutationKey = ['tokenLogin'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof tokenLogin>>, {data: BodyType<NativeLoginInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  tokenLogin(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TokenLoginMutationResult = NonNullable<Awaited<ReturnType<typeof tokenLogin>>>
+    export type TokenLoginMutationBody = BodyType<NativeLoginInput>
+    export type TokenLoginMutationError = ErrorType<void>
+
+    /**
+ * @summary Create native opaque access and refresh tokens
+ */
+export const useTokenLogin = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof tokenLogin>>, TError,{data: BodyType<NativeLoginInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof tokenLogin>>,
+        TError,
+        {data: BodyType<NativeLoginInput>},
+        TContext
+      > => {
+      return useMutation(getTokenLoginMutationOptions(options));
+    }
+
+export const getRefreshTokenUrl = () => {
+
+
+
+
+  return `/api/auth/token/refresh`
+}
+
+/**
+ * @summary Rotate a native refresh token
+ */
+export const refreshToken = async (refreshTokenInput: RefreshTokenInput, options?: RequestInit): Promise<NativeTokenPair> => {
+
+  return customFetch<NativeTokenPair>(getRefreshTokenUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      refreshTokenInput,)
+  }
+);}
+
+
+
+
+export const getRefreshTokenMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof refreshToken>>, TError,{data: BodyType<RefreshTokenInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof refreshToken>>, TError,{data: BodyType<RefreshTokenInput>}, TContext> => {
+
+const mutationKey = ['refreshToken'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof refreshToken>>, {data: BodyType<RefreshTokenInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  refreshToken(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RefreshTokenMutationResult = NonNullable<Awaited<ReturnType<typeof refreshToken>>>
+    export type RefreshTokenMutationBody = BodyType<RefreshTokenInput>
+    export type RefreshTokenMutationError = ErrorType<void>
+
+    /**
+ * @summary Rotate a native refresh token
+ */
+export const useRefreshToken = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof refreshToken>>, TError,{data: BodyType<RefreshTokenInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof refreshToken>>,
+        TError,
+        {data: BodyType<RefreshTokenInput>},
+        TContext
+      > => {
+      return useMutation(getRefreshTokenMutationOptions(options));
+    }
+
+export const getRevokeTokenUrl = () => {
+
+
+
+
+  return `/api/auth/token/revoke`
+}
+
+/**
+ * @summary Revoke a native session by refresh token
+ */
+export const revokeToken = async (refreshTokenInput: RefreshTokenInput, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getRevokeTokenUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      refreshTokenInput,)
+  }
+);}
+
+
+
+
+export const getRevokeTokenMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof revokeToken>>, TError,{data: BodyType<RefreshTokenInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof revokeToken>>, TError,{data: BodyType<RefreshTokenInput>}, TContext> => {
+
+const mutationKey = ['revokeToken'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof revokeToken>>, {data: BodyType<RefreshTokenInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  revokeToken(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RevokeTokenMutationResult = NonNullable<Awaited<ReturnType<typeof revokeToken>>>
+    export type RevokeTokenMutationBody = BodyType<RefreshTokenInput>
+    export type RevokeTokenMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Revoke a native session by refresh token
+ */
+export const useRevokeToken = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof revokeToken>>, TError,{data: BodyType<RefreshTokenInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof revokeToken>>,
+        TError,
+        {data: BodyType<RefreshTokenInput>},
+        TContext
+      > => {
+      return useMutation(getRevokeTokenMutationOptions(options));
+    }
+
+export const getListAuthSessionsUrl = () => {
+
+
+
+
+  return `/api/auth/sessions`
+}
+
+/**
+ * @summary List active sessions for the authenticated actor
+ */
+export const listAuthSessions = async ( options?: RequestInit): Promise<AuthSession[]> => {
+
+  return customFetch<AuthSession[]>(getListAuthSessionsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAuthSessionsQueryKey = () => {
+    return [
+    `/api/auth/sessions`
+    ] as const;
+    }
+
+
+export const getListAuthSessionsQueryOptions = <TData = Awaited<ReturnType<typeof listAuthSessions>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAuthSessions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAuthSessionsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAuthSessions>>> = ({ signal }) => listAuthSessions({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAuthSessions>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListAuthSessionsQueryResult = NonNullable<Awaited<ReturnType<typeof listAuthSessions>>>
+export type ListAuthSessionsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List active sessions for the authenticated actor
+ */
+
+export function useListAuthSessions<TData = Awaited<ReturnType<typeof listAuthSessions>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAuthSessions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListAuthSessionsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getRevokeAllAuthSessionsUrl = () => {
+
+
+
+
+  return `/api/auth/sessions/revoke-all`
+}
+
+/**
+ * @summary Revoke all sessions for the authenticated actor
+ */
+export const revokeAllAuthSessions = async ( options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getRevokeAllAuthSessionsUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getRevokeAllAuthSessionsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof revokeAllAuthSessions>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof revokeAllAuthSessions>>, TError,void, TContext> => {
+
+const mutationKey = ['revokeAllAuthSessions'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof revokeAllAuthSessions>>, void> = () => {
+
+
+          return  revokeAllAuthSessions(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RevokeAllAuthSessionsMutationResult = NonNullable<Awaited<ReturnType<typeof revokeAllAuthSessions>>>
+
+    export type RevokeAllAuthSessionsMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Revoke all sessions for the authenticated actor
+ */
+export const useRevokeAllAuthSessions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof revokeAllAuthSessions>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof revokeAllAuthSessions>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getRevokeAllAuthSessionsMutationOptions(options));
+    }
+
+export const getRevokeAuthSessionUrl = (sessionId: string,) => {
+
+
+
+
+  return `/api/auth/sessions/${sessionId}`
+}
+
+/**
+ * @summary Revoke one of the authenticated actor's sessions
+ */
+export const revokeAuthSession = async (sessionId: string, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getRevokeAuthSessionUrl(sessionId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getRevokeAuthSessionMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof revokeAuthSession>>, TError,{sessionId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof revokeAuthSession>>, TError,{sessionId: string}, TContext> => {
+
+const mutationKey = ['revokeAuthSession'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof revokeAuthSession>>, {sessionId: string}> = (props) => {
+          const {sessionId} = props ?? {};
+
+          return  revokeAuthSession(sessionId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RevokeAuthSessionMutationResult = NonNullable<Awaited<ReturnType<typeof revokeAuthSession>>>
+
+    export type RevokeAuthSessionMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Revoke one of the authenticated actor's sessions
+ */
+export const useRevokeAuthSession = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof revokeAuthSession>>, TError,{sessionId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof revokeAuthSession>>,
+        TError,
+        {sessionId: string},
+        TContext
+      > => {
+      return useMutation(getRevokeAuthSessionMutationOptions(options));
+    }
+
+export const getRequestPasswordResetUrl = () => {
+
+
+
+
+  return `/api/auth/password-reset/request`
+}
+
+/**
+ * @summary Request a password reset without exposing account existence
+ */
+export const requestPasswordReset = async (passwordResetRequest: PasswordResetRequest, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getRequestPasswordResetUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      passwordResetRequest,)
+  }
+);}
+
+
+
+
+export const getRequestPasswordResetMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestPasswordReset>>, TError,{data: BodyType<PasswordResetRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof requestPasswordReset>>, TError,{data: BodyType<PasswordResetRequest>}, TContext> => {
+
+const mutationKey = ['requestPasswordReset'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof requestPasswordReset>>, {data: BodyType<PasswordResetRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  requestPasswordReset(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RequestPasswordResetMutationResult = NonNullable<Awaited<ReturnType<typeof requestPasswordReset>>>
+    export type RequestPasswordResetMutationBody = BodyType<PasswordResetRequest>
+    export type RequestPasswordResetMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Request a password reset without exposing account existence
+ */
+export const useRequestPasswordReset = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestPasswordReset>>, TError,{data: BodyType<PasswordResetRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof requestPasswordReset>>,
+        TError,
+        {data: BodyType<PasswordResetRequest>},
+        TContext
+      > => {
+      return useMutation(getRequestPasswordResetMutationOptions(options));
+    }
+
+export const getConfirmPasswordResetUrl = () => {
+
+
+
+
+  return `/api/auth/password-reset/confirm`
+}
+
+/**
+ * @summary Consume a password reset token
+ */
+export const confirmPasswordReset = async (passwordResetConfirmation: PasswordResetConfirmation, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getConfirmPasswordResetUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      passwordResetConfirmation,)
+  }
+);}
+
+
+
+
+export const getConfirmPasswordResetMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof confirmPasswordReset>>, TError,{data: BodyType<PasswordResetConfirmation>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof confirmPasswordReset>>, TError,{data: BodyType<PasswordResetConfirmation>}, TContext> => {
+
+const mutationKey = ['confirmPasswordReset'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof confirmPasswordReset>>, {data: BodyType<PasswordResetConfirmation>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  confirmPasswordReset(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ConfirmPasswordResetMutationResult = NonNullable<Awaited<ReturnType<typeof confirmPasswordReset>>>
+    export type ConfirmPasswordResetMutationBody = BodyType<PasswordResetConfirmation>
+    export type ConfirmPasswordResetMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Consume a password reset token
+ */
+export const useConfirmPasswordReset = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof confirmPasswordReset>>, TError,{data: BodyType<PasswordResetConfirmation>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof confirmPasswordReset>>,
+        TError,
+        {data: BodyType<PasswordResetConfirmation>},
+        TContext
+      > => {
+      return useMutation(getConfirmPasswordResetMutationOptions(options));
+    }
+
+export const getRequestEmailVerificationUrl = () => {
+
+
+
+
+  return `/api/auth/email-verification/request`
+}
+
+/**
+ * @summary Send a verification token for the authenticated actor
+ */
+export const requestEmailVerification = async (emailVerificationRequest?: EmailVerificationRequest, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getRequestEmailVerificationUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      emailVerificationRequest,)
+  }
+);}
+
+
+
+
+export const getRequestEmailVerificationMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestEmailVerification>>, TError,{data?: BodyType<EmailVerificationRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof requestEmailVerification>>, TError,{data?: BodyType<EmailVerificationRequest>}, TContext> => {
+
+const mutationKey = ['requestEmailVerification'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof requestEmailVerification>>, {data?: BodyType<EmailVerificationRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  requestEmailVerification(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RequestEmailVerificationMutationResult = NonNullable<Awaited<ReturnType<typeof requestEmailVerification>>>
+    export type RequestEmailVerificationMutationBody = BodyType<EmailVerificationRequest> | undefined
+    export type RequestEmailVerificationMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Send a verification token for the authenticated actor
+ */
+export const useRequestEmailVerification = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestEmailVerification>>, TError,{data?: BodyType<EmailVerificationRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof requestEmailVerification>>,
+        TError,
+        {data?: BodyType<EmailVerificationRequest>},
+        TContext
+      > => {
+      return useMutation(getRequestEmailVerificationMutationOptions(options));
+    }
+
+export const getConfirmEmailVerificationUrl = () => {
+
+
+
+
+  return `/api/auth/email-verification/confirm`
+}
+
+/**
+ * @summary Consume an email verification token
+ */
+export const confirmEmailVerification = async (emailVerificationConfirmation: EmailVerificationConfirmation, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getConfirmEmailVerificationUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      emailVerificationConfirmation,)
+  }
+);}
+
+
+
+
+export const getConfirmEmailVerificationMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof confirmEmailVerification>>, TError,{data: BodyType<EmailVerificationConfirmation>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof confirmEmailVerification>>, TError,{data: BodyType<EmailVerificationConfirmation>}, TContext> => {
+
+const mutationKey = ['confirmEmailVerification'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof confirmEmailVerification>>, {data: BodyType<EmailVerificationConfirmation>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  confirmEmailVerification(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ConfirmEmailVerificationMutationResult = NonNullable<Awaited<ReturnType<typeof confirmEmailVerification>>>
+    export type ConfirmEmailVerificationMutationBody = BodyType<EmailVerificationConfirmation>
+    export type ConfirmEmailVerificationMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Consume an email verification token
+ */
+export const useConfirmEmailVerification = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof confirmEmailVerification>>, TError,{data: BodyType<EmailVerificationConfirmation>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof confirmEmailVerification>>,
+        TError,
+        {data: BodyType<EmailVerificationConfirmation>},
+        TContext
+      > => {
+      return useMutation(getConfirmEmailVerificationMutationOptions(options));
+    }
 
 export const getHealthCheckUrl = () => {
 
@@ -1291,6 +2014,148 @@ export function useGetInvite<TData = Awaited<ReturnType<typeof getInvite>>, TErr
 
 
 
+
+export const getRegisterInviteUrl = (token: string,) => {
+
+
+
+
+  return `/api/invite/${token}/register`
+}
+
+/**
+ * @summary Accept a one-time client invitation
+ */
+export const registerInvite = async (token: string,
+    inviteRegistrationInput: InviteRegistrationInput, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getRegisterInviteUrl(token),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      inviteRegistrationInput,)
+  }
+);}
+
+
+
+
+export const getRegisterInviteMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registerInvite>>, TError,{token: string;data: BodyType<InviteRegistrationInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof registerInvite>>, TError,{token: string;data: BodyType<InviteRegistrationInput>}, TContext> => {
+
+const mutationKey = ['registerInvite'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof registerInvite>>, {token: string;data: BodyType<InviteRegistrationInput>}> = (props) => {
+          const {token,data} = props ?? {};
+
+          return  registerInvite(token,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RegisterInviteMutationResult = NonNullable<Awaited<ReturnType<typeof registerInvite>>>
+    export type RegisterInviteMutationBody = BodyType<InviteRegistrationInput>
+    export type RegisterInviteMutationError = ErrorType<void>
+
+    /**
+ * @summary Accept a one-time client invitation
+ */
+export const useRegisterInvite = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registerInvite>>, TError,{token: string;data: BodyType<InviteRegistrationInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof registerInvite>>,
+        TError,
+        {token: string;data: BodyType<InviteRegistrationInput>},
+        TContext
+      > => {
+      return useMutation(getRegisterInviteMutationOptions(options));
+    }
+
+export const getSendClientInviteEmailUrl = (clientId: number,) => {
+
+
+
+
+  return `/api/clients/${clientId}/invite/send-email`
+}
+
+/**
+ * @summary Send a server-derived invitation to an owned client
+ */
+export const sendClientInviteEmail = async (clientId: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getSendClientInviteEmailUrl(clientId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getSendClientInviteEmailMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendClientInviteEmail>>, TError,{clientId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendClientInviteEmail>>, TError,{clientId: number}, TContext> => {
+
+const mutationKey = ['sendClientInviteEmail'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendClientInviteEmail>>, {clientId: number}> = (props) => {
+          const {clientId} = props ?? {};
+
+          return  sendClientInviteEmail(clientId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SendClientInviteEmailMutationResult = NonNullable<Awaited<ReturnType<typeof sendClientInviteEmail>>>
+
+    export type SendClientInviteEmailMutationError = ErrorType<void>
+
+    /**
+ * @summary Send a server-derived invitation to an owned client
+ */
+export const useSendClientInviteEmail = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendClientInviteEmail>>, TError,{clientId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sendClientInviteEmail>>,
+        TError,
+        {clientId: number},
+        TContext
+      > => {
+      return useMutation(getSendClientInviteEmailMutationOptions(options));
+    }
 
 export const getGetMyClientUrl = () => {
 

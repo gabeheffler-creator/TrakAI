@@ -105,6 +105,80 @@ paths:
         "401":
           description: Not authenticated
 
+  /auth/token/login:
+    post:
+      operationId: tokenLogin
+      tags: [auth]
+      summary: Create native opaque access and refresh tokens
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/NativeLoginInput" } } } }
+      responses:
+        "200": { description: Tokens issued, content: { application/json: { schema: { $ref: "#/components/schemas/NativeTokenPair" } } } }
+        "401": { description: Invalid credentials }
+  /auth/token/refresh:
+    post:
+      operationId: refreshToken
+      tags: [auth]
+      summary: Rotate a native refresh token
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/RefreshTokenInput" } } } }
+      responses:
+        "200": { description: Tokens rotated, content: { application/json: { schema: { $ref: "#/components/schemas/NativeTokenPair" } } } }
+        "401": { description: Invalid refresh token }
+  /auth/token/revoke:
+    post:
+      operationId: revokeToken
+      tags: [auth]
+      summary: Revoke a native session by refresh token
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/RefreshTokenInput" } } } }
+      responses: { "200": { description: Revoked } }
+  /auth/sessions:
+    get:
+      operationId: listAuthSessions
+      tags: [auth]
+      summary: List active sessions for the authenticated actor
+      responses:
+        "200": { description: Sessions, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/AuthSession" } } } } }
+  /auth/sessions/revoke-all:
+    post:
+      operationId: revokeAllAuthSessions
+      tags: [auth]
+      summary: Revoke all sessions for the authenticated actor
+      responses: { "200": { description: Revoked } }
+  /auth/sessions/{sessionId}:
+    delete:
+      operationId: revokeAuthSession
+      tags: [auth]
+      summary: Revoke one of the authenticated actor's sessions
+      parameters: [{ name: sessionId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses: { "204": { description: Revoked } }
+  /auth/password-reset/request:
+    post:
+      operationId: requestPasswordReset
+      tags: [auth]
+      summary: Request a password reset without exposing account existence
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/PasswordResetRequest" } } } }
+      responses: { "200": { description: Accepted } }
+  /auth/password-reset/confirm:
+    post:
+      operationId: confirmPasswordReset
+      tags: [auth]
+      summary: Consume a password reset token
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/PasswordResetConfirmation" } } } }
+      responses: { "200": { description: Password changed } }
+  /auth/email-verification/request:
+    post:
+      operationId: requestEmailVerification
+      tags: [auth]
+      summary: Send a verification token for the authenticated actor
+      requestBody: { required: false, content: { application/json: { schema: { $ref: "#/components/schemas/EmailVerificationRequest" } } } }
+      responses: { "200": { description: Accepted } }
+  /auth/email-verification/confirm:
+    post:
+      operationId: confirmEmailVerification
+      tags: [auth]
+      summary: Consume an email verification token
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/EmailVerificationConfirmation" } } } }
+      responses: { "200": { description: Email verified } }
+
   /healthz:
     get:
       operationId: healthCheck
@@ -351,6 +425,26 @@ paths:
                 $ref: "#/components/schemas/InviteInfo"
         "404":
           description: Invalid or expired token
+
+  /invite/{token}/register:
+    post:
+      operationId: registerInvite
+      tags: [invites]
+      summary: Accept a one-time client invitation
+      parameters: [{ name: token, in: path, required: true, schema: { type: string } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/InviteRegistrationInput" } } } }
+      responses:
+        "201": { description: Registered }
+        "400": { description: Invalid or expired invitation }
+  /clients/{clientId}/invite/send-email:
+    post:
+      operationId: sendClientInviteEmail
+      tags: [invites]
+      summary: Send a server-derived invitation to an owned client
+      parameters: [{ name: clientId, in: path, required: true, schema: { type: integer } }]
+      responses:
+        "200": { description: Sent }
+        "403": { description: Coach only }
 
   /clients/me:
     get:
@@ -2316,6 +2410,67 @@ paths:
 
 components:
   schemas:
+    NativeLoginInput:
+      type: object
+      required: [username, password]
+      properties:
+        username: { type: string, minLength: 1 }
+        password: { type: string, minLength: 1 }
+        role: { type: string, enum: [coach, client] }
+        deviceLabel: { type: string, maxLength: 120 }
+    RefreshTokenInput:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken: { type: string, minLength: 1 }
+    NativeTokenPair:
+      type: object
+      required: [accessToken, refreshToken, accessExpiresAt, refreshExpiresAt, sessionId]
+      properties:
+        accessToken: { type: string }
+        refreshToken: { type: string }
+        accessExpiresAt: { type: string, format: date-time }
+        refreshExpiresAt: { type: string, format: date-time }
+        sessionId: { type: string, format: uuid }
+        role: { type: string, enum: [coach, client] }
+        id: { type: integer }
+    AuthSession:
+      type: object
+      required: [id, kind, created_at, last_used_at, expires_at, current]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string, enum: [cookie, native] }
+        device_label: { type: ["string", "null"] }
+        created_at: { type: string, format: date-time }
+        last_used_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
+        current: { type: boolean }
+    PasswordResetRequest:
+      type: object
+      required: [email]
+      properties: { email: { type: string, format: email } }
+    PasswordResetConfirmation:
+      type: object
+      required: [token, password]
+      properties:
+        token: { type: string, minLength: 1 }
+        password: { type: string, minLength: 8 }
+    EmailVerificationConfirmation:
+      type: object
+      required: [token]
+      properties: { token: { type: string, minLength: 1 } }
+    EmailVerificationRequest:
+      type: object
+      required: [email, role]
+      properties:
+        email: { type: string, format: email }
+        role: { type: string, enum: [coach, client] }
+    InviteRegistrationInput:
+      type: object
+      required: [username, password]
+      properties:
+        username: { type: string, minLength: 1 }
+        password: { type: string, minLength: 8 }
     LoginInput:
       type: object
       required: [username, password]
@@ -2483,13 +2638,11 @@ components:
 
     InviteInfo:
       type: object
-      required: [clientId, clientName, clientEmail]
+      required: [clientName, coachName]
       properties:
-        clientId:
-          type: integer
         clientName:
           type: string
-        clientEmail:
+        coachName:
           type: string
 
     InviteAcceptResult:

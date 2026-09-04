@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useListClients, useCreateClient, getListClientsQueryKey, useGenerateInviteLink, useUpdateClientStatus } from "@workspace/api-client-react";
+import { useListClients, useCreateClient, getListClientsQueryKey, useSendClientInviteEmail, useUpdateClientStatus } from "@workspace/api-client-react";
 import type { Client } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -227,7 +227,7 @@ export function ClientList() {
   const queryClient = useQueryClient();
 
   const createClient = useCreateClient();
-  const generateInvite = useGenerateInviteLink();
+  const sendInviteEmail = useSendClientInviteEmail();
 
   const form = useForm<z.infer<typeof clientSchema>>({
     resolver: zodResolver(clientSchema),
@@ -241,16 +241,16 @@ export function ClientList() {
         setIsSheetOpen(false);
         form.reset();
         toast({ title: "Client created! Sending invite email…" });
-        generateInvite.mutate({ clientId: created.id }, {
-          onSuccess: (inv) => {
-            // The invite link points to the Trak Client app, not this (coach)
-            // app, so it uses the client app's base path, not this app's BASE_URL.
-            const inviteUrl = `${window.location.origin}/client/join/${inv.token}`;
-            fetch("/api/invite/send-email", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ clientId: created.id, email: values.email, name: values.name, inviteUrl }),
-            }).catch(() => null);
+        sendInviteEmail.mutate({ clientId: created.id }, {
+          onSuccess: () => {
+            toast({ title: "Invite email sent", description: `${values.name} can now create their account.` });
+          },
+          onError: (error: any) => {
+            toast({
+              title: "Client created, but the invite email was not sent",
+              description: error?.data?.error ?? "Open the client profile to copy an invite link, or try sending the email again.",
+              variant: "destructive",
+            });
           },
         });
       },
