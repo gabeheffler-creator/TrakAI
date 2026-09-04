@@ -3133,6 +3133,8 @@ components:
     ProgramExerciseUpdate:
       type: object
       properties:
+        exerciseId:
+          type: integer
         sets:
           type: integer
         reps:
@@ -3284,7 +3286,7 @@ components:
     # ── Workout Logs ────────────────────────────────────────────────────────
     WorkoutLog:
       type: object
-      required: [id, clientId, date, status, createdAt]
+      required: [id, clientId, date, status, automaticAdjustmentDecision, createdAt]
       properties:
         id:
           type: integer
@@ -3304,6 +3306,20 @@ components:
         status:
           type: string
           enum: [in_progress, completed, early_exit, cancelled]
+        automaticAdjustmentDecision:
+          type: string
+          description: The per-session decision for the automatic sleep and energy recommendation.
+          enum: [none, applied, overridden]
+        offeredSetReductionPercent:
+          type: ["integer", "null"]
+          minimum: 0
+          maximum: 50
+          description: Set reduction offered by the automatic recommendation, retained for audit.
+        offeredRestIncreasePercent:
+          type: ["integer", "null"]
+          minimum: 0
+          maximum: 50
+          description: Rest increase offered by the automatic recommendation, retained for audit.
         createdAt:
           type: string
           format: date-time
@@ -3321,6 +3337,18 @@ components:
           type: integer
         notes:
           type: string
+        automaticAdjustmentDecision:
+          type: string
+          enum: [none, applied, overridden]
+          default: none
+        offeredSetReductionPercent:
+          type: integer
+          minimum: 0
+          maximum: 50
+        offeredRestIncreasePercent:
+          type: integer
+          minimum: 0
+          maximum: 50
 
     WorkoutLogUpdate:
       type: object
@@ -3333,7 +3361,7 @@ components:
 
     WorkoutLogDetail:
       type: object
-      required: [id, clientId, date, status, sets]
+      required: [id, clientId, date, status, automaticAdjustmentDecision, sets]
       properties:
         id:
           type: integer
@@ -3353,6 +3381,17 @@ components:
         status:
           type: string
           enum: [in_progress, completed, early_exit, cancelled]
+        automaticAdjustmentDecision:
+          type: string
+          enum: [none, applied, overridden]
+        offeredSetReductionPercent:
+          type: ["integer", "null"]
+          minimum: 0
+          maximum: 50
+        offeredRestIncreasePercent:
+          type: ["integer", "null"]
+          minimum: 0
+          maximum: 50
         sets:
           type: array
           items:

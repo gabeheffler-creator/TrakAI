@@ -177,6 +177,49 @@ test("cookie and bearer sessions share secure lifecycle rules", async () => {
     && session.current
   ));
 
+  const incompleteAdjustment = await request(`/api/clients/${ids.client}/workout-logs`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${native.accessToken}` },
+    body: jsonBody({
+      date: "2026-09-03",
+      automaticAdjustmentDecision: "applied",
+      offeredSetReductionPercent: 25,
+    }),
+  });
+  assert.equal(incompleteAdjustment.status, 400);
+
+  const percentagesWithoutRecommendation = await request(`/api/clients/${ids.client}/workout-logs`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${native.accessToken}` },
+    body: jsonBody({
+      date: "2026-09-03",
+      automaticAdjustmentDecision: "none",
+      offeredSetReductionPercent: 25,
+      offeredRestIncreasePercent: 10,
+    }),
+  });
+  assert.equal(percentagesWithoutRecommendation.status, 400);
+
+  const overriddenAdjustment = await request(`/api/clients/${ids.client}/workout-logs`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${native.accessToken}` },
+    body: jsonBody({
+      date: "2026-09-03",
+      automaticAdjustmentDecision: "overridden",
+      offeredSetReductionPercent: 25,
+      offeredRestIncreasePercent: 10,
+    }),
+  });
+  assert.equal(overriddenAdjustment.status, 201);
+  const adjustmentLog = await overriddenAdjustment.json() as {
+    automaticAdjustmentDecision: string;
+    offeredSetReductionPercent: number;
+    offeredRestIncreasePercent: number;
+  };
+  assert.equal(adjustmentLog.automaticAdjustmentDecision, "overridden");
+  assert.equal(adjustmentLog.offeredSetReductionPercent, 25);
+  assert.equal(adjustmentLog.offeredRestIncreasePercent, 10);
+
   const forbiddenOwnership = await request(`/api/clients/${ids.otherClient}`, {
     headers: { authorization: `Bearer ${native.accessToken}` },
   });

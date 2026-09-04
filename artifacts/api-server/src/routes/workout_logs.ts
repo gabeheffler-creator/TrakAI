@@ -53,6 +53,18 @@ router.post("/clients/:clientId/workout-logs", requireClientOwnership(), async (
   try {
     const { clientId } = CreateWorkoutLogParams.parse({ clientId: Number(req.params.clientId) });
     const body = CreateWorkoutLogBody.parse(req.body);
+    const hasAutomaticRecommendation = body.automaticAdjustmentDecision !== undefined
+      && body.automaticAdjustmentDecision !== "none";
+    const hasOfferedPercentages = body.offeredSetReductionPercent !== undefined
+      || body.offeredRestIncreasePercent !== undefined;
+    if (hasAutomaticRecommendation && (body.offeredSetReductionPercent === undefined || body.offeredRestIncreasePercent === undefined)) {
+      res.status(400).json({ error: "Automatic adjustment decisions require both offered percentages" });
+      return;
+    }
+    if (!hasAutomaticRecommendation && hasOfferedPercentages) {
+      res.status(400).json({ error: "Offered percentages require an automatic adjustment decision" });
+      return;
+    }
     const [log] = await db.insert(workoutLogsTable).values({
       clientId,
       programDayId: body.programDayId ?? null,
@@ -60,6 +72,9 @@ router.post("/clients/:clientId/workout-logs", requireClientOwnership(), async (
       durationMinutes: body.durationMinutes ?? null,
       notes: body.notes ?? null,
       status: "completed",
+      automaticAdjustmentDecision: body.automaticAdjustmentDecision ?? "none",
+      offeredSetReductionPercent: body.offeredSetReductionPercent ?? null,
+      offeredRestIncreasePercent: body.offeredRestIncreasePercent ?? null,
     }).returning();
     res.status(201).json({ ...log, createdAt: log.createdAt.toISOString() });
   } catch (err) {
@@ -116,7 +131,7 @@ router.get("/clients/:clientId/workout-logs/:logId", requireClientOwnership(), a
       logId: Number(req.params.logId),
     });
     const [log] = await db.select().from(workoutLogsTable)
-      .where(eq(workoutLogsTable.id, logId));
+      .where(and(eq(workoutLogsTable.id, logId), eq(workoutLogsTable.clientId, clientId)));
     if (!log) { res.status(404).json({ error: "Log not found" }); return; }
 
     const sets = await db
@@ -173,11 +188,16 @@ router.patch("/clients/:clientId/workout-logs/:logId", requireClientOwnership(),
 
 router.post("/clients/:clientId/workout-logs/:logId/sets", requireClientOwnership(), async (req, res) => {
   try {
-    const { logId } = LogSetParams.parse({
+    const { clientId, logId } = LogSetParams.parse({
       clientId: Number(req.params.clientId),
       logId: Number(req.params.logId),
     });
     const body = LogSetBody.parse(req.body);
+
+    const [workoutLog] = await db.select({ id: workoutLogsTable.id })
+      .from(workoutLogsTable)
+      .where(and(eq(workoutLogsTable.id, logId), eq(workoutLogsTable.clientId, clientId)));
+    if (!workoutLog) { res.status(404).json({ error: "Log not found" }); return; }
 
     const [exercise] = await db.select().from(exercisesTable).where(eq(exercisesTable.id, body.exerciseId));
     const [set] = await db.insert(setLogsTable).values({

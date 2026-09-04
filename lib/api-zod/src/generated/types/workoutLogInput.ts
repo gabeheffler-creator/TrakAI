@@ -5,10 +5,22 @@
  * Trak fitness coaching platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { WorkoutLogInputAutomaticAdjustmentDecision } from './workoutLogInputAutomaticAdjustmentDecision';
 
 export interface WorkoutLogInput {
   programDayId?: number;
   date: Date;
   durationMinutes?: number;
   notes?: string;
+  automaticAdjustmentDecision?: WorkoutLogInputAutomaticAdjustmentDecision;
+  /**
+     * @minimum 0
+     * @maximum 50
+     */
+  offeredSetReductionPercent?: number;
+  /**
+     * @minimum 0
+     * @maximum 50
+     */
+  offeredRestIncreasePercent?: number;
 }

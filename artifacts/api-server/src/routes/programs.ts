@@ -146,28 +146,44 @@ async function approvedProgramBelongsToCoach(programId: number, coachId: number)
   return !!program;
 }
 
-async function phaseBelongsToCoach(phaseId: number, coachId: number): Promise<boolean> {
+async function phaseBelongsToCoach(phaseId: number, programId: number, coachId: number): Promise<boolean> {
   const [row] = await db.select({ coachId: programsTable.coachId })
     .from(programPhasesTable)
     .innerJoin(programsTable, eq(programPhasesTable.programId, programsTable.id))
-    .where(eq(programPhasesTable.id, phaseId));
+    .where(and(eq(programPhasesTable.id, phaseId), eq(programPhasesTable.programId, programId)));
   return !!row && row.coachId === coachId;
 }
 
-async function dayBelongsToCoach(dayId: number, coachId: number): Promise<boolean> {
+async function dayBelongsToCoach(dayId: number, programId: number, coachId: number): Promise<boolean> {
   const [row] = await db.select({ coachId: programsTable.coachId })
     .from(programDaysTable)
     .innerJoin(programsTable, eq(programDaysTable.programId, programsTable.id))
-    .where(eq(programDaysTable.id, dayId));
+    .where(and(eq(programDaysTable.id, dayId), eq(programDaysTable.programId, programId)));
   return !!row && row.coachId === coachId;
 }
 
-async function programExerciseBelongsToCoach(peId: number, coachId: number): Promise<boolean> {
+async function dayBelongsToPhaseAndCoach(dayId: number, phaseId: number, programId: number, coachId: number): Promise<boolean> {
+  const [row] = await db.select({ coachId: programsTable.coachId })
+    .from(programDaysTable)
+    .innerJoin(programsTable, eq(programDaysTable.programId, programsTable.id))
+    .where(and(
+      eq(programDaysTable.id, dayId),
+      eq(programDaysTable.programId, programId),
+      eq(programDaysTable.phaseId, phaseId),
+    ));
+  return !!row && row.coachId === coachId;
+}
+
+async function programExerciseBelongsToCoach(peId: number, dayId: number, programId: number, coachId: number): Promise<boolean> {
   const [row] = await db.select({ coachId: programsTable.coachId })
     .from(programExercisesTable)
     .innerJoin(programDaysTable, eq(programExercisesTable.dayId, programDaysTable.id))
     .innerJoin(programsTable, eq(programDaysTable.programId, programsTable.id))
-    .where(eq(programExercisesTable.id, peId));
+    .where(and(
+      eq(programExercisesTable.id, peId),
+      eq(programExercisesTable.dayId, dayId),
+      eq(programDaysTable.programId, programId),
+    ));
   return !!row && row.coachId === coachId;
 }
 
@@ -479,8 +495,8 @@ router.patch("/programs/:programId", requireCoachAuth, async (req, res) => {
     const body = UpdateProgramBody.parse(req.body);
     const [program] = await db.update(programsTable).set({
       name: body.name,
-      description: body.description ?? undefined,
-      durationWeeks: body.durationWeeks ?? undefined,
+      description: body.description !== undefined ? body.description : undefined,
+      durationWeeks: body.durationWeeks !== undefined ? body.durationWeeks : undefined,
     }).where(eq(programsTable.id, programId)).returning();
     if (!program) { res.status(404).json({ error: "Program not found" }); return; }
     res.json({ ...program, createdAt: program.createdAt.toISOString() });
@@ -573,11 +589,11 @@ router.post("/programs/:programId/phases", requireCoachAuth, async (req, res) =>
 
 router.patch("/programs/:programId/phases/:phaseId", requireCoachAuth, async (req, res) => {
   try {
-    const { phaseId } = UpdateProgramPhaseParams.parse({
+    const { programId, phaseId } = UpdateProgramPhaseParams.parse({
       programId: Number(req.params.programId),
       phaseId: Number(req.params.phaseId),
     });
-    if (!(await phaseBelongsToCoach(phaseId, coachIdOf(req)))) { res.status(404).json({ error: "Phase not found" }); return; }
+    if (!(await phaseBelongsToCoach(phaseId, programId, coachIdOf(req)))) { res.status(404).json({ error: "Phase not found" }); return; }
     const body = UpdateProgramPhaseBody.parse(req.body);
     const [phase] = await db.update(programPhasesTable).set({
       name: body.name,
@@ -595,11 +611,11 @@ router.patch("/programs/:programId/phases/:phaseId", requireCoachAuth, async (re
 
 router.delete("/programs/:programId/phases/:phaseId", requireCoachAuth, async (req, res) => {
   try {
-    const { phaseId } = DeleteProgramPhaseParams.parse({
+    const { programId, phaseId } = DeleteProgramPhaseParams.parse({
       programId: Number(req.params.programId),
       phaseId: Number(req.params.phaseId),
     });
-    if (!(await phaseBelongsToCoach(phaseId, coachIdOf(req)))) { res.status(404).json({ error: "Phase not found" }); return; }
+    if (!(await phaseBelongsToCoach(phaseId, programId, coachIdOf(req)))) { res.status(404).json({ error: "Phase not found" }); return; }
     await db.delete(programPhasesTable).where(eq(programPhasesTable.id, phaseId));
     res.status(204).send();
   } catch (err) {
@@ -612,11 +628,11 @@ router.delete("/programs/:programId/phases/:phaseId", requireCoachAuth, async (r
 
 router.put("/programs/:programId/phases/:phaseId/nutrition-goal", requireCoachAuth, async (req, res) => {
   try {
-    const { phaseId } = SetPhaseNutritionGoalParams.parse({
+    const { programId, phaseId } = SetPhaseNutritionGoalParams.parse({
       programId: Number(req.params.programId),
       phaseId: Number(req.params.phaseId),
     });
-    if (!(await phaseBelongsToCoach(phaseId, coachIdOf(req)))) { res.status(404).json({ error: "Phase not found" }); return; }
+    if (!(await phaseBelongsToCoach(phaseId, programId, coachIdOf(req)))) { res.status(404).json({ error: "Phase not found" }); return; }
     const body = SetPhaseNutritionGoalBody.parse(req.body);
     const [existing] = await db.select().from(programNutritionGoalsTable)
       .where(and(eq(programNutritionGoalsTable.phaseId, phaseId), isNull(programNutritionGoalsTable.dayId)));
@@ -647,13 +663,13 @@ router.put("/programs/:programId/phases/:phaseId/nutrition-goal", requireCoachAu
 
 router.put("/programs/:programId/phases/:phaseId/days/:dayId/nutrition-goal", requireCoachAuth, async (req, res) => {
   try {
-    const { phaseId, dayId } = SetDayNutritionGoalParams.parse({
+    const { programId, phaseId, dayId } = SetDayNutritionGoalParams.parse({
       programId: Number(req.params.programId),
       phaseId: Number(req.params.phaseId),
       dayId: Number(req.params.dayId),
     });
-    if (!(await phaseBelongsToCoach(phaseId, coachIdOf(req)))) { res.status(404).json({ error: "Phase not found" }); return; }
-    if (!(await dayBelongsToCoach(dayId, coachIdOf(req)))) { res.status(404).json({ error: "Day not found" }); return; }
+    if (!(await phaseBelongsToCoach(phaseId, programId, coachIdOf(req)))) { res.status(404).json({ error: "Phase not found" }); return; }
+    if (!(await dayBelongsToPhaseAndCoach(dayId, phaseId, programId, coachIdOf(req)))) { res.status(404).json({ error: "Day not found in phase" }); return; }
     const body = SetDayNutritionGoalBody.parse(req.body);
     const [existing] = await db.select().from(programNutritionGoalsTable)
       .where(and(eq(programNutritionGoalsTable.phaseId, phaseId), eq(programNutritionGoalsTable.dayId, dayId)));
@@ -684,12 +700,13 @@ router.put("/programs/:programId/phases/:phaseId/days/:dayId/nutrition-goal", re
 
 router.delete("/programs/:programId/phases/:phaseId/days/:dayId/nutrition-goal", requireCoachAuth, async (req, res) => {
   try {
-    const { phaseId, dayId } = DeleteDayNutritionGoalParams.parse({
+    const { programId, phaseId, dayId } = DeleteDayNutritionGoalParams.parse({
       programId: Number(req.params.programId),
       phaseId: Number(req.params.phaseId),
       dayId: Number(req.params.dayId),
     });
-    if (!(await phaseBelongsToCoach(phaseId, coachIdOf(req)))) { res.status(404).json({ error: "Phase not found" }); return; }
+    if (!(await phaseBelongsToCoach(phaseId, programId, coachIdOf(req)))) { res.status(404).json({ error: "Phase not found" }); return; }
+    if (!(await dayBelongsToPhaseAndCoach(dayId, phaseId, programId, coachIdOf(req)))) { res.status(404).json({ error: "Day not found in phase" }); return; }
     await db.delete(programNutritionGoalsTable)
       .where(and(eq(programNutritionGoalsTable.phaseId, phaseId), eq(programNutritionGoalsTable.dayId, dayId)));
     res.status(204).send();
@@ -706,14 +723,15 @@ router.post("/programs/:programId/days", requireCoachAuth, async (req, res) => {
     const { programId } = CreateProgramDayParams.parse({ programId: Number(req.params.programId) });
     if (!(await programBelongsToCoach(programId, coachIdOf(req)))) { res.status(404).json({ error: "Program not found" }); return; }
     const body = CreateProgramDayBody.parse(req.body);
-    if (!body.phaseId) {
-      res.status(400).json({ error: "phaseId is required — days must belong to a phase" });
-      return;
+    if (body.phaseId !== undefined) {
+      const [phase] = await db.select({ id: programPhasesTable.id })
+        .from(programPhasesTable)
+        .where(and(eq(programPhasesTable.id, body.phaseId), eq(programPhasesTable.programId, programId)));
+      if (!phase) { res.status(404).json({ error: "Phase not found" }); return; }
     }
-    if (!(await phaseBelongsToCoach(body.phaseId, coachIdOf(req)))) { res.status(404).json({ error: "Phase not found" }); return; }
     const [day] = await db.insert(programDaysTable).values({
       programId,
-      phaseId: body.phaseId,
+      phaseId: body.phaseId ?? null,
       dayNumber: body.dayNumber,
       name: body.name,
       notes: body.notes ?? null,
@@ -727,17 +745,26 @@ router.post("/programs/:programId/days", requireCoachAuth, async (req, res) => {
 
 router.patch("/programs/:programId/days/:dayId", requireCoachAuth, async (req, res) => {
   try {
-    const { dayId } = UpdateProgramDayParams.parse({
+    const { programId, dayId } = UpdateProgramDayParams.parse({
       programId: Number(req.params.programId),
       dayId: Number(req.params.dayId),
     });
-    if (!(await dayBelongsToCoach(dayId, coachIdOf(req)))) { res.status(404).json({ error: "Day not found" }); return; }
+    if (!(await dayBelongsToCoach(dayId, programId, coachIdOf(req)))) { res.status(404).json({ error: "Day not found" }); return; }
     const body = UpdateProgramDayBody.parse(req.body);
+    if (body.phaseId !== undefined && body.phaseId !== null) {
+      const [phase] = await db.select({ id: programPhasesTable.id })
+        .from(programPhasesTable)
+        .where(and(
+          eq(programPhasesTable.id, body.phaseId),
+          eq(programPhasesTable.programId, programId),
+        ));
+      if (!phase) { res.status(400).json({ error: "Phase must belong to this program" }); return; }
+    }
     const [day] = await db.update(programDaysTable).set({
       dayNumber: body.dayNumber,
       name: body.name,
-      notes: body.notes ?? undefined,
-      phaseId: body.phaseId ?? undefined,
+      notes: body.notes !== undefined ? body.notes : undefined,
+      phaseId: body.phaseId !== undefined ? body.phaseId : undefined,
     }).where(eq(programDaysTable.id, dayId)).returning();
     if (!day) { res.status(404).json({ error: "Day not found" }); return; }
     res.json(day);
@@ -749,11 +776,11 @@ router.patch("/programs/:programId/days/:dayId", requireCoachAuth, async (req, r
 
 router.delete("/programs/:programId/days/:dayId", requireCoachAuth, async (req, res) => {
   try {
-    const { dayId } = DeleteProgramDayParams.parse({
+    const { programId, dayId } = DeleteProgramDayParams.parse({
       programId: Number(req.params.programId),
       dayId: Number(req.params.dayId),
     });
-    if (!(await dayBelongsToCoach(dayId, coachIdOf(req)))) { res.status(404).json({ error: "Day not found" }); return; }
+    if (!(await dayBelongsToCoach(dayId, programId, coachIdOf(req)))) { res.status(404).json({ error: "Day not found" }); return; }
     await db.delete(programDaysTable).where(eq(programDaysTable.id, dayId));
     res.status(204).send();
   } catch (err) {
@@ -766,11 +793,11 @@ router.delete("/programs/:programId/days/:dayId", requireCoachAuth, async (req, 
 
 router.post("/programs/:programId/days/:dayId/exercises", requireCoachAuth, async (req, res) => {
   try {
-    const { dayId } = AddExerciseToDayParams.parse({
+    const { programId, dayId } = AddExerciseToDayParams.parse({
       programId: Number(req.params.programId),
       dayId: Number(req.params.dayId),
     });
-    if (!(await dayBelongsToCoach(dayId, coachIdOf(req)))) { res.status(404).json({ error: "Day not found" }); return; }
+    if (!(await dayBelongsToCoach(dayId, programId, coachIdOf(req)))) { res.status(404).json({ error: "Day not found" }); return; }
     const body = AddExerciseToDayBody.parse(req.body);
     const [pe] = await db.insert(programExercisesTable).values({
       dayId,
@@ -791,20 +818,21 @@ router.post("/programs/:programId/days/:dayId/exercises", requireCoachAuth, asyn
 
 router.patch("/programs/:programId/days/:dayId/exercises/:peId", requireCoachAuth, async (req, res) => {
   try {
-    const { peId } = UpdateProgramExerciseParams.parse({
+    const { programId, dayId, peId } = UpdateProgramExerciseParams.parse({
       programId: Number(req.params.programId),
       dayId: Number(req.params.dayId),
       peId: Number(req.params.peId),
     });
-    if (!(await programExerciseBelongsToCoach(peId, coachIdOf(req)))) { res.status(404).json({ error: "Exercise not found" }); return; }
+    if (!(await programExerciseBelongsToCoach(peId, dayId, programId, coachIdOf(req)))) { res.status(404).json({ error: "Exercise not found" }); return; }
     const body = UpdateProgramExerciseBody.parse(req.body);
     const [pe] = await db.update(programExercisesTable).set({
+      exerciseId: body.exerciseId,
       sets: body.sets,
       reps: body.reps,
       order: body.order,
-      weight: body.weight ?? undefined,
-      notes: body.notes ?? undefined,
-      restSeconds: body.restSeconds ?? undefined,
+      weight: body.weight !== undefined ? body.weight : undefined,
+      notes: body.notes !== undefined ? body.notes : undefined,
+      restSeconds: body.restSeconds !== undefined ? body.restSeconds : undefined,
     }).where(eq(programExercisesTable.id, peId)).returning();
     if (!pe) { res.status(404).json({ error: "Exercise not found" }); return; }
     res.json(pe);
@@ -816,12 +844,12 @@ router.patch("/programs/:programId/days/:dayId/exercises/:peId", requireCoachAut
 
 router.delete("/programs/:programId/days/:dayId/exercises/:peId", requireCoachAuth, async (req, res) => {
   try {
-    const { peId } = DeleteProgramExerciseParams.parse({
+    const { programId, dayId, peId } = DeleteProgramExerciseParams.parse({
       programId: Number(req.params.programId),
       dayId: Number(req.params.dayId),
       peId: Number(req.params.peId),
     });
-    if (!(await programExerciseBelongsToCoach(peId, coachIdOf(req)))) { res.status(404).json({ error: "Exercise not found" }); return; }
+    if (!(await programExerciseBelongsToCoach(peId, dayId, programId, coachIdOf(req)))) { res.status(404).json({ error: "Exercise not found" }); return; }
     await db.delete(programExercisesTable).where(eq(programExercisesTable.id, peId));
     res.status(204).send();
   } catch (err) {

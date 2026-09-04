@@ -485,6 +485,14 @@ export const GetClientDashboardParams = zod.object({
   "clientId": zod.coerce.number()
 })
 
+export const getClientDashboardResponseRecentWorkoutsItemOfferedSetReductionPercentMin = 0;
+export const getClientDashboardResponseRecentWorkoutsItemOfferedSetReductionPercentMax = 50;
+
+export const getClientDashboardResponseRecentWorkoutsItemOfferedRestIncreasePercentMin = 0;
+export const getClientDashboardResponseRecentWorkoutsItemOfferedRestIncreasePercentMax = 50;
+
+
+
 export const GetClientDashboardResponse = zod.object({
   "client": zod.object({
   "id": zod.number(),
@@ -619,6 +627,9 @@ export const GetClientDashboardResponse = zod.object({
   "durationMinutes": zod.number().nullish(),
   "notes": zod.string().nullish(),
   "status": zod.enum(['in_progress', 'completed', 'early_exit', 'cancelled']),
+  "automaticAdjustmentDecision": zod.enum(['none', 'applied', 'overridden']).describe('The per-session decision for the automatic sleep and energy recommendation.'),
+  "offeredSetReductionPercent": zod.number().min(getClientDashboardResponseRecentWorkoutsItemOfferedSetReductionPercentMin).max(getClientDashboardResponseRecentWorkoutsItemOfferedSetReductionPercentMax).nullish().describe('Set reduction offered by the automatic recommendation, retained for audit.'),
+  "offeredRestIncreasePercent": zod.number().min(getClientDashboardResponseRecentWorkoutsItemOfferedRestIncreasePercentMin).max(getClientDashboardResponseRecentWorkoutsItemOfferedRestIncreasePercentMax).nullish().describe('Rest increase offered by the automatic recommendation, retained for audit.'),
   "createdAt": zod.coerce.date()
 })).optional(),
   "weightHistory": zod.array(zod.object({
@@ -1123,6 +1134,7 @@ export const UpdateProgramExerciseParams = zod.object({
 })
 
 export const UpdateProgramExerciseBody = zod.object({
+  "exerciseId": zod.number().optional(),
   "sets": zod.number().optional(),
   "reps": zod.string().optional(),
   "order": zod.number().optional(),
@@ -1371,6 +1383,14 @@ export const ListWorkoutLogsParams = zod.object({
   "clientId": zod.coerce.number()
 })
 
+export const listWorkoutLogsResponseOfferedSetReductionPercentMin = 0;
+export const listWorkoutLogsResponseOfferedSetReductionPercentMax = 50;
+
+export const listWorkoutLogsResponseOfferedRestIncreasePercentMin = 0;
+export const listWorkoutLogsResponseOfferedRestIncreasePercentMax = 50;
+
+
+
 export const ListWorkoutLogsResponseItem = zod.object({
   "id": zod.number(),
   "clientId": zod.number(),
@@ -1380,6 +1400,9 @@ export const ListWorkoutLogsResponseItem = zod.object({
   "durationMinutes": zod.number().nullish(),
   "notes": zod.string().nullish(),
   "status": zod.enum(['in_progress', 'completed', 'early_exit', 'cancelled']),
+  "automaticAdjustmentDecision": zod.enum(['none', 'applied', 'overridden']).describe('The per-session decision for the automatic sleep and energy recommendation.'),
+  "offeredSetReductionPercent": zod.number().min(listWorkoutLogsResponseOfferedSetReductionPercentMin).max(listWorkoutLogsResponseOfferedSetReductionPercentMax).nullish().describe('Set reduction offered by the automatic recommendation, retained for audit.'),
+  "offeredRestIncreasePercent": zod.number().min(listWorkoutLogsResponseOfferedRestIncreasePercentMin).max(listWorkoutLogsResponseOfferedRestIncreasePercentMax).nullish().describe('Rest increase offered by the automatic recommendation, retained for audit.'),
   "createdAt": zod.coerce.date()
 })
 export const ListWorkoutLogsResponse = zod.array(ListWorkoutLogsResponseItem)
@@ -1392,11 +1415,23 @@ export const CreateWorkoutLogParams = zod.object({
   "clientId": zod.coerce.number()
 })
 
+export const createWorkoutLogBodyAutomaticAdjustmentDecisionDefault = `none`;
+export const createWorkoutLogBodyOfferedSetReductionPercentMin = 0;
+export const createWorkoutLogBodyOfferedSetReductionPercentMax = 50;
+
+export const createWorkoutLogBodyOfferedRestIncreasePercentMin = 0;
+export const createWorkoutLogBodyOfferedRestIncreasePercentMax = 50;
+
+
+
 export const CreateWorkoutLogBody = zod.object({
   "programDayId": zod.number().optional(),
   "date": zod.coerce.date(),
   "durationMinutes": zod.number().optional(),
-  "notes": zod.string().optional()
+  "notes": zod.string().optional(),
+  "automaticAdjustmentDecision": zod.enum(['none', 'applied', 'overridden']).default(createWorkoutLogBodyAutomaticAdjustmentDecisionDefault),
+  "offeredSetReductionPercent": zod.number().min(createWorkoutLogBodyOfferedSetReductionPercentMin).max(createWorkoutLogBodyOfferedSetReductionPercentMax).optional(),
+  "offeredRestIncreasePercent": zod.number().min(createWorkoutLogBodyOfferedRestIncreasePercentMin).max(createWorkoutLogBodyOfferedRestIncreasePercentMax).optional()
 })
 
 
@@ -1424,6 +1459,14 @@ export const GetWorkoutLogParams = zod.object({
   "logId": zod.coerce.number()
 })
 
+export const getWorkoutLogResponseOfferedSetReductionPercentMin = 0;
+export const getWorkoutLogResponseOfferedSetReductionPercentMax = 50;
+
+export const getWorkoutLogResponseOfferedRestIncreasePercentMin = 0;
+export const getWorkoutLogResponseOfferedRestIncreasePercentMax = 50;
+
+
+
 export const GetWorkoutLogResponse = zod.object({
   "id": zod.number(),
   "clientId": zod.number(),
@@ -1433,6 +1476,9 @@ export const GetWorkoutLogResponse = zod.object({
   "durationMinutes": zod.number().nullish(),
   "notes": zod.string().nullish(),
   "status": zod.enum(['in_progress', 'completed', 'early_exit', 'cancelled']),
+  "automaticAdjustmentDecision": zod.enum(['none', 'applied', 'overridden']),
+  "offeredSetReductionPercent": zod.number().min(getWorkoutLogResponseOfferedSetReductionPercentMin).max(getWorkoutLogResponseOfferedSetReductionPercentMax).nullish(),
+  "offeredRestIncreasePercent": zod.number().min(getWorkoutLogResponseOfferedRestIncreasePercentMin).max(getWorkoutLogResponseOfferedRestIncreasePercentMax).nullish(),
   "sets": zod.array(zod.object({
   "id": zod.number(),
   "workoutLogId": zod.number(),
@@ -1462,6 +1508,14 @@ export const UpdateWorkoutLogBody = zod.object({
   "status": zod.enum(['in_progress', 'completed', 'early_exit', 'cancelled']).optional()
 })
 
+export const updateWorkoutLogResponseOfferedSetReductionPercentMin = 0;
+export const updateWorkoutLogResponseOfferedSetReductionPercentMax = 50;
+
+export const updateWorkoutLogResponseOfferedRestIncreasePercentMin = 0;
+export const updateWorkoutLogResponseOfferedRestIncreasePercentMax = 50;
+
+
+
 export const UpdateWorkoutLogResponse = zod.object({
   "id": zod.number(),
   "clientId": zod.number(),
@@ -1471,6 +1525,9 @@ export const UpdateWorkoutLogResponse = zod.object({
   "durationMinutes": zod.number().nullish(),
   "notes": zod.string().nullish(),
   "status": zod.enum(['in_progress', 'completed', 'early_exit', 'cancelled']),
+  "automaticAdjustmentDecision": zod.enum(['none', 'applied', 'overridden']).describe('The per-session decision for the automatic sleep and energy recommendation.'),
+  "offeredSetReductionPercent": zod.number().min(updateWorkoutLogResponseOfferedSetReductionPercentMin).max(updateWorkoutLogResponseOfferedSetReductionPercentMax).nullish().describe('Set reduction offered by the automatic recommendation, retained for audit.'),
+  "offeredRestIncreasePercent": zod.number().min(updateWorkoutLogResponseOfferedRestIncreasePercentMin).max(updateWorkoutLogResponseOfferedRestIncreasePercentMax).nullish().describe('Rest increase offered by the automatic recommendation, retained for audit.'),
   "createdAt": zod.coerce.date()
 })
 

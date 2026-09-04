@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { SetLog } from './setLog';
+import type { WorkoutLogDetailAutomaticAdjustmentDecision } from './workoutLogDetailAutomaticAdjustmentDecision';
 import type { WorkoutLogDetailStatus } from './workoutLogDetailStatus';
 
 export interface WorkoutLogDetail {
@@ -21,6 +22,19 @@ export interface WorkoutLogDetail {
   /** @nullable */
   notes?: string | null;
   status: WorkoutLogDetailStatus;
+  automaticAdjustmentDecision: WorkoutLogDetailAutomaticAdjustmentDecision;
+  /**
+     * @minimum 0
+     * @maximum 50
+     * @nullable
+     */
+  offeredSetReductionPercent?: number | null;
+  /**
+     * @minimum 0
+     * @maximum 50
+     * @nullable
+     */
+  offeredRestIncreasePercent?: number | null;
   sets: SetLog[];
   createdAt?: Date;
 }

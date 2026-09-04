@@ -7,6 +7,7 @@
  */
 
 export interface ProgramExerciseUpdate {
+  exerciseId?: number;
   sets?: number;
   reps?: string;
   order?: number;

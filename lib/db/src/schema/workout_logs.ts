@@ -1,8 +1,10 @@
-import { pgTable, text, serial, integer, numeric, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, numeric, timestamp, pgEnum } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { clientsTable } from "./clients";
 import { exercisesTable } from "./exercises";
+
+export const automaticAdjustmentDecisionEnum = pgEnum("automatic_adjustment_decision", ["none", "applied", "overridden"]);
 
 export const workoutLogsTable = pgTable("workout_logs", {
   id: serial("id").primaryKey(),
@@ -13,6 +15,9 @@ export const workoutLogsTable = pgTable("workout_logs", {
   durationMinutes: integer("duration_minutes"),
   notes: text("notes"),
   status: text("status").notNull().default("completed"),
+  automaticAdjustmentDecision: automaticAdjustmentDecisionEnum("automatic_adjustment_decision").notNull().default("none"),
+  offeredSetReductionPercent: integer("offered_set_reduction_percent"),
+  offeredRestIncreasePercent: integer("offered_rest_increase_percent"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

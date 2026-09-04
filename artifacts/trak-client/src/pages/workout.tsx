@@ -676,6 +676,7 @@ export function WorkoutPage() {
   const [adjustPercent, setAdjustPercent] = useState(20);
   const [setAdjustPct, setSetAdjustPct] = useState(0);
   const [adjustTier, setAdjustTier] = useState<"heavy" | "moderate" | "none">("none");
+  const [adjustmentChoice, setAdjustmentChoice] = useState<"automatic" | "original">("automatic");
   const [effectiveRestSeconds, setEffectiveRestSeconds] = useState<(number | null)[]>([]);
   const [showRestTimer, setShowRestTimer] = useState(false);
   const [restSecondsLeft, setRestSecondsLeft] = useState(0);
@@ -727,6 +728,31 @@ export function WorkoutPage() {
 
   const currentEx = exercises[currentExIdx];
   const currentSets = sets[currentExIdx] ?? [];
+
+  // This mirrors the existing start-workout adjustment algorithm so the client
+  // can review its recommendation without changing the coach's program policy.
+  const automaticAdjustment = useMemo(() => {
+    const e = energy ?? 10;
+    const basePct = program?.sleepAdjustPercent ?? 20;
+    const poorSleep = latestSleepLog?.quality === "poor" || latestSleepLog?.quality === "fair";
+    const adjustEnabled = program?.sleepAdjustEnabled !== false;
+    if (!adjustEnabled) return { tier: "none" as const, setReductionPercent: 0, restIncreasePercent: 0 };
+    if (e <= 3) {
+      return {
+        tier: "heavy" as const,
+        setReductionPercent: 50,
+        restIncreasePercent: poorSleep ? Math.min(50, Math.round(basePct * 1.5)) : basePct,
+      };
+    }
+    if (e <= 6) {
+      return {
+        tier: "moderate" as const,
+        setReductionPercent: 25,
+        restIncreasePercent: poorSleep ? Math.min(40, Math.round(basePct * 0.75)) : Math.round(basePct / 2),
+      };
+    }
+    return { tier: "none" as const, setReductionPercent: 0, restIncreasePercent: 0 };
+  }, [energy, latestSleepLog?.quality, program?.sleepAdjustEnabled, program?.sleepAdjustPercent]);
 
   const { data: lastPerformanceData } = useGetLastWorkoutPerformance(clientId!, selectedDay?.id ?? 0, {
     query: { enabled: !!clientId && !!selectedDay?.id, queryKey: getGetLastWorkoutPerformanceQueryKey(clientId!, selectedDay?.id ?? 0) }
@@ -814,42 +840,29 @@ export function WorkoutPage() {
   const handleBeginWorkout = () => {
     if (!clientId || !selectedDay) return;
 
-    const e = energy ?? 10;
-    const basePct = program?.sleepAdjustPercent ?? 20;
-    const poorSleep = latestSleepLog?.quality === "poor" || latestSleepLog?.quality === "fair";
-    const adjustEnabled = program?.sleepAdjustEnabled !== false;
-
-    let tier: "heavy" | "moderate" | "none" = "none";
-    let sAdjust = 0;
-    let rAdjust = 0;
-
-    if (adjustEnabled) {
-      if (e <= 3) {
-        tier = "heavy";
-        sAdjust = 50;
-        rAdjust = poorSleep ? Math.min(50, Math.round(basePct * 1.5)) : basePct;
-      } else if (e <= 6) {
-        tier = "moderate";
-        sAdjust = 25;
-        rAdjust = poorSleep ? Math.min(40, Math.round(basePct * 0.75)) : Math.round(basePct / 2);
-      }
-    }
-
-    const shouldAdjust = tier !== "none";
+    const hasAutomaticAdjustment = automaticAdjustment.tier !== "none";
+    const shouldAdjust = hasAutomaticAdjustment && adjustmentChoice === "automatic";
+    const decision = !hasAutomaticAdjustment ? "none" : shouldAdjust ? "applied" : "overridden";
     setIsAdjusted(shouldAdjust);
-    setAdjustPercent(rAdjust);
-    setSetAdjustPct(sAdjust);
-    setAdjustTier(tier);
+    setAdjustPercent(automaticAdjustment.restIncreasePercent);
+    setSetAdjustPct(automaticAdjustment.setReductionPercent);
+    setAdjustTier(automaticAdjustment.tier);
 
     createWorkoutLog.mutate({
       clientId,
-      data: { programDayId: selectedDay.id, date: today }
+      data: {
+        programDayId: selectedDay.id,
+        date: today,
+        automaticAdjustmentDecision: decision,
+        offeredSetReductionPercent: hasAutomaticAdjustment ? automaticAdjustment.setReductionPercent : undefined,
+        offeredRestIncreasePercent: hasAutomaticAdjustment ? automaticAdjustment.restIncreasePercent : undefined,
+      }
     }, {
       onSuccess: (log) => {
         setWorkoutLogId(log.id);
         setCurrentExIdx(0);
         setSwappedExercises({});
-        initSets(exercises, shouldAdjust, sAdjust, rAdjust, prevPerfMap);
+        initSets(exercises, shouldAdjust, automaticAdjustment.setReductionPercent, automaticAdjustment.restIncreasePercent, prevPerfMap);
         setMode("active");
       },
       onError: () => toast({ title: "Failed to start workout", variant: "destructive" })
@@ -1128,6 +1141,9 @@ export function WorkoutPage() {
     setEnergy(null);
     setIsAdjusted(false);
     setAdjustPercent(20);
+    setSetAdjustPct(0);
+    setAdjustTier("none");
+    setAdjustmentChoice("automatic");
     setEffectiveRestSeconds([]);
     stopRestTimer();
     setShowEarlyExit(false);
@@ -1324,7 +1340,10 @@ export function WorkoutPage() {
                 return (
                   <button
                     key={n}
-                    onClick={() => setEnergy(n)}
+                    onClick={() => {
+                      setEnergy(n);
+                      setAdjustmentChoice("automatic");
+                    }}
                     className={cn(
                       "h-12 rounded-xl border-2 font-bold text-base transition-all active:scale-95",
                       isSelected ? color : "border-border bg-card text-foreground hover:border-primary/50"
@@ -1372,6 +1391,49 @@ export function WorkoutPage() {
             <h1 className="text-2xl font-bold">{selectedDay?.name}</h1>
             <p className="text-sm text-muted-foreground mt-0.5">{exercises.length} exercises · {assignment?.programName}</p>
           </div>
+
+            {automaticAdjustment.tier !== "none" ? (
+              <div className="rounded-2xl border border-amber-200 dark:border-amber-800 bg-amber-50/70 dark:bg-amber-950/25 p-4 space-y-3">
+                <div className="flex items-start gap-2">
+                  <Moon className="w-4 h-4 mt-0.5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-bold text-amber-900 dark:text-amber-200">Automatic sleep &amp; energy recommendation</p>
+                    <p className="text-xs text-amber-800/80 dark:text-amber-300/80 mt-0.5">
+                      Based on today&apos;s check-in: reduce sets {automaticAdjustment.setReductionPercent}% and increase rest {automaticAdjustment.restIncreasePercent}% for this workout only.
+                    </p>
+                  </div>
+                </div>
+                <div className="rounded-xl bg-background/70 dark:bg-background/20 px-3 py-2 text-xs space-y-1">
+                  <p className="font-semibold text-foreground">Original → automatic proposal</p>
+                  {exercises.map(ex => {
+                    const proposedSets = Math.max(1, Math.round(ex.sets * (1 - automaticAdjustment.setReductionPercent / 100)));
+                    const proposedRest = ex.restSeconds == null ? null : Math.round(ex.restSeconds * (1 + automaticAdjustment.restIncreasePercent / 100));
+                    return (
+                      <p key={ex.id} className="text-muted-foreground">
+                        {ex.exerciseName}: {ex.sets} sets{ex.restSeconds != null ? ` · ${ex.restSeconds}s rest` : ""} → {proposedSets} sets{proposedRest != null ? ` · ${proposedRest}s rest` : ""}
+                      </p>
+                    );
+                  })}
+                </div>
+                {adjustmentChoice === "automatic" ? (
+                  <Button variant="outline" size="sm" className="w-full border-amber-300 bg-background hover:bg-amber-100 dark:hover:bg-amber-950" onClick={() => setAdjustmentChoice("original")}>
+                    Restore original volume for this workout
+                  </Button>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-foreground">Original volume restored for this workout.</p>
+                    <Button variant="outline" size="sm" className="w-full border-amber-300 bg-background hover:bg-amber-100 dark:hover:bg-amber-950" onClick={() => setAdjustmentChoice("automatic")}>
+                      Re-apply automatic adjustment
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-border bg-card p-4 text-sm">
+                <p className="font-semibold">No automatic adjustment recommended</p>
+                <p className="text-xs text-muted-foreground mt-1">You&apos;ll train with your program&apos;s original volume today.</p>
+              </div>
+            )}
 
           {exercises.map((ex, i) => (
             <div key={ex.id} className="flex items-start gap-4 p-4 rounded-2xl bg-card border border-border">
@@ -1453,10 +1515,12 @@ export function WorkoutPage() {
                   />
                 )
               )}
-              {isAdjusted && (
+              {adjustTier !== "none" && (
                 <div className="mt-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3 py-2 flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300">
                   <Moon className="w-3.5 h-3.5 flex-shrink-0" />
-                  {adjustTier === "heavy" ? `Recovery mode — sets ×½, rest +${adjustPercent}%` : `Light recovery — sets ×¾, rest +${adjustPercent}%`}
+                  {isAdjusted
+                    ? `Automatic adjustment applied — ${adjustTier === "heavy" ? "sets ×½" : "sets ×¾"}, rest +${adjustPercent}%`
+                    : "Original volume restored — automatic adjustment was not applied"}
                 </div>
               )}
             </div>
@@ -1848,10 +1912,12 @@ export function WorkoutPage() {
                 <ProgressBar value={currentExIdx} total={exercises.length} />
               )
             )}
-            {isAdjusted && (
+            {adjustTier !== "none" && (
               <div className="mt-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3 py-2 flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300">
                 <Moon className="w-3.5 h-3.5 flex-shrink-0" />
-                {adjustTier === "heavy" ? `Recovery mode — sets ×½, rest +${adjustPercent}%` : `Light recovery — sets ×¾, rest +${adjustPercent}%`}
+                {isAdjusted
+                  ? `Automatic adjustment applied — ${adjustTier === "heavy" ? "sets ×½" : "sets ×¾"}, rest +${adjustPercent}%`
+                  : "Original volume restored — automatic adjustment was not applied"}
               </div>
             )}
           </div>

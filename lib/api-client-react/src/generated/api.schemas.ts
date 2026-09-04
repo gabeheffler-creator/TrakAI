@@ -408,6 +408,18 @@ export const WorkoutLogStatus = {
   cancelled: 'cancelled',
 } as const;
 
+/**
+ * The per-session decision for the automatic sleep and energy recommendation.
+ */
+export type WorkoutLogAutomaticAdjustmentDecision = typeof WorkoutLogAutomaticAdjustmentDecision[keyof typeof WorkoutLogAutomaticAdjustmentDecision];
+
+
+export const WorkoutLogAutomaticAdjustmentDecision = {
+  none: 'none',
+  applied: 'applied',
+  overridden: 'overridden',
+} as const;
+
 export interface WorkoutLog {
   id: number;
   clientId: number;
@@ -421,6 +433,22 @@ export interface WorkoutLog {
   /** @nullable */
   notes?: string | null;
   status: WorkoutLogStatus;
+  /** The per-session decision for the automatic sleep and energy recommendation. */
+  automaticAdjustmentDecision: WorkoutLogAutomaticAdjustmentDecision;
+  /**
+     * Set reduction offered by the automatic recommendation, retained for audit.
+     * @minimum 0
+     * @maximum 50
+     * @nullable
+     */
+  offeredSetReductionPercent?: number | null;
+  /**
+     * Rest increase offered by the automatic recommendation, retained for audit.
+     * @minimum 0
+     * @maximum 50
+     * @nullable
+     */
+  offeredRestIncreasePercent?: number | null;
   createdAt: string;
 }
 
@@ -634,6 +662,7 @@ export interface ProgramExerciseInput {
 }
 
 export interface ProgramExerciseUpdate {
+  exerciseId?: number;
   sets?: number;
   reps?: string;
   order?: number;
@@ -701,11 +730,31 @@ export interface SyncProgramToClientsResult {
   synced: number[];
 }
 
+export type WorkoutLogInputAutomaticAdjustmentDecision = typeof WorkoutLogInputAutomaticAdjustmentDecision[keyof typeof WorkoutLogInputAutomaticAdjustmentDecision];
+
+
+export const WorkoutLogInputAutomaticAdjustmentDecision = {
+  none: 'none',
+  applied: 'applied',
+  overridden: 'overridden',
+} as const;
+
 export interface WorkoutLogInput {
   programDayId?: number;
   date: string;
   durationMinutes?: number;
   notes?: string;
+  automaticAdjustmentDecision?: WorkoutLogInputAutomaticAdjustmentDecision;
+  /**
+     * @minimum 0
+     * @maximum 50
+     */
+  offeredSetReductionPercent?: number;
+  /**
+     * @minimum 0
+     * @maximum 50
+     */
+  offeredRestIncreasePercent?: number;
 }
 
 export type WorkoutLogUpdateStatus = typeof WorkoutLogUpdateStatus[keyof typeof WorkoutLogUpdateStatus];
@@ -731,6 +780,15 @@ export const WorkoutLogDetailStatus = {
   completed: 'completed',
   early_exit: 'early_exit',
   cancelled: 'cancelled',
+} as const;
+
+export type WorkoutLogDetailAutomaticAdjustmentDecision = typeof WorkoutLogDetailAutomaticAdjustmentDecision[keyof typeof WorkoutLogDetailAutomaticAdjustmentDecision];
+
+
+export const WorkoutLogDetailAutomaticAdjustmentDecision = {
+  none: 'none',
+  applied: 'applied',
+  overridden: 'overridden',
 } as const;
 
 /**
@@ -774,6 +832,19 @@ export interface WorkoutLogDetail {
   /** @nullable */
   notes?: string | null;
   status: WorkoutLogDetailStatus;
+  automaticAdjustmentDecision: WorkoutLogDetailAutomaticAdjustmentDecision;
+  /**
+     * @minimum 0
+     * @maximum 50
+     * @nullable
+     */
+  offeredSetReductionPercent?: number | null;
+  /**
+     * @minimum 0
+     * @maximum 50
+     * @nullable
+     */
+  offeredRestIncreasePercent?: number | null;
   sets: SetLog[];
   createdAt?: string;
 }

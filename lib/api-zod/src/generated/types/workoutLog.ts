@@ -5,6 +5,7 @@
  * Trak fitness coaching platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { WorkoutLogAutomaticAdjustmentDecision } from './workoutLogAutomaticAdjustmentDecision';
 import type { WorkoutLogStatus } from './workoutLogStatus';
 
 export interface WorkoutLog {
@@ -20,5 +21,21 @@ export interface WorkoutLog {
   /** @nullable */
   notes?: string | null;
   status: WorkoutLogStatus;
+  /** The per-session decision for the automatic sleep and energy recommendation. */
+  automaticAdjustmentDecision: WorkoutLogAutomaticAdjustmentDecision;
+  /**
+     * Set reduction offered by the automatic recommendation, retained for audit.
+     * @minimum 0
+     * @maximum 50
+     * @nullable
+     */
+  offeredSetReductionPercent?: number | null;
+  /**
+     * Rest increase offered by the automatic recommendation, retained for audit.
+     * @minimum 0
+     * @maximum 50
+     * @nullable
+     */
+  offeredRestIncreasePercent?: number | null;
   createdAt: Date;
 }

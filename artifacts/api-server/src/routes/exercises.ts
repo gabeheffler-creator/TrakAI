@@ -3,7 +3,7 @@ import { db } from "@workspace/db";
 import { exercisesTable } from "@workspace/db";
 import { CreateExerciseBody, UpdateExerciseBody } from "@workspace/api-zod";
 import { eq } from "drizzle-orm";
-import { requireCoachAuth } from "../middlewares/auth";
+import { requireCoachAuth, resolveActor } from "../middlewares/auth";
 
 const router = Router();
 
@@ -149,7 +149,7 @@ function serializeExercise(e: typeof exercisesTable.$inferSelect) {
 // Shared global exercise catalog — readable by any signed-in user (coach or client).
 router.get("/exercises", async (req, res) => {
   try {
-    if (!req.session?.coachId && !req.session?.clientId) {
+    if (!(await resolveActor(req))) {
       res.status(401).json({ error: "Unauthorized" });
       return;
     }
