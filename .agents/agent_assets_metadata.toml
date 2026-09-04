@@ -41,3 +41,18 @@ id = "nJqspbZNNo3uLprxtRS5Z"
 uri = "file://trak-testing-guide.md"
 type = "text"
 title = "TrakAI Manual Testing Guide"
+logical_id = "62083529-ab6b-4513-b10c-08936796aa3d"
+
+[[outputs]]
+id = "5mIHwQKd7G26nVGGijex7"
+uri = "file://production-readiness-audit.md"
+type = "text"
+title = "TrakAI Production-Readiness Audit — Phase 0"
+description = "Read-only audit covering authentication, mobile architecture, AI features, human override paths, abuse protection, and AI loading/error handling."
+logical_id = "dfb7fc8e-ea44-4cba-b9b6-f7a8155291c2"
+content_hash = "sha256:9b685e10b09109f1d02a6f3d62c3b8250ae8da801d521df22e38ae30306b71ef"
+size = 4817
+mtime_ms = 1788484980606
+storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:89721f86-c002-40f6-9c52-d2942aaac485/dfb7fc8e-ea44-4cba-b9b6-f7a8155291c2/317cf056-451f-4abc-b032-7f3617176e37"
+storage_version_token = "1788484988423186"
+content_type = "text/markdown"

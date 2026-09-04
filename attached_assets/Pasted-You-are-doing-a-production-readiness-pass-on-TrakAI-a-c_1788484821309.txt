@@ -1,0 +1,74 @@
+You are doing a production-readiness pass on TrakAI, a coach/client fitness 
+coaching platform. Stack: pnpm workspace monorepo, Node 24, TypeScript, 
+Express 5 API, PostgreSQL + Drizzle ORM, Zod validation, React 19 + Vite + 
+wouter frontend, Tailwind. Packages live under artifacts/* (coach web app, 
+client web app, coach mobile, client mobile, api-server) and lib/* (shared 
+code including db).
+
+Work in this order. Do not skip the audit step — I need the findings before 
+any code changes.
+
+===========================================================
+PHASE 0 — AUDIT (produce a written report before changing anything)
+===========================================================
+
+Go through the codebase and report on each of these, with file paths:
+
+1. AUTHENTICATION
+   - Where are the current hardcoded/demo credentials (coach/coach, 
+     alex/alex, etc.) defined and checked?
+   - Is there any session/token issuance mechanism at all, or is auth 
+     purely a client-side check against seed data?
+   - How does the client currently know it's "logged in" — cookie, 
+     localStorage, in-memory state?
+   - Is there any existing separation between the coach app's auth and 
+     the client app's auth, or is it one shared mechanism?
+
+2. THE MOBILE APPS
+   - Confirm /trak-client-mobile and /trak-coach-mobile are iframe 
+     wrappers of the web apps as described in trak-testing-guide.md. 
+     Note exactly how ?mobile=1 changes behavior.
+   - List anything that currently assumes "web" as the only client 
+     (e.g. cookie settings, CORS config, redirect logic) that would 
+     break once this is wrapped in Capacitor as a real native shell.
+
+3. AI FEATURES
+   - Locate every call site that hits an AI/LLM provider (nutrition 
+     macro extraction from MFP screenshots, AI program generation, 
+     anything else). List the file, the endpoint, and what model/provider 
+     is currently configured (even if it's a placeholder or mock).
+   - For each: is the call synchronous and blocking, or is there already 
+     any async/job pattern?
+   - For AI program generation specifically: trace what happens after 
+     generation completes. Does it save directly as an active program, 
+     or is there any review/approval step before a client can see it?
+
+4. "AI-GENERATED OR AUTO-COMPUTED VALUES THAT SHOULD BE HUMAN-EDITABLE"
+   Audit the whole app for values that are computed automatically 
+   (by AI or by logic) and check whether each one has a manual edit 
+   path in the UI. Specifically check and report status on:
+   - Nutrition macro extraction results (already known to have an edit 
+     pencil per the testing guide — confirm it still works)
+   - AI-generated program structure (phases/days/exercises) — can a 
+     coach edit before it goes live?
+   - Sleep-based workout volume auto-adjustment — can a coach override 
+     the auto-reduced volume for a specific session?
+   - Any other auto-populated field you find (e.g. auto-suggested goals, 
+     auto-calculated targets)
+   List every one you find with a pass/fail on "human can override this."
+
+5. RATE LIMITING & ABUSE PROTECTION
+   - Confirm there is currently no rate limiting on the API (or report 
+     what exists).
+   - List every endpoint that calls an external paid API (AI calls) or 
+     performs an expensive operation (file upload, report generation).
+
+6. ASYNC / LOADING / ERROR STATES
+   - For each AI call site found in item 3, report whether the frontend 
+     currently has: a loading indicator, a timeout, a retry option, and 
+     a fallback path if the call fails (e.g. can the user still submit 
+     manually).
+
+Output this as a markdown report before proceeding to Phase 1. Wait for 
+my go-ahead if anything in the audit suggests the fix approach below 
+needs to change.
