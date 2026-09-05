@@ -126,7 +126,6 @@ function AppRouter() {
       <Route path="/settings"><Protected><SettingsPage /></Protected></Route>
       <Route path="/data-import"><Protected><DataImportPage /></Protected></Route>
       <Route path="/goal-history"><Protected><GoalHistoryPage /></Protected></Route>
-      <Route path="/assignments"><Redirect to="/tasks" /></Route>
       <Route path="/tasks"><Protected><TasksPage /></Protected></Route>
       <Route path="/calendar"><Protected><CalendarPage /></Protected></Route>
       <Route><Protected><NotFound /></Protected></Route>

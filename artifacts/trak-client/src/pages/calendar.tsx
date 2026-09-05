@@ -13,8 +13,6 @@ import {
   getListNutritionLogsQueryKey,
   useListSleepLogs,
   getListSleepLogsQueryKey,
-  useListAssignments,
-  getListAssignmentsQueryKey,
   useListActiveTasks,
   getListActiveTasksQueryKey,
 } from "@workspace/api-client-react";
@@ -25,7 +23,6 @@ import type {
   WorkoutLog,
   NutritionLog,
   SleepLog,
-  Assignment,
   ClientTask,
 } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
@@ -315,16 +312,12 @@ interface BlockDots {
   nutritionDone: boolean;
   sleep: boolean;
   sleepDone: boolean;
-  assignments: number;
-  assignmentsDone: number;
 }
 
 function getBlockDots(blocks: DayBlock[]): BlockDots {
   const workout = blocks.find(b => b.blockType === "workout" && !b.isRestDay);
   const nutrition = blocks.find(b => b.blockType === "nutrition");
   const sleep = blocks.find(b => b.blockType === "sleep");
-  const assignmentBlocks = blocks.filter(b => b.blockType === "assignment");
-
   return {
     workout: !!workout,
     workoutDone: workout?.done ?? false,
@@ -332,8 +325,6 @@ function getBlockDots(blocks: DayBlock[]): BlockDots {
     nutritionDone: nutrition?.done ?? false,
     sleep: !!sleep,
     sleepDone: sleep?.done ?? false,
-    assignments: assignmentBlocks.length,
-    assignmentsDone: assignmentBlocks.filter(b => b.done).length,
   };
 }
 
@@ -466,16 +457,6 @@ function FullCalendarOverlay({ today, buildBlocks, onClose, onSelectDate }: Full
                         dots.sleepDone ? "bg-blue-500" : "bg-blue-500/30"
                       )} title="Sleep" />
                     )}
-                    {Array.from({ length: Math.min(dots.assignments, 3) }).map((_, i) => (
-                      <span
-                        key={i}
-                        className={cn(
-                          "w-1.5 h-1.5 rounded-full",
-                          i < dots.assignmentsDone ? "bg-orange-400" : "bg-orange-400/30"
-                        )}
-                        title="Assignment"
-                      />
-                    ))}
                   </div>
                 )}
 
@@ -581,10 +562,6 @@ export function CalendarPage() {
     query: { enabled: !!clientId, queryKey: getListSleepLogsQueryKey(clientId!) },
   });
 
-  const { data: assignments } = useListAssignments(clientId!, {
-    query: { enabled: !!clientId, queryKey: getListAssignmentsQueryKey(clientId!) },
-  });
-
   const { data: activeTasks } = useListActiveTasks(clientId!, {
     query: { enabled: !!clientId, queryKey: getListActiveTasksQueryKey(clientId!) },
   });
@@ -618,17 +595,6 @@ export function CalendarPage() {
     }
     return map;
   }, [sleepLogs]);
-
-  const assignmentsByDate = useMemo(() => {
-    const map = new Map<string, Assignment[]>();
-    for (const a of assignments ?? []) {
-      if (!a.dueDate) continue;
-      const arr = map.get(a.dueDate) ?? [];
-      arr.push(a);
-      map.set(a.dueDate, arr);
-    }
-    return map;
-  }, [assignments]);
 
   // Build blocks for a given date
   const buildBlocks = useCallback((date: string): DayBlock[] => {
@@ -688,18 +654,6 @@ export function CalendarPage() {
       href: "/sleep",
     });
 
-    // Assignments
-    for (const a of assignmentsByDate.get(date) ?? []) {
-      blocks.push({
-        id: `assignment-${a.id}`,
-        blockType: "assignment",
-        done: a.status === "completed",
-        label: a.title,
-        href: "/assignments",
-        badge: a.type,
-      });
-    }
-
     // Coach tasks — on their due date if set, otherwise today only
     if (activeTasks && activeTasks.length > 0) {
       for (const task of activeTasks as ClientTask[]) {
@@ -738,7 +692,7 @@ export function CalendarPage() {
     return blocks;
   }, [
     today, program, assignment, workoutLogsByDate, nutritionLogsByDate,
-    sleepLogsByDate, assignmentsByDate, activeTasks, callActive,
+    sleepLogsByDate, activeTasks, callActive,
   ]);
 
   // Tap a full-calendar cell → close overlay, scroll to list card

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useGetCoachDashboard } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, Dumbbell, ActivitySquare, AlertCircle, MessageSquare, Sparkles, X, CheckCircle2, CalendarDays, Clock } from "lucide-react";
+import { Users, Dumbbell, AlertCircle, MessageSquare, Sparkles, X, CheckCircle2, CalendarDays, Clock } from "lucide-react";
 import { Link } from "wouter";
 import { formatDistanceToNow, parseISO } from "date-fns";
 import { Badge } from "@/components/ui/badge";
@@ -93,7 +93,7 @@ export function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {allClients.reduce((acc, c) => acc + (c.assignmentsDue || 0) + (c.unreadMessages || 0), 0) || 0}
+              {allClients.reduce((acc, c) => acc + (c.unreadMessages || 0), 0) || 0}
             </div>
           </CardContent>
         </Card>
@@ -148,11 +148,6 @@ export function Dashboard() {
                     </button>
                   </div>
                   <div className="flex space-x-3">
-                    {client.assignmentsDue > 0 && (
-                      <div className="flex items-center text-orange-500 text-sm">
-                        <ActivitySquare className="w-4 h-4 mr-1" /> {client.assignmentsDue}
-                      </div>
-                    )}
                     {client.unreadMessages && client.unreadMessages > 0 && (
                       <div className="flex items-center text-blue-500 text-sm">
                         <MessageSquare className="w-4 h-4 mr-1" /> {client.unreadMessages}

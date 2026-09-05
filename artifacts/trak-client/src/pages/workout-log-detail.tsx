@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useUnitSystem } from "@/hooks/use-unit-system";
-import { ChevronLeft, Pencil, Check, X, Dumbbell, Loader2 } from "lucide-react";
+import { ArrowLeft, Pencil, Check, X, Dumbbell, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { SetLog, SetLogInputWeightUnit } from "@workspace/api-client-react";
 import { QueryErrorState } from "@/components/query-error-state";
@@ -200,8 +200,11 @@ export function WorkoutLogDetailPage() {
     return (
       <div className="max-w-lg mx-auto p-4 space-y-4">
         <Link href="/workouts">
-          <button className="p-1 rounded-lg hover:bg-accent transition-colors text-muted-foreground">
-            <ChevronLeft className="w-5 h-5" />
+          <button
+            className="p-1 rounded-lg hover:bg-accent transition-colors text-muted-foreground"
+            aria-label="Back to workouts"
+          >
+            <ArrowLeft className="w-5 h-5" />
           </button>
         </Link>
         <p className="text-muted-foreground">Workout not found.</p>
@@ -218,8 +221,11 @@ export function WorkoutLogDetailPage() {
     <div className="max-w-lg mx-auto space-y-5">
       <div className="flex items-center gap-3">
         <Link href="/workouts">
-          <button className="p-1 rounded-lg hover:bg-accent transition-colors text-muted-foreground">
-            <ChevronLeft className="w-5 h-5" />
+          <button
+            className="p-1 rounded-lg hover:bg-accent transition-colors text-muted-foreground"
+            aria-label="Back to workouts"
+          >
+            <ArrowLeft className="w-5 h-5" />
           </button>
         </Link>
         <div className="flex-1 min-w-0">

@@ -9,12 +9,8 @@ import {
   useListSleepLogs,
   useListNutritionLogs,
   useListProgressPhotos,
-  useListAssignments,
   useListMessages,
   useSendMessage,
-  useCreateAssignment,
-  useDeleteAssignment,
-  useUpdateAssignment,
 
   useDeleteClientNutritionGoal,
   useGetClientProgramAssignment,
@@ -43,7 +39,6 @@ import {
   useListClientTasks,
   getGetWorkoutLogQueryKey,
   getGetClientQueryKey,
-  getListAssignmentsQueryKey,
   getListMessagesQueryKey,
   getGetClientDashboardQueryKey,
   getGetClientProgramAssignmentQueryKey,
@@ -393,13 +388,6 @@ function DrumDial({
 }
 
 const messageSchema = z.object({ content: z.string().min(1) });
-const assignmentSchema = z.object({
-  title: z.string().min(1),
-  type: z.enum(["task", "nutrition", "mobility", "habit", "note"]),
-  body: z.string().optional(),
-  targetValue: z.string().optional(),
-  dueDate: z.string().optional(),
-});
 const assignProgramSchema = z.object({
   programId: z.coerce.number().min(1),
   startDate: z.string().min(1),
@@ -740,7 +728,6 @@ export function ClientProfile() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [msgInput, setMsgInput] = useState("");
-  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [programDialogOpen, setProgramDialogOpen] = useState(false);
   const [confirmProgramAssignment, setConfirmProgramAssignment] = useState(false);
   const [programHistoryOpen, setProgramHistoryOpen] = useState(true);
@@ -854,7 +841,6 @@ export function ClientProfile() {
   const { data: sleepLogs } = useListSleepLogs(clientId, { query: { enabled: !!clientId, queryKey: ["sleep", clientId] } });
   const { data: nutritionLogs } = useListNutritionLogs(clientId, { query: { enabled: !!clientId, queryKey: ["nutrition", clientId] } });
   const { data: progressPhotos } = useListProgressPhotos(clientId, { query: { enabled: !!clientId, queryKey: ["photos", clientId] } });
-  const { data: assignments } = useListAssignments(clientId, { query: { enabled: !!clientId, queryKey: getListAssignmentsQueryKey(clientId) } });
   const { data: clientTasks, isLoading: clientTasksLoading } = useListClientTasks(clientId, { query: { enabled: !!clientId, queryKey: getListClientTasksQueryKey(clientId) } });
   const { data: messages } = useListMessages(clientId, { query: { enabled: !!clientId, queryKey: getListMessagesQueryKey(clientId) } });
   const { data: programAssignment } = useGetClientProgramAssignment(clientId, { query: { enabled: !!clientId, queryKey: getGetClientProgramAssignmentQueryKey(clientId) } });
@@ -865,11 +851,8 @@ export function ClientProfile() {
   const { data: programHistory } = useListClientProgramAssignmentHistory(clientId, { query: { enabled: !!clientId, queryKey: getListClientProgramAssignmentHistoryQueryKey(clientId) } });
 
   const sendMsg = useSendMessage();
-  const createAssignment = useCreateAssignment();
-  const deleteAssignment = useDeleteAssignment();
   const updateClientMutation = useUpdateClient();
   const createGoalMutation = useCreateClientGoal();
-  const updateAssignment = useUpdateAssignment();
 
   const assignProgram = useAssignProgram();
   const syncFromTemplate = useSyncProgramFromTemplate();
@@ -957,10 +940,6 @@ export function ClientProfile() {
     resolver: zodResolver(messageSchema),
     defaultValues: { content: "" },
   });
-  const assignForm = useForm<z.infer<typeof assignmentSchema>>({
-    resolver: zodResolver(assignmentSchema),
-    defaultValues: { title: "", type: "task", body: "", targetValue: "", dueDate: "" },
-  });
   const programForm = useForm<z.infer<typeof assignProgramSchema>>({
     resolver: zodResolver(assignProgramSchema),
     defaultValues: { programId: 0, startDate: new Date().toISOString().split("T")[0] },
@@ -972,29 +951,6 @@ export function ClientProfile() {
         qc.invalidateQueries({ queryKey: getListMessagesQueryKey(clientId) });
         msgForm.reset();
       },
-    });
-  };
-
-  const handleCreateAssignment = (values: z.infer<typeof assignmentSchema>) => {
-    createAssignment.mutate({ clientId, data: { title: values.title, type: values.type, body: values.body || undefined, targetValue: values.targetValue || undefined, dueDate: values.dueDate || undefined } }, {
-      onSuccess: () => {
-        qc.invalidateQueries({ queryKey: getListAssignmentsQueryKey(clientId) });
-        setAssignDialogOpen(false);
-        assignForm.reset();
-        toast({ title: "Assignment created" });
-      },
-    });
-  };
-
-  const handleDeleteAssignment = (id: number) => {
-    deleteAssignment.mutate({ clientId, assignmentId: id }, {
-      onSuccess: () => qc.invalidateQueries({ queryKey: getListAssignmentsQueryKey(clientId) }),
-    });
-  };
-
-  const handleToggleAssignment = (id: number, status: string) => {
-    updateAssignment.mutate({ clientId, assignmentId: id, data: { status: status === "pending" ? "completed" : "pending" } }, {
-      onSuccess: () => qc.invalidateQueries({ queryKey: getListAssignmentsQueryKey(clientId) }),
     });
   };
 
@@ -1077,8 +1033,6 @@ export function ClientProfile() {
 
   if (!client) return <div className="p-8 text-muted-foreground">Loading client...</div>;
 
-  const pending = assignments?.filter(a => a.status === "pending") ?? [];
-  const completed = assignments?.filter(a => a.status === "completed") ?? [];
 
   const videoRoomName = `trak-coaching-${clientId}`;
 
@@ -1422,10 +1376,6 @@ export function ClientProfile() {
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">This Week</CardTitle></CardHeader>
               <CardContent><p className="text-3xl font-bold">{dashboard?.workoutsThisWeek ?? 0}</p><p className="text-xs text-muted-foreground">workouts</p></CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Pending</CardTitle></CardHeader>
-              <CardContent><p className="text-3xl font-bold">{dashboard?.pendingAssignments ?? 0}</p><p className="text-xs text-muted-foreground">tasks</p></CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Current Program</CardTitle></CardHeader>
@@ -2038,7 +1988,7 @@ export function ClientProfile() {
           })()}
         </TabsContent>
 
-        {/* Assignments */}
+        {/* Tasks */}
         <TabsContent value="tasks" className="mt-4 space-y-6">
           {/* ── Chat-assigned Task History ─────────────────────────────── */}
           <div className="space-y-3">
@@ -2103,103 +2053,6 @@ export function ClientProfile() {
             })}
           </div>
 
-          {/* ── Legacy Assignments ─────────────────────────────────────── */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Assignments</p>
-              <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm" data-testid="button-create-assignment"><Plus className="w-4 h-4 mr-1" /> New Task</Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader><DialogTitle>Create Task</DialogTitle></DialogHeader>
-                <Form {...assignForm}>
-                  <form onSubmit={assignForm.handleSubmit(handleCreateAssignment)} className="space-y-4">
-                    <FormField control={assignForm.control} name="title" render={({ field }) => (
-                      <FormItem><FormLabel>Title</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={assignForm.control} name="type" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Type</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                          <SelectContent>
-                            <SelectItem value="task">Task</SelectItem>
-                            <SelectItem value="nutrition">Nutrition</SelectItem>
-                            <SelectItem value="mobility">Mobility</SelectItem>
-                            <SelectItem value="habit">Habit</SelectItem>
-                            <SelectItem value="note">Note</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )} />
-                    <FormField control={assignForm.control} name="body" render={({ field }) => (
-                      <FormItem><FormLabel>Details</FormLabel><FormControl><Textarea {...field} rows={3} /></FormControl></FormItem>
-                    )} />
-                    <FormField control={assignForm.control} name="targetValue" render={({ field }) => (
-                      <FormItem><FormLabel>Target</FormLabel><FormControl><Input {...field} placeholder="e.g. 8000 steps" /></FormControl></FormItem>
-                    )} />
-                    <FormField control={assignForm.control} name="dueDate" render={({ field }) => (
-                      <FormItem><FormLabel>Due Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl></FormItem>
-                    )} />
-                    <Button type="submit" className="w-full" disabled={createAssignment.isPending}>Create</Button>
-                  </form>
-                </Form>
-              </DialogContent>
-            </Dialog>
-            </div>
-
-            {pending.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Pending ({pending.length})</p>
-                {pending.map(a => (
-                  <Card key={a.id} data-testid={`card-assignment-${a.id}`}>
-                    <CardContent className="pt-4 pb-4 flex items-start gap-3">
-                      <button onClick={() => handleToggleAssignment(a.id, a.status)} className="mt-0.5 text-muted-foreground hover:text-primary transition-colors">
-                        <Circle className="w-5 h-5" />
-                      </button>
-                      <div className="flex-1">
-                        <p className="font-medium">{a.title}</p>
-                        {a.body && <p className="text-sm text-muted-foreground">{a.body}</p>}
-                        <div className="flex gap-2 mt-1">
-                          <Badge variant="outline" className="text-xs">{a.type}</Badge>
-                          {a.dueDate && <span className="text-xs text-muted-foreground">Due {a.dueDate}</span>}
-                        </div>
-                      </div>
-                      <button onClick={() => handleDeleteAssignment(a.id)} className="text-muted-foreground hover:text-destructive transition-colors">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-
-            {completed.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Completed ({completed.length})</p>
-                {completed.map(a => (
-                  <Card key={a.id} className="opacity-60" data-testid={`card-assignment-done-${a.id}`}>
-                    <CardContent className="pt-4 pb-4 flex items-start gap-3">
-                      <button onClick={() => handleToggleAssignment(a.id, a.status)} className="mt-0.5 text-primary">
-                        <CheckCircle className="w-5 h-5" />
-                      </button>
-                      <div className="flex-1">
-                        <p className="font-medium line-through">{a.title}</p>
-                        <Badge variant="outline" className="text-xs">{a.type}</Badge>
-                      </div>
-                      <button onClick={() => handleDeleteAssignment(a.id)} className="text-muted-foreground hover:text-destructive transition-colors">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-
-            {assignments?.length === 0 && <p className="text-muted-foreground text-sm">No assignments yet.</p>}
-          </div>
         </TabsContent>
 
         {/* Messages */}

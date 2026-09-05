@@ -192,17 +192,11 @@ export function Dashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         <Card>
           <CardContent className="pt-4 pb-4 text-center">
             <p className="text-3xl font-bold text-primary">{dashboard?.workoutsThisWeek ?? 0}</p>
             <p className="text-xs text-muted-foreground mt-1">This Week</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-4 text-center">
-            <p className="text-3xl font-bold">{dashboard?.pendingAssignments ?? 0}</p>
-            <p className="text-xs text-muted-foreground mt-1">Tasks Due</p>
           </CardContent>
         </Card>
         <Card>
@@ -349,19 +343,6 @@ export function Dashboard() {
         </div>
       )}
 
-      {(dashboard?.pendingAssignments ?? 0) > 0 && (
-        <Link href="/assignments" className="block">
-          <Card className="border-primary/30 bg-accent">
-            <CardContent className="pt-4 pb-4 flex items-center gap-3">
-              <ClipboardList className="w-5 h-5 text-primary" />
-              <p className="text-sm font-medium text-accent-foreground">
-                You have {dashboard?.pendingAssignments} pending assignment{dashboard?.pendingAssignments !== 1 ? "s" : ""}
-              </p>
-              <ChevronRight className="w-4 h-4 text-primary ml-auto" />
-            </CardContent>
-          </Card>
-        </Link>
-      )}
     </div>
   );
 }
