@@ -4,9 +4,10 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Search, ArrowLeft, ExternalLink, LayoutGrid, List, SlidersHorizontal, Check, X } from "lucide-react";
+import { Search, ArrowLeft, LayoutGrid, List, SlidersHorizontal, Check, X } from "lucide-react";
 import { QueryErrorState } from "@/components/query-error-state";
 import { cn } from "@/lib/utils";
+import { ExerciseVideo } from "@/components/exercise-video";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -104,21 +105,13 @@ function ExerciseDetail({ exercise, onClose }: { exercise: Exercise; onClose: ()
           </div>
         )}
 
-        {/* Video link */}
+        {/* Video */}
         {exercise.videoUrl && (
           <div className="mb-6">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-2">
               Video
             </h2>
-            <a
-              href={exercise.videoUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
-            >
-              <ExternalLink className="w-4 h-4" />
-              Watch demonstration
-            </a>
+            <ExerciseVideo url={exercise.videoUrl} title={exercise.name} />
           </div>
         )}
 

@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { QueryErrorState } from "@/components/query-error-state";
+import { ExerciseVideo } from "@/components/exercise-video";
 
 type SortMode = "target" | "compound" | "movement" | "cardio" | "mobility" | "strength";
 type ViewMode = "grid" | "list";
@@ -149,93 +150,6 @@ function ExerciseBadges({ exercise, size = "sm" }: { exercise: Exercise; size?: 
   );
 }
 
-function VideoUploadButton({
-  exerciseId,
-  onUploadComplete,
-}: {
-  exerciseId: number;
-  onUploadComplete: (videoUrl: string) => void;
-}) {
-  const [uploading, setUploading] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const { toast } = useToast();
-
-  async function handleFile(file: File) {
-    if (!file.type.startsWith("video/")) {
-      toast({ title: "Please select a video file", variant: "destructive" });
-      return;
-    }
-
-    setUploading(true);
-    setProgress(0);
-
-    try {
-      const urlRes = await fetch("/api/upload-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filename: file.name, contentType: file.type }),
-      });
-      if (!urlRes.ok) throw new Error("Failed to get upload URL");
-      const { uploadUrl, objectPath } = await urlRes.json() as { uploadUrl: string; objectPath: string };
-
-      await new Promise<void>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open("PUT", uploadUrl);
-        xhr.setRequestHeader("Content-Type", file.type);
-        xhr.upload.onprogress = (e) => {
-          if (e.lengthComputable) setProgress(Math.round((e.loaded / e.total) * 100));
-        };
-        xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`Upload failed: ${xhr.status}`)));
-        xhr.onerror = () => reject(new Error("Upload network error"));
-        xhr.send(file);
-      });
-
-      onUploadComplete(objectPath);
-    } catch (err) {
-      toast({ title: "Upload failed", description: String(err), variant: "destructive" });
-    } finally {
-      setUploading(false);
-      setProgress(0);
-    }
-  }
-
-  return (
-    <>
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="video/*"
-        className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) handleFile(file);
-          e.target.value = "";
-        }}
-      />
-      <Button
-        variant="outline"
-        size="sm"
-        disabled={uploading}
-        onClick={() => fileInputRef.current?.click()}
-        data-testid={`button-upload-video-${exerciseId}`}
-      >
-        {uploading ? (
-          <>
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            {progress > 0 ? `${progress}%` : "Uploading…"}
-          </>
-        ) : (
-          <>
-            <Upload className="w-4 h-4 mr-2" />
-            Upload video
-          </>
-        )}
-      </Button>
-    </>
-  );
-}
-
 function ExerciseDetailPanel({
   exercise: initialExercise,
   onClose,
@@ -252,6 +166,11 @@ function ExerciseDetailPanel({
   const [editIsCompound, setEditIsCompound] = useState(exercise.isCompound);
   const [editMovement, setEditMovement] = useState(exercise.movementPattern ?? "");
   const [editDescription, setEditDescription] = useState(exercise.description ?? "");
+  const [videoDialogOpen, setVideoDialogOpen] = useState(false);
+  const [videoUrlInput, setVideoUrlInput] = useState(exercise.videoUrl ?? "");
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const videoFileInputRef = useRef<HTMLInputElement>(null);
 
   const updateExercise = useUpdateExercise();
   const { toast } = useToast();
@@ -292,23 +211,66 @@ function ExerciseDetailPanel({
     );
   }
 
-  function handleVideoUploaded(objectPath: string) {
+  function persistVideoUrl(videoUrl: string, successTitle: string) {
     updateExercise.mutate(
-      { exerciseId: exercise.id, data: { videoUrl: objectPath } },
+      { exerciseId: exercise.id, data: { videoUrl: videoUrl || null } },
       {
         onSuccess: (updated) => {
           const refreshed = { ...exercise, ...updated };
           setExercise(refreshed);
           onUpdate(refreshed);
           qc.invalidateQueries({ queryKey: getListExercisesQueryKey() });
-          toast({ title: "Video uploaded" });
+          setVideoDialogOpen(false);
+          toast({ title: successTitle });
         },
         onError: () => toast({ title: "Failed to save video", variant: "destructive" }),
       }
     );
   }
 
-  const videoSrc = exercise.videoUrl ? `/api/storage${exercise.videoUrl}` : null;
+  function saveVideoUrl() {
+    const videoUrl = videoUrlInput.trim();
+    persistVideoUrl(videoUrl, videoUrl ? "Video saved" : "Video removed");
+  }
+
+  async function uploadVideoFile(file: File) {
+    if (!file.type.startsWith("video/")) {
+      toast({ title: "Please select a video file", variant: "destructive" });
+      return;
+    }
+    setUploadingVideo(true);
+    setUploadProgress(0);
+    try {
+      const urlResponse = await fetch("/api/upload-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: file.name, contentType: file.type }),
+      });
+      if (!urlResponse.ok) throw new Error("Failed to get upload URL");
+      const { uploadUrl, objectPath } = await urlResponse.json() as { uploadUrl: string; objectPath: string };
+
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("PUT", uploadUrl);
+        xhr.setRequestHeader("Content-Type", file.type);
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) setUploadProgress(Math.round((event.loaded / event.total) * 100));
+        };
+        xhr.onload = () => xhr.status >= 200 && xhr.status < 300
+          ? resolve()
+          : reject(new Error(`Upload failed: ${xhr.status}`));
+        xhr.onerror = () => reject(new Error("Upload network error"));
+        xhr.send(file);
+      });
+
+      persistVideoUrl(objectPath, "Video uploaded");
+    } catch (error) {
+      toast({ title: "Upload failed", description: String(error), variant: "destructive" });
+    } finally {
+      setUploadingVideo(false);
+      setUploadProgress(0);
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-50 bg-background overflow-y-auto" data-testid="exercise-detail-panel">
@@ -483,19 +445,67 @@ function ExerciseDetailPanel({
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
               <Video className="w-3.5 h-3.5" /> Video
             </p>
-            <VideoUploadButton
-              exerciseId={exercise.id}
-              onUploadComplete={handleVideoUploaded}
-            />
+            <Dialog open={videoDialogOpen} onOpenChange={(open) => {
+              setVideoDialogOpen(open);
+              if (open) setVideoUrlInput(exercise.videoUrl ?? "");
+            }}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" data-testid={`button-upload-video-${exercise.id}`}>
+                  Upload video
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader><DialogTitle>Add exercise video</DialogTitle></DialogHeader>
+                <div className="space-y-4">
+                  <input
+                    ref={videoFileInputRef}
+                    type="file"
+                    accept="video/*"
+                    className="hidden"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) void uploadVideoFile(file);
+                      event.target.value = "";
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => videoFileInputRef.current?.click()}
+                    disabled={uploadingVideo || updateExercise.isPending}
+                  >
+                    {uploadingVideo ? (
+                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{uploadProgress > 0 ? `${uploadProgress}%` : "Uploading…"}</>
+                    ) : (
+                      <><Upload className="w-4 h-4 mr-2" />Choose video from device</>
+                    )}
+                  </Button>
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <div className="h-px flex-1 bg-border" />
+                    <span>or paste a link</span>
+                    <div className="h-px flex-1 bg-border" />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="exercise-video-url" className="text-sm font-medium">YouTube or hosted video URL</label>
+                    <Input
+                      id="exercise-video-url"
+                      value={videoUrlInput}
+                      onChange={(event) => setVideoUrlInput(event.target.value)}
+                      placeholder="https://www.youtube.com/watch?v=..."
+                    />
+                  </div>
+                  <Button className="w-full" onClick={saveVideoUrl} disabled={updateExercise.isPending}>
+                    {updateExercise.isPending ? "Saving…" : "Save video"}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
-          {videoSrc ? (
-            <video
-              key={videoSrc}
-              src={videoSrc}
-              controls
-              className="w-full rounded-lg max-h-80 bg-black"
-              data-testid="exercise-video-player"
-            />
+          {exercise.videoUrl ? (
+            <div data-testid="exercise-video-player">
+              <ExerciseVideo url={exercise.videoUrl} title={exercise.name} />
+            </div>
           ) : (
             <p className="text-sm text-muted-foreground italic">No video yet — upload one using the button above.</p>
           )}

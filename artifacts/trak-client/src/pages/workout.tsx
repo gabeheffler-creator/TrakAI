@@ -24,12 +24,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle, ChevronRight, Dumbbell, X, Trophy, ArrowRight, RefreshCw, Upload, FolderOpen, ImageIcon, Pencil, RotateCcw, Check, Moon, ArrowLeft, Search, LayoutGrid, List, SlidersHorizontal } from "lucide-react";
+import { CheckCircle, ChevronRight, Dumbbell, X, Trophy, ArrowRight, RefreshCw, Upload, FolderOpen, ImageIcon, Pencil, RotateCcw, Check, Moon, ArrowLeft, Search, LayoutGrid, List, SlidersHorizontal, Info } from "lucide-react";
 import { useLocation, Link } from "wouter";
 import { cn } from "@/lib/utils";
 import { playTick } from "@/lib/sounds";
 import type { Exercise } from "@workspace/api-client-react";
 import { QueryErrorState } from "@/components/query-error-state";
+import { ExerciseVideo } from "@/components/exercise-video";
 
 type Mode = "select" | "checkin" | "overview" | "active" | "upload" | "done" | "early-exit-done";
 
@@ -298,6 +299,7 @@ function SwapBrowser({
   const [filterOpen, setFilterOpen] = useState(false);
   const [pendingSort, setPendingSort] = useState<SwapSort>("target");
   const [pendingCategory, setPendingCategory] = useState<SwapCategory>("all");
+  const [previewExercise, setPreviewExercise] = useState<Exercise | null>(null);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -335,7 +337,7 @@ function SwapBrowser({
     viewMode === "grid" ? (
       <button
         key={e.id}
-        onClick={() => onSelect(e)}
+        onClick={() => setPreviewExercise(e)}
         className="w-full text-left p-4 rounded-2xl border-2 border-purple-500/40 hover:border-purple-500/70 bg-card transition-colors cursor-pointer"
       >
         <p className="font-semibold text-base">{e.name}</p>
@@ -346,7 +348,7 @@ function SwapBrowser({
     ) : (
       <button
         key={e.id}
-        onClick={() => onSelect(e)}
+        onClick={() => setPreviewExercise(e)}
         className="w-full text-left flex items-center gap-3 px-4 py-3 rounded-lg border border-border hover:bg-muted/50 transition-colors"
       >
         <div className="flex-1 min-w-0">
@@ -520,6 +522,57 @@ function SwapBrowser({
           <p className="text-center text-muted-foreground py-8 text-sm">No exercises match your search.</p>
         )}
       </div>
+      {previewExercise && (
+        <ExerciseDetailsSheet
+          exercise={previewExercise}
+          onClose={() => setPreviewExercise(null)}
+          action={
+            <Button className="w-full" onClick={() => onSelect(previewExercise)}>
+              Swap to {previewExercise.name}
+            </Button>
+          }
+        />
+      )}
+    </div>
+  );
+}
+
+function ExerciseDetailsSheet({
+  exercise,
+  onClose,
+  action,
+}: {
+  exercise: Pick<Exercise, "name" | "muscleGroup" | "description" | "videoUrl">;
+  onClose: () => void;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="fixed inset-0 z-[90] bg-black/50 flex items-end" onClick={onClose}>
+      <div
+        className="w-full max-h-[85vh] overflow-y-auto rounded-t-3xl bg-background p-5 space-y-4"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start gap-3">
+          <button
+            onClick={onClose}
+            className="p-1 text-muted-foreground hover:text-foreground"
+            aria-label="Close exercise details"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div className="flex-1">
+            <h2 className="text-xl font-bold">{exercise.name}</h2>
+            <p className="text-sm text-muted-foreground">{exercise.muscleGroup}</p>
+          </div>
+        </div>
+        {exercise.description ? (
+          <p className="text-sm leading-relaxed">{exercise.description}</p>
+        ) : (
+          <p className="text-sm text-muted-foreground italic">No description available.</p>
+        )}
+        {exercise.videoUrl && <ExerciseVideo url={exercise.videoUrl} title={exercise.name} />}
+        {action}
+      </div>
     </div>
   );
 }
@@ -669,6 +722,7 @@ export function WorkoutPage() {
   const [showEarlyExit, setShowEarlyExit] = useState(false);
   const [earlyExitReason, setEarlyExitReason] = useState("");
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [detailsExercise, setDetailsExercise] = useState<Pick<Exercise, "name" | "muscleGroup" | "description" | "videoUrl"> | null>(null);
   const [swappedExercises, setSwappedExercises] = useState<Record<number, { exerciseName: string; muscleGroup: string; exerciseId: number }>>({});
   const [listEditingSet, setListEditingSet] = useState<{ exIdx: number; setIdx: number } | null>(null);
   const [isExitingWorkout, setIsExitingWorkout] = useState(false);
@@ -700,7 +754,12 @@ export function WorkoutPage() {
   const { data: program, isError: programError, refetch: refetchProgram, isFetching: programFetching } = useGetClientProgram(clientId!, {
     query: { enabled: !!clientId && !!assignment, queryKey: getGetClientProgramQueryKey(clientId!) }
   });
-  const { data: allExercises } = useListExercises({ query: { enabled: mode === "active" && swapModal, queryKey: getListExercisesQueryKey() } });
+  const { data: allExercises } = useListExercises({
+    query: {
+      enabled: mode === "overview" || mode === "active",
+      queryKey: getListExercisesQueryKey(),
+    },
+  });
 
   const createWorkoutLog = useCreateWorkoutLog();
   const updateWorkoutLog = useUpdateWorkoutLog();
@@ -735,6 +794,16 @@ export function WorkoutPage() {
 
   const currentEx = exercises[currentExIdx];
   const currentSets = sets[currentExIdx] ?? [];
+
+  const showExerciseDetails = (exercise: { exerciseId: number; exerciseName: string; muscleGroup: string }) => {
+    const catalogExercise = allExercises?.find(item => item.id === exercise.exerciseId);
+    setDetailsExercise(catalogExercise ?? {
+      name: exercise.exerciseName,
+      muscleGroup: exercise.muscleGroup,
+      description: null,
+      videoUrl: null,
+    });
+  };
 
   // This mirrors the existing start-workout adjustment algorithm so the client
   // can review its recommendation without changing the coach's program policy.
@@ -1465,9 +1534,18 @@ export function WorkoutPage() {
                   {ex.restSeconds ? ` · ${ex.restSeconds}s rest` : ""}
                 </p>
                 <Badge variant="secondary" className="text-[10px] mt-1.5">{ex.muscleGroup}</Badge>
+                <button
+                  onClick={() => showExerciseDetails(ex)}
+                  className="mt-2 flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                >
+                  <Info className="w-3.5 h-3.5" /> View description
+                </button>
               </div>
             </div>
           ))}
+          {detailsExercise && (
+            <ExerciseDetailsSheet exercise={detailsExercise} onClose={() => setDetailsExercise(null)} />
+          )}
         </div>
 
         <div className="px-4 pb-8 pt-3 border-t border-border bg-background">
@@ -1503,6 +1581,9 @@ export function WorkoutPage() {
             total={restTotalSeconds}
             onSkip={stopRestTimer}
           />
+        )}
+        {detailsExercise && (
+          <ExerciseDetailsSheet exercise={detailsExercise} onClose={() => setDetailsExercise(null)} />
         )}
 
         <div className={cn("fixed inset-0 z-[60] overflow-hidden", exitSlide)}>
@@ -1567,6 +1648,12 @@ export function WorkoutPage() {
                           {ex.sets} × {ex.reps}{ex.restSeconds ? ` · ${ex.restSeconds}s rest` : ""}
                         </span>
                       </div>
+                      <button
+                        onClick={() => showExerciseDetails(ex)}
+                        className="ml-6 mt-1.5 flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                      >
+                        <Info className="w-3.5 h-3.5" /> View description
+                      </button>
                       {isAdjusted ? (
                         <div className="ml-6 mt-1.5 inline-flex items-center gap-1.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg px-2 py-1">
                           <Moon className="w-3 h-3 text-amber-500 flex-shrink-0" />
@@ -1894,6 +1981,9 @@ export function WorkoutPage() {
             onSkip={stopRestTimer}
           />
         )}
+        {detailsExercise && (
+          <ExerciseDetailsSheet exercise={detailsExercise} onClose={() => setDetailsExercise(null)} />
+        )}
         {swapModal && (
           <SwapBrowser
             currentExerciseName={currentEx.exerciseName}
@@ -1957,6 +2047,12 @@ export function WorkoutPage() {
                 {currentEx.sets} sets × {currentEx.reps} reps
                 {currentEx.restSeconds ? ` · ${currentEx.restSeconds}s rest` : ""}
               </p>
+              <button
+                onClick={() => showExerciseDetails(currentEx)}
+                className="mt-2 flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+              >
+                <Info className="w-3.5 h-3.5" /> View description
+              </button>
               {isAdjusted ? (
                 <div className="mt-2 inline-flex items-center gap-1.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg px-2.5 py-1.5">
                   <Moon className="w-3 h-3 text-amber-500 flex-shrink-0" />
