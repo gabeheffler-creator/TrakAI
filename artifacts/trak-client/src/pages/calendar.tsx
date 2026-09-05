@@ -364,7 +364,15 @@ function FullCalendarOverlay({ today, buildBlocks, onClose, onSelectDate }: Full
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-background">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card flex-shrink-0">
+      <div className="grid grid-cols-[auto_auto_1fr_auto] items-center gap-2 px-4 py-3 border-b border-border bg-card flex-shrink-0">
+        <button
+          onClick={onClose}
+          className="flex items-center gap-1.5 py-2 pr-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          aria-label="Back to calendar"
+        >
+          <ArrowLeft className="w-5 h-5" />
+          <span>Back</span>
+        </button>
         <button
           onClick={prevMonth}
           className="p-2 rounded-lg hover:bg-muted transition-colors"
@@ -372,7 +380,7 @@ function FullCalendarOverlay({ today, buildBlocks, onClose, onSelectDate }: Full
         >
           <ChevronLeft className="w-5 h-5" />
         </button>
-        <h2 className="text-base font-bold">{monthLabel}</h2>
+        <h2 className="text-base font-bold text-center truncate px-1">{monthLabel}</h2>
         <button
           onClick={nextMonth}
           className="p-2 rounded-lg hover:bg-muted transition-colors"
@@ -381,15 +389,6 @@ function FullCalendarOverlay({ today, buildBlocks, onClose, onSelectDate }: Full
           <ChevronRight className="w-5 h-5" />
         </button>
       </div>
-
-      {/* Close button */}
-      <button
-        onClick={onClose}
-        className="absolute top-3 right-4 p-1.5 rounded-lg hover:bg-muted transition-colors z-10"
-        aria-label="Close calendar"
-      >
-        <ArrowLeft className="w-5 h-5" />
-      </button>
 
       {/* Day-of-week labels */}
       <div className="grid grid-cols-7 border-b border-border bg-muted/40 flex-shrink-0">
