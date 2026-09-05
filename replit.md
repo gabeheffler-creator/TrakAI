@@ -8,7 +8,9 @@ _Replace the heading above with the project's name, and this line with one sente
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
+- `pnpm --filter @workspace/db run generate` — generate a reviewed SQL migration after editing `lib/db/src/schema/*`
+- `pnpm --filter @workspace/db run migrate` — apply committed migrations to the configured database (manual/non-Replit environments)
+- `pnpm --filter @workspace/db run push:dev` — synchronize the development database only; never use for shared or production databases
 - Required env: `DATABASE_URL` — Postgres connection string
 
 ## Stack
@@ -38,7 +40,15 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+### Database schema workflow
+
+1. Edit the source schema in `lib/db/src/schema/*`.
+2. Run `pnpm --filter @workspace/db run generate`.
+3. Review the generated SQL and metadata under `lib/db/migrations/`.
+4. Commit the schema and migration files together.
+5. Task merges continue to synchronize the Replit development database. Replit Publish compares development and production schemas, presents rename/destructive-change confirmations, and applies the production diff.
+
+`push:dev` and `push-force:dev` are local-development tools only. Do not add schema mutation to API startup or deployment build commands. For non-Replit environments, apply the committed migrations explicitly with `pnpm --filter @workspace/db run migrate`.
 
 ## Pointers
 

@@ -1,0 +1,76 @@
+You are converting TrakAI's database workflow from drizzle-kit push to a 
+proper versioned migration system. This directly addresses a gap flagged 
+in the Phase 0 audit: there is currently no committed migration directory, 
+and lib/db/package.json only exposes `push` and `push-force` scripts.
+
+Do this in order. Do not skip the baseline step — the production database 
+was built entirely via push and has no migration history, so migrations 
+must start from an accurate snapshot of what already exists, not from zero.
+
+===========================================================
+STEP 1 — Establish the baseline
+===========================================================
+
+- Add a `migrations` output directory to lib/db (update drizzle.config.ts 
+  to point `out` at it).
+- Generate a baseline migration that represents the CURRENT schema exactly 
+  as it exists in the working database right now — every table in 
+  lib/db/src/schema/*, as they currently stand, with no changes.
+- Verify this baseline migration, when run against a fresh empty database, 
+  produces a schema identical to the current one. This is the check that 
+  matters most — if the baseline doesn't match reality, everything built 
+  on top of it will be wrong too.
+- Commit the migrations folder and the updated drizzle.config.ts.
+
+===========================================================
+STEP 2 — Add real migration scripts
+===========================================================
+
+- Add `generate` and `migrate` scripts to lib/db/package.json, using 
+  drizzle-kit's migration generation and a migration runner (drizzle-orm's 
+  built-in migrate() function against the same postgres client already 
+  used elsewhere in the codebase).
+- Keep `push` and `push-force` available but clearly relabeled for local 
+  dev only (e.g. rename or add a comment) — don't remove them, since fast 
+  local iteration still has a place, but they should not be the path used 
+  for any shared or production database going forward.
+- Add a `migrate` step to whatever startup/deploy process currently 
+  provisions the database, so pending migrations apply automatically when 
+  the app starts in a non-development environment, rather than requiring 
+  a manual step someone can forget.
+
+===========================================================
+STEP 3 — Confirm every schema change already made is captured
+===========================================================
+
+Cross-check the current schema files against the baseline and confirm 
+these tables are included (all were added or changed as part of the 
+production-readiness work already done): program status/approval fields, 
+AI usage audit records, native auth sessions, authentication action 
+tokens (password reset / email verification / invites), native push 
+tokens, and any nutrition-goal structure changes. If any of these are 
+missing from the schema files themselves (not just the migration), flag 
+it — that would mean the earlier work only ran `push` locally and never 
+got fully committed to the schema source.
+
+===========================================================
+STEP 4 — Document the workflow
+===========================================================
+
+Add a short section to replit.md (or a new lib/db/README.md) explaining: 
+how to make a schema change going forward (edit schema file → run generate 
+→ review the generated SQL → commit it → it applies automatically on next 
+deploy), and that push/push-force are dev-only tools, not the deployment 
+path.
+
+===========================================================
+DELIVERABLE
+===========================================================
+Give me:
+1. Confirmation the baseline migration was verified against a fresh 
+   database and matches the current schema exactly.
+2. The list of new scripts added and what each does.
+3. Anything found in Step 3 that wasn't fully captured in the schema 
+   source, if any.
+4. The exact list of new/changed env vars, if the migration step 
+   introduces any (e.g. a separate migration-runner connection string).

@@ -8,8 +8,12 @@
     "./schema": "./src/schema/index.ts"
   },
   "scripts": {
-    "push": "drizzle-kit push --config ./drizzle.config.ts",
-    "push-force": "drizzle-kit push --force --config ./drizzle.config.ts"
+    "generate": "drizzle-kit generate --config ./drizzle.config.ts",
+    "migrate": "node ./src/migrate.mjs",
+    "push:dev": "drizzle-kit push --config ./drizzle.config.ts",
+    "push-force:dev": "drizzle-kit push --force --config ./drizzle.config.ts",
+    "push": "echo 'DEV ONLY: shared/production databases use committed migrations or Replit Publish.' && pnpm run push:dev",
+    "push-force": "echo 'DEV ONLY: never run this against a shared/production database.' && pnpm run push-force:dev"
   },
   "dependencies": {
     "drizzle-orm": "catalog:",

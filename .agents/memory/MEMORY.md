@@ -9,3 +9,4 @@
 - [Program approval lifecycle](program-approval-lifecycle.md) — preserve legacy assignments as approved, but require explicit approval for every newly created coach template before any assignment or client visibility.
 - [AI privacy and quota policy](ai-privacy-quota-policy.md) — AI usage auditing stores metadata only; daily caps count provider attempts per authenticated user, while burst limits remain a separate layer.
 - [Cross-device authentication model](cross-device-auth-model.md) — keep web cookies server-side; native clients use hashed opaque access/rotating refresh tokens resolved through one actor path.
+- [Drizzle migration output path](drizzle-migration-output-path.md) — keep Drizzle Kit migration `out` package-relative; absolute paths generate once but break later snapshot reads.
