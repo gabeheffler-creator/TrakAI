@@ -27,6 +27,7 @@ import { useToast } from "@/hooks/use-toast";
 import { CheckCircle, ChevronRight, Dumbbell, X, Trophy, ArrowRight, RefreshCw, Upload, FolderOpen, ImageIcon, Pencil, RotateCcw, Check, Moon, ArrowLeft, Search, LayoutGrid, List, SlidersHorizontal } from "lucide-react";
 import { useLocation, Link } from "wouter";
 import { cn } from "@/lib/utils";
+import { playTick } from "@/lib/sounds";
 import type { Exercise } from "@workspace/api-client-react";
 import { QueryErrorState } from "@/components/query-error-state";
 
@@ -562,7 +563,10 @@ function VideoUploadSheet({ onSkip }: { onSkip: () => void }) {
           <Button
             size="lg"
             className="w-full h-14 text-base font-semibold gap-2"
-            onClick={() => setShowOptions(true)}
+            onClick={() => {
+              playTick();
+              setShowOptions(true);
+            }}
           >
             <Upload className="w-5 h-5" /> Upload Form Videos
           </Button>
@@ -570,7 +574,10 @@ function VideoUploadSheet({ onSkip }: { onSkip: () => void }) {
             size="lg"
             variant="ghost"
             className="w-full h-12 text-muted-foreground"
-            onClick={onSkip}
+            onClick={() => {
+              playTick();
+              onSkip();
+            }}
           >
             Skip
           </Button>
@@ -839,6 +846,7 @@ export function WorkoutPage() {
 
   const handleBeginWorkout = () => {
     if (!clientId || !selectedDay) return;
+    playTick();
 
     const hasAutomaticAdjustment = automaticAdjustment.tier !== "none";
     const shouldAdjust = hasAutomaticAdjustment && adjustmentChoice === "automatic";
@@ -885,6 +893,7 @@ export function WorkoutPage() {
   const handleCheckSet = (setIdx: number) => {
     const s = currentSets[setIdx];
     if (!s || s.logged) return;
+    playTick();
     playRing();
     setRpeModal({ exIdx: currentExIdx, setIdx });
   };
@@ -999,6 +1008,7 @@ export function WorkoutPage() {
   const openEditSet = (i: number) => {
     const s = currentSets[i];
     if (!s) return;
+    playTick();
     setEditingSetIdx(i);
     setEditWeight(s.weight);
     setEditReps(s.reps);
@@ -1007,6 +1017,7 @@ export function WorkoutPage() {
 
   const saveEditSet = () => {
     if (editingSetIdx === null) return;
+    playTick();
     setSets(prev => {
       const next = prev.map(arr => [...arr]);
       next[currentExIdx] = next[currentExIdx].map((s, i) =>
@@ -1018,6 +1029,7 @@ export function WorkoutPage() {
   };
 
   const undoSet = (setIdx: number) => {
+    playTick();
     setSets(prev => {
       const next = prev.map(arr => [...arr]);
       next[currentExIdx] = next[currentExIdx].map((s, i) =>
@@ -1034,6 +1046,7 @@ export function WorkoutPage() {
   const handleCheckSetForEx = (exIdx: number, setIdx: number) => {
     const s = (sets[exIdx] ?? [])[setIdx];
     if (!s || s.logged) return;
+    playTick();
     playRing();
     setRpeModal({ exIdx, setIdx });
   };
@@ -1073,6 +1086,7 @@ export function WorkoutPage() {
   const openEditSetForEx = (exIdx: number, setIdx: number) => {
     const s = (sets[exIdx] ?? [])[setIdx];
     if (!s) return;
+    playTick();
     setListEditingSet({ exIdx, setIdx });
     setListEditWeight(s.weight);
     setListEditReps(s.reps);
@@ -1081,6 +1095,7 @@ export function WorkoutPage() {
 
   const saveEditSetForEx = () => {
     if (!listEditingSet) return;
+    playTick();
     const { exIdx, setIdx } = listEditingSet;
     setSets(prev => {
       const next = prev.map(arr => [...arr]);
@@ -1093,6 +1108,7 @@ export function WorkoutPage() {
   };
 
   const undoSetForEx = (exIdx: number, setIdx: number) => {
+    playTick();
     setSets(prev => {
       const next = prev.map(arr => [...arr]);
       next[exIdx] = next[exIdx].map((s, i) =>
@@ -1104,11 +1120,13 @@ export function WorkoutPage() {
   };
 
   const handleFinishWorkout = () => {
+    playTick();
     qc.invalidateQueries({ queryKey: getListWorkoutLogsQueryKey(clientId!) });
     setMode("upload");
   };
 
   const handleNextExercise = () => {
+    playTick();
     const picked = EXIT_ANIMS[Math.floor(Math.random() * EXIT_ANIMS.length)];
     setExitAnimation(picked.anim);
     setExitOrigin(picked.origin);
@@ -1754,13 +1772,20 @@ export function WorkoutPage() {
               )}
               <div className="flex gap-3 mt-1">
                 <button
-                  onClick={() => { setShowEarlyExit(true); setEarlyExitReason(""); }}
+                  onClick={() => {
+                    playTick();
+                    setShowEarlyExit(true);
+                    setEarlyExitReason("");
+                  }}
                   className="flex-1 py-2 text-xs text-muted-foreground/60 hover:text-foreground transition-colors"
                 >
                   Finish early
                 </button>
                 <button
-                  onClick={() => setShowCancelConfirm(true)}
+                  onClick={() => {
+                    playTick();
+                    setShowCancelConfirm(true);
+                  }}
                   className="flex-1 py-2 text-xs text-muted-foreground/60 hover:text-destructive transition-colors"
                 >
                   Cancel workout
@@ -2133,7 +2158,10 @@ export function WorkoutPage() {
 
             {/* Swap exercise */}
             <button
-              onClick={() => setSwapModal(true)}
+              onClick={() => {
+                playTick();
+                setSwapModal(true);
+              }}
               className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-border text-sm text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
             >
               <RefreshCw className="w-4 h-4" /> Swap Exercise
@@ -2157,13 +2185,20 @@ export function WorkoutPage() {
             )}
             <div className="flex gap-3 mt-1">
               <button
-                onClick={() => { setShowEarlyExit(true); setEarlyExitReason(""); }}
+                onClick={() => {
+                  playTick();
+                  setShowEarlyExit(true);
+                  setEarlyExitReason("");
+                }}
                 className="flex-1 py-2 text-xs text-muted-foreground/60 hover:text-foreground transition-colors"
               >
                 Finish early
               </button>
               <button
-                onClick={() => setShowCancelConfirm(true)}
+                onClick={() => {
+                  playTick();
+                  setShowCancelConfirm(true);
+                }}
                 className="flex-1 py-2 text-xs text-muted-foreground/60 hover:text-destructive transition-colors"
               >
                 Cancel workout

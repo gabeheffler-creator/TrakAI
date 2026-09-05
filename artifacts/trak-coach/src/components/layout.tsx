@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { TrakLogo } from "./trak-logo";
 import { LogoutButton } from "@/App";
 import { useGetCoachUnreadCount, getGetCoachUnreadCountQueryKey } from "@workspace/api-client-react";
+import { playTick } from "@/lib/sounds";
 
 const navItems = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -80,7 +81,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <TrakLogo />
       </div>
       <nav className="flex-1 px-2 space-y-1">
-        <NavLinks unread={totalUnread} onNav={() => setDrawerOpen(false)} />
+        <NavLinks
+          unread={totalUnread}
+          onNav={() => {
+            playTick();
+            setDrawerOpen(false);
+          }}
+        />
       </nav>
       <div className="px-2 pt-2 border-t border-sidebar-border">
         <LogoutButton className="w-full justify-start text-sidebar-foreground hover:text-sidebar-accent-foreground" />
